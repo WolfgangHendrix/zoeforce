@@ -1,4 +1,4 @@
-# Nephelim Squadron — six-stage campaign
+# Zoe Force — six-stage campaign
 
 A playable **Life Force**-inspired six-stage campaign alternating horizontal
 and vertical combat from the organic corridor through Mechanical City.
@@ -300,7 +300,7 @@ The logical 256×224 drawing coordinates are transformed onto a native
 1920×1080 backing surface, so UI fonts rasterize at output resolution rather
 than being enlarged from six-pixel glyphs.
 
-## Reskinning to Nephelim Squadron
+## Reskinning to Zoe Force
 
 Three places, in order of how much they matter:
 

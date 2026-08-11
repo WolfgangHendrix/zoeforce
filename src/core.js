@@ -35,11 +35,11 @@ NS.SCROLL_SPEED = 0.68;
 
 /* ---- theming ----------------------------------------------------------
    All player-visible naming lives here so the Life Force base can be
-   reskinned to the Nephelim Squadron IP without touching game logic. */
+   reskinned to the Zoe Force IP without touching game logic. */
 NS.THEME = {
-  title: 'NEPHELIM SQUADRON',
+  title: 'ZOE FORCE',
   subtitle: 'SIX TERROR ZONES',
-  shipName: 'NEPH-01 SERAPH',
+  shipName: 'ZF-01 SERAPH',
   stage1Name: 'BIO-CATHEDRAL',
   bossName: 'GOLEM OSSUARY',
   stage2Name: 'VOLCANIC ASCENT',

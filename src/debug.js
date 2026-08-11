@@ -55,7 +55,7 @@
     document.head.appendChild(style);
 
     panel = el('div'); panel.id = 'ns-debug'; panel.setAttribute('role', 'dialog');
-    panel.appendChild(el('h2', 'NEPHELIM QA CONSOLE'));
+    panel.appendChild(el('h2', 'ZOE FORCE QA CONSOLE'));
     panel.appendChild(el('div', 'TILDE closes · gameplay is frozen while this panel is open', 'sub'));
     var cols = el('div', null, 'cols');
     cols.appendChild(section('STAGE / ENCOUNTER WARP', [

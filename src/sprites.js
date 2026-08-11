@@ -1,5 +1,5 @@
 /* sprites.js — pixel art defined as character grids, baked to offscreen
-   canvases once at boot. Swapping art for the Nephelim reskin means editing
+   canvases once at boot. Swapping art for the Zoe Force reskin means editing
    these grids (and nothing else). '.' = transparent. */
 (function (NS) {
   'use strict';
