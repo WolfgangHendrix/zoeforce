@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Nephelim Squadron — Two-Stage Prototype</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #08080c; color: #cfd6e6;
+    font-family: "Courier New", monospace;
+    overflow: hidden;
+    /* the touch pad handles all gestures itself */
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #wrap {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px;
+  }
+  /* The canvas is a fixed 1920x1080 render target; JS sets its CSS box each
+     resize so it scales dynamically to the window while keeping 16:9. */
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #000;
+    box-shadow: 0 0 0 2px #1b2233, 0 0 60px rgba(60,120,255,0.16);
+    max-width: 100%; max-height: 100%;
+  }
+  #hint {
+    font-size: 12px; letter-spacing: 1px;
+    color: #5b6479; text-align: center;
+    padding: 0 12px;
+  }
+  #hint b { color: #8fa4c8; }
+  body.ns-touch-on #hint { display: none; }
+
+  /* Voxel view: the WebGL canvas draws the world and the 2D canvas becomes
+     a transparent HUD plate stacked directly on top of it, sharing the
+     same CSS box so the two line up exactly. */
+  /* #wrap is already `position: fixed; inset: 0`, which is the containing
+     block these two need — do not restyle its position or it collapses. */
+  body.ns-voxel-on #hint { display: none; }
+  :fullscreen #hint { display: none; }
+  :fullscreen #wrap { gap: 0; }
+  body.ns-voxel-on #screen,
+  body.ns-voxel-on #voxel {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  body.ns-voxel-on #screen {
+    z-index: 2;
+    background: transparent;
+    box-shadow: none;
+    image-rendering: auto;
+  }
+  body.ns-voxel-on #voxel {
+    z-index: 1;
+    box-shadow: 0 0 0 2px #1b2233, 0 0 60px rgba(60,120,255,0.16);
+  }
+  #voxel { image-rendering: auto; }
+  body.ns-touch-on canvas { box-shadow: none; }
+  body.ns-touch-on #wrap { gap: 0; }
+
+  /* ---- on-screen controls (src/touch.js) ---- */
+  .ns-touch {
+    position: fixed; inset: 0;
+    display: none;
+    z-index: 10;
+    touch-action: none;
+  }
+  .ns-touch.is-on { display: block; }
+
+  .ns-stick-zone {
+    position: absolute;
+    left: 0; bottom: 0;
+    width: 46%; height: 62%;
+  }
+  .ns-stick-base {
+    position: absolute;
+    left: 22%; top: 55%;
+    width: 112px; height: 112px;
+    margin: -56px 0 0 -56px;
+    border-radius: 50%;
+    border: 2px solid rgba(140,190,255,0.28);
+    background: radial-gradient(circle, rgba(40,70,120,0.30), rgba(10,16,30,0.16));
+    opacity: 0.45;
+    transition: opacity 0.12s;
+  }
+  .ns-stick-base.is-active { opacity: 0.9; }
+  .ns-stick-knob {
+    position: absolute; left: 50%; top: 50%;
+    width: 54px; height: 54px;
+    margin: -27px 0 0 -27px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 34%, #b9d6ff, #4d7fd0 62%, #24406e);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  }
+
+  .ns-pad {
+    position: absolute;
+    right: 3.5%; bottom: 8%;
+    display: flex; align-items: flex-end; gap: 18px;
+  }
+  .ns-btn {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    font: bold 13px/1 "Courier New", monospace;
+    letter-spacing: 1px;
+    color: #eaf2ff;
+    border: 2px solid rgba(255,255,255,0.22);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.45);
+    transition: transform 0.06s, filter 0.06s;
+  }
+  .ns-btn.is-down { transform: scale(0.92); filter: brightness(1.5); }
+  .ns-btn-fire {
+    width: 108px; height: 108px;
+    background: radial-gradient(circle at 38% 34%, #ff9a9a, #d23a4a 60%, #7c1226);
+  }
+  .ns-btn-power {
+    width: 82px; height: 82px; margin-bottom: 14px;
+    background: radial-gradient(circle at 38% 34%, #9fe8ff, #2f8fc0 60%, #124055);
+  }
+
+  .ns-util {
+    position: absolute;
+    right: 3.5%; top: 2.5%;
+    display: flex; gap: 10px;
+  }
+  .ns-ubtn {
+    min-width: 54px; padding: 8px 10px;
+    display: flex; align-items: center; justify-content: center;
+    font: bold 11px/1 "Courier New", monospace;
+    letter-spacing: 1px;
+    color: #b9c8e4;
+    background: rgba(18,26,44,0.72);
+    border: 1px solid rgba(140,190,255,0.28);
+    border-radius: 6px;
+  }
+  .ns-ubtn.is-down { background: rgba(60,110,190,0.85); color: #fff; }
+
+  /* narrow phones: shrink the furniture so it does not eat the playfield */
+  @media (max-height: 460px) {
+    .ns-btn-fire { width: 84px; height: 84px; }
+    .ns-btn-power { width: 64px; height: 64px; }
+    .ns-stick-base { width: 92px; height: 92px; margin: -46px 0 0 -46px; }
+    .ns-stick-knob { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="screen"></canvas>
+  <div id="hint">
+    <b>ARROWS/WASD</b> move &nbsp; <b>Z</b> fire &nbsp; <b>X</b> power-up &nbsp;
+    <b>M</b> fire mode &nbsp; <b>V</b> 3D/2D view &nbsp; <b>T</b> touch pad &nbsp;
+    <b>ENTER/START</b> play &nbsp; <b>P</b> pause &nbsp; <b>XBOX PAD</b> supported
+  </div>
+</div>
+
+<!-- classic scripts, load order matters (no bundler / works from file://) -->
+<script src="src/core.js"></script>
+<script src="src/sprites.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/fx.js"></script>
+<script src="src/terrain.js"></script>
+<script src="src/weapons.js"></script>
+<script src="src/gunner.js"></script>
+<script src="src/player.js"></script>
+<script src="src/enemies.js"></script>
+<script src="src/boss.js"></script>
+<script src="src/level1.js"></script>
+<script src="src/level2.js"></script>
+<script src="src/campaign.js"></script>
+<script src="src/touch.js"></script>
+<script src="src/voxel.js"></script>
+<script src="src/game.js"></script>
+<script src="src/debug.js"></script>
+</body>
+</html>

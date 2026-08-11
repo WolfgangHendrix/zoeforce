@@ -1,0 +1,1271 @@
+/* voxel.js — the 3D view layer.
+
+   This is the 3dSen trick, done from the inside. That emulator renders NES
+   games in 3D by pulling tiles out of the PPU and extruding each one into a
+   slab of voxels, then guessing a depth for every tile class from a
+   hand-authored per-game profile.
+
+   We do the same extrusion, but we own the source data, so both of the hard
+   parts disappear:
+
+     • No depth guessing. An emulator sees an undifferentiated wall of tiles.
+       We already know what everything is, because the simulation draws in
+       named layers — background, terrain, enemies, player, shots, effects.
+       Depth is a constant per layer (LAYER below), not a research project.
+
+     • No sprite reverse-engineering. src/sprites.js defines every sprite as
+       a character grid baked to a canvas, so a voxel model is just that
+       grid with the transparent cells dropped and the rest extruded. Edit
+       the grids for the reskin and the voxel models change with them.
+
+   The simulation is untouched and stays authoritative. Collision, hitboxes,
+   the power meter, the boss's eye-channel rule — all of it still runs in
+   256x224 two-dimensional space. This file only reads that state and draws
+   it differently. The camera lies; the game does not.
+
+   three.js is ESM-only, so it is pulled in with a dynamic import the first
+   time the view is switched on. That import needs a real server — from a
+   file:// URL it will fail, and we fall back to the 2D renderer with a
+   message rather than breaking the game. */
+(function (NS) {
+  'use strict';
+
+  var V = {};
+  NS.Voxel = V;
+
+  var THREE = null;
+  var state = 'off';        // off | loading | on | failed
+  var failMsg = '';
+
+  var renderer, scene, camera, canvasEl;
+  var pools = {};           // sprite key -> InstancedMesh pool
+  var terrainMesh = null, terrainDummy = null;
+  var lightRig = null;
+  var frame = 0;
+
+  /* ---- the depth table -------------------------------------------------
+     Z position and thickness per layer, in simulation pixels. This is the
+     entire "profile" that 3dSen needs a human to author per game. */
+  var LAYER = {
+    backdrop:  { z: -150, d: 8 },
+    terrain:   { z: -26,  d: 76 },   // deep, so the corridor reads as a tunnel
+    hazard:    { z: 4,    d: 6 },
+    enemy:     { z: 4,    d: 8 },
+    capsule:   { z: 4,    d: 6 },
+    player:    { z: 8,    d: 9 },
+    shot:      { z: 8,    d: 4 },
+    boss:      { z: 0,    d: 26 }
+  };
+
+  /* voxel edge length in sim pixels — 1 keeps sprite pixels square */
+  var VOX = 1;
+
+  V.active = function () { return state === 'on'; };
+  V.status = function () { return state; };
+  V.error = function () { return failMsg; };
+
+  /* ======================================================================
+     Sprite -> voxel model
+     ====================================================================== */
+
+  /* Read a baked sprite canvas back to pixels and build one merged
+     geometry: a box per opaque pixel, coloured by that pixel. Sprites are
+     tiny (at most 16x12), so a merged geometry per sprite is cheap and
+     lets a whole sprite type draw as one instanced call. */
+  function buildSpriteGeometry(canvas, depth, round, mono) {
+    var w = canvas.width, h = canvas.height;
+    var ctx = canvas.getContext('2d');
+    var img;
+    try {
+      img = ctx.getImageData(0, 0, w, h).data;
+    } catch (e) {
+      return null;                       // tainted canvas; should not happen
+    }
+
+    var positions = [], colors = [], normals = [], indices = [];
+    var base = new THREE.BoxGeometry(VOX, VOX, depth);
+    var bp = base.attributes.position.array;
+    var bn = base.attributes.normal.array;
+    var bi = base.index.array;
+    var vertsPerBox = base.attributes.position.count;
+
+    /* Round sprites (see ROUND) are discs in the 2D art, and a disc extruded
+       at one constant depth is a cylinder — an orb seen edge-on reads as a
+       puck. Give every column the depth of the sphere chord at its distance
+       from the centre instead, so the same pixel grid bulges into a ball. */
+    var radius = round ? spriteRadius(img, w, h) : 0;
+
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var i = (y * w + x) * 4;
+        if (img[i + 3] < 40) continue;   // transparent cell — no voxel
+
+        var r = img[i] / 255, g = img[i + 1] / 255, b = img[i + 2] / 255;
+        /* A tintable pool bakes luminance instead of colour, so the
+           per-instance tint multiplies to exactly the requested hue while the
+           sprite keeps its own internal shading. */
+        if (mono) {
+          var lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          /* lift the floor so the darkest cells still take the tint rather
+             than staying near-black whatever colour is asked for */
+          lum = 0.45 + lum * 0.55;
+          r = g = b = lum;
+        }
+        /* sprite space is y-down; three is y-up, so flip within the sprite */
+        var ox = x - w / 2 + 0.5;
+        var oy = -(y - h / 2 + 0.5);
+        var vstart = positions.length / 3;
+
+        /* z scale relative to the flat extrusion: 1 at the centre, tapering
+           to a single voxel at the rim */
+        var zs = 1;
+        if (round) {
+          var q = Math.min(1, Math.hypot(ox, oy) / radius);
+          var chord = radius * Math.sqrt(1 - q * q) * 2;
+          zs = Math.max(VOX, chord) / depth;
+        }
+
+        for (var v = 0; v < vertsPerBox; v++) {
+          var vx = bp[v * 3] + ox, vy = bp[v * 3 + 1] + oy;
+          var vz = bp[v * 3 + 2] * zs;
+          positions.push(vx, vy, vz);
+          /* on a ball, the outward direction from the centre *is* the normal;
+             that shades it round while the silhouette stays voxel-stepped */
+          var nl = round ? Math.hypot(vx, vy, vz) : 0;
+          if (nl > 1e-4) normals.push(vx / nl, vy / nl, vz / nl);
+          else normals.push(bn[v * 3], bn[v * 3 + 1], bn[v * 3 + 2]);
+          colors.push(r, g, b);
+        }
+        for (var k = 0; k < bi.length; k++) indices.push(bi[k] + vstart);
+      }
+    }
+    base.dispose();
+    if (!positions.length) return null;
+
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.setIndex(indices);
+    geo.computeBoundingSphere();
+    return geo;
+  }
+
+  /* Radius of the opaque part of a sprite, in sprite pixels, measured from
+     its centre. The half-voxel reach of the outermost cell counts, so the rim
+     keeps a little thickness rather than tapering to nothing. */
+  function spriteRadius(img, w, h) {
+    var best = 0;
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        if (img[(y * w + x) * 4 + 3] < 40) continue;
+        var d = Math.hypot(x - w / 2 + 0.5, y - h / 2 + 0.5);
+        if (d > best) best = d;
+      }
+    }
+    return best + 0.5 || 1;
+  }
+
+  /* Sprites drawn as spheres rather than flat extrusions: the option orbs
+     (and their loose, uncollected form), the enemy fireballs, and every
+     campaign boss part the 2D renderer draws with arc(). Matched by pool key
+     prefix so every call site agrees without having to pass a flag. */
+  var ROUND = /^(option|looseOption|eshot|campBoss[346]|campGigaEye|campTutOrb|campDragon|campZelosHeart|campMini)/;
+
+  /* An instanced pool for one sprite. Pools grow on demand and are reset
+     each frame; unused instances are parked off-screen.
+
+     `tint` makes the pool tintable: the geometry bakes luminance and each
+     instance carries its own colour. Several campaign bosses are drawn from
+     the same stand-in sprite, so without this they all inherit that sprite's
+     palette — which is why they were all purple. */
+  function pool(key, canvas, depth, cap, tint) {
+    var p = pools[key];
+    if (p) return p;
+    var geo = buildSpriteGeometry(canvas, depth, ROUND.test(key), !!tint);
+    if (!geo) { pools[key] = { mesh: null, used: 0, cap: 0 }; return pools[key]; }
+    var mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    var n = cap || 96;
+    var mesh = new THREE.InstancedMesh(geo, mat, n);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    if (tint) {
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
+      mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+    }
+    mesh.frustumCulled = false;
+    mesh.count = 0;
+    mesh.name = key;                     // so pools are identifiable when debugging
+    scene.add(mesh);
+    p = pools[key] = { mesh: mesh, used: 0, cap: n, tinted: !!tint };
+    return p;
+  }
+
+  /* '#rrggbb' -> a reusable THREE.Color, so call sites can name the same
+     colour string the 2D renderer uses and the two cannot drift apart */
+  var tintCache = {};
+  function asColor(hex) {
+    var c = tintCache[hex];
+    if (!c) c = tintCache[hex] = new THREE.Color(hex);
+    return c;
+  }
+
+  var dummy = null;
+
+  /* Place one sprite instance. Sim coordinates in, world coordinates out. */
+  function place(key, canvas, x, y, layer, opt) {
+    opt = opt || {};
+    var L = LAYER[layer] || LAYER.enemy;
+    var p = pool(key, canvas, opt.depth || L.d, opt.cap, opt.tint);
+    if (!p.mesh || p.used >= p.cap) return;
+
+    dummy.position.set(
+      x + canvas.width / 2,
+      simY(y + canvas.height / 2),
+      (opt.z != null ? opt.z : L.z)
+    );
+    dummy.rotation.set(opt.rx || 0, opt.ry || 0, opt.rz || 0);
+    dummy.scale.set(opt.sx || 1, opt.sy || 1, opt.sz || 1);
+    dummy.updateMatrix();
+    if (p.tinted) p.mesh.setColorAt(p.used, asColor(opt.tint || '#ffffff'));
+    p.mesh.setMatrixAt(p.used++, dummy.matrix);
+  }
+
+  /* sim y is measured downward from the top of the screen */
+  function simY(y) { return NS.PLAYFIELD_H - y; }
+
+  function beginFrame() {
+    for (var k in pools) if (pools.hasOwnProperty(k)) pools[k].used = 0;
+  }
+  function endFrame() {
+    for (var k in pools) {
+      if (!pools.hasOwnProperty(k)) continue;
+      var p = pools[k];
+      if (!p.mesh) continue;
+      p.mesh.count = p.used;
+      p.mesh.instanceMatrix.needsUpdate = true;
+      if (p.mesh.instanceColor) p.mesh.instanceColor.needsUpdate = true;
+    }
+  }
+
+  /* ======================================================================
+     Terrain — the heightmap becomes a real tunnel
+     ====================================================================== */
+  /* Perspective reveals more than the nominal 256px simulation rectangle.
+     Keep real world columns well beyond both edges so the player never sees
+     the tunnel being populated on the right or removed on the left. */
+  var TERRAIN_MARGIN = 96;
+  var TERRAIN_COLS = NS.W + TERRAIN_MARGIN * 2;
+  var TERRAIN_SLABS = 4;           // depth slices, so the walls have relief
+
+  function buildTerrain() {
+    var geo = new THREE.BoxGeometry(1, 1, 1);
+    var mat = new THREE.MeshLambertMaterial({ vertexColors: false });
+    var count = TERRAIN_COLS * 2 * TERRAIN_SLABS;
+    terrainMesh = new THREE.InstancedMesh(geo, mat, count);
+    terrainMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    terrainMesh.instanceColor = new THREE.InstancedBufferAttribute(
+      new Float32Array(count * 3), 3);
+    terrainMesh.frustumCulled = false;
+    scene.add(terrainMesh);
+    terrainDummy = new THREE.Object3D();
+  }
+
+  /* Wall colours by depth slice: the near face keeps the wet highlight of
+     the 2D art, and each slice further back goes darker, which is what
+     sells the corridor as having thickness. */
+  var SLAB_TINT = [
+    [0.84, 0.34, 0.50],
+    [0.58, 0.19, 0.35],
+    [0.37, 0.11, 0.24],
+    [0.20, 0.06, 0.14]
+  ];
+
+  function updateTerrain(scrollX, time) {
+    if (!terrainMesh) return;
+    var n = 0;
+    var col = new THREE.Color();
+    var pulse = Math.sin(time * 0.04) * 0.5 + 0.5;
+
+    for (var ci = 0; ci < TERRAIN_COLS; ci++) {
+      var sx = ci - TERRAIN_MARGIN;
+      var wx = (scrollX + sx) | 0;
+      var ty = NS.Terrain.topAt(wx);
+      var by = NS.Terrain.botAt(wx);
+
+      for (var s = 0; s < TERRAIN_SLABS; s++) {
+        var slabD = LAYER.terrain.d / TERRAIN_SLABS;
+        var z = LAYER.terrain.z + slabD * (s + 0.5);
+        /* deeper slices pull back from the corridor mouth, so the tunnel
+           visibly opens away from the camera instead of being a flat box */
+        var inset = s * 1.6;
+        var t = SLAB_TINT[s];
+
+        // ceiling slab
+        var ch = ty + inset;
+        if (ch > 0.5) {
+          terrainDummy.position.set(sx + 0.5, simY(ch / 2), z);
+          terrainDummy.scale.set(1.02, ch, slabD * 0.98);
+          terrainDummy.updateMatrix();
+          terrainMesh.setMatrixAt(n, terrainDummy.matrix);
+          col.setRGB(t[0], t[1], t[2]);
+          if (s === 0 && ((wx * 7) & 255) > 232) {
+            col.offsetHSL(0, 0, 0.10 + 0.10 * pulse);   // capillary glint
+          }
+          terrainMesh.setColorAt(n, col);
+          n++;
+        }
+
+        // floor slab
+        var fy = by - inset;
+        var fh = NS.PLAYFIELD_H - fy;
+        if (fh > 0.5) {
+          terrainDummy.position.set(sx + 0.5, simY(fy + fh / 2), z);
+          terrainDummy.scale.set(1.02, fh, slabD * 0.98);
+          terrainDummy.updateMatrix();
+          terrainMesh.setMatrixAt(n, terrainDummy.matrix);
+          col.setRGB(t[0], t[1], t[2]);
+          if (s === 0 && ((wx * 13) & 255) > 236) {
+            col.offsetHSL(0, 0, 0.10 + 0.10 * pulse);
+          }
+          terrainMesh.setColorAt(n, col);
+          n++;
+        }
+      }
+    }
+    terrainMesh.count = n;
+    terrainMesh.instanceMatrix.needsUpdate = true;
+    if (terrainMesh.instanceColor) terrainMesh.instanceColor.needsUpdate = true;
+  }
+
+  function updateTerrain2(scrollY, time) {
+    if (!terrainMesh) return;
+    var n = 0, col = new THREE.Color();
+    for (var sy = -TERRAIN_MARGIN; sy < NS.PLAYFIELD_H + TERRAIN_MARGIN; sy++) {
+      var wy = scrollY + NS.PLAYFIELD_H - sy;
+      var edge = NS.Level2.edgesAt(wy);
+      var fortress = wy > NS.Level2.FORTRESS_Y;
+      for (var s = 0; s < TERRAIN_SLABS; s++) {
+        var slabD = LAYER.terrain.d / TERRAIN_SLABS;
+        var z = LAYER.terrain.z + slabD * (s + 0.5);
+        var inset = s * 1.3;
+        var tint = fortress
+          ? [[0.34, 0.48, 0.62], [0.24, 0.36, 0.49], [0.16, 0.26, 0.37], [0.09, 0.15, 0.23]][s]
+          : SLAB_TINT[s];
+        var lw = Math.max(1, edge.left + inset + TERRAIN_MARGIN);
+        terrainDummy.position.set((edge.left + inset - TERRAIN_MARGIN) / 2, simY(sy + 0.5), z);
+        terrainDummy.scale.set(lw, 1.03, slabD * 0.98); terrainDummy.updateMatrix();
+        terrainMesh.setMatrixAt(n, terrainDummy.matrix);
+        col.setRGB(tint[0] + (fortress ? 0 : 0.08), tint[1] + 0.01, tint[2] - (fortress ? 0 : 0.04));
+        terrainMesh.setColorAt(n++, col);
+        var rw = Math.max(1, edge.right + inset + TERRAIN_MARGIN);
+        terrainDummy.position.set(NS.W + (TERRAIN_MARGIN - edge.right - inset) / 2, simY(sy + 0.5), z);
+        terrainDummy.scale.set(rw, 1.03, slabD * 0.98); terrainDummy.updateMatrix();
+        terrainMesh.setMatrixAt(n, terrainDummy.matrix); terrainMesh.setColorAt(n++, col);
+      }
+    }
+    terrainMesh.count = n; terrainMesh.instanceMatrix.needsUpdate = true;
+    if (terrainMesh.instanceColor) terrainMesh.instanceColor.needsUpdate = true;
+  }
+
+  function updateCampaignTerrain(C) {
+    if (!terrainMesh) return;
+    var n=0,col=new THREE.Color(),theme=C.spec.theme;
+    var rgb=theme==='fire'?[0.72,0.18,0.05]:theme==='cell'?[0.48,0.14,0.31]:theme==='temple'?[0.42,0.36,0.17]:[0.20,0.31,0.42];
+    if(C.horizontal()){
+      for(var sx=-TERRAIN_MARGIN;sx<NS.W+TERRAIN_MARGIN;sx++){
+        var b=C.bounds(C.scroll+sx);
+        for(var s=0;s<TERRAIN_SLABS;s++){
+          var d=LAYER.terrain.d/TERRAIN_SLABS,z=LAYER.terrain.z+d*(s+.5),inset=s*1.2;
+          var th=b.a+inset;terrainDummy.position.set(sx+.5,simY(th/2),z);terrainDummy.scale.set(1.03,th,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);col.setRGB(rgb[0]/(1+s*.25),rgb[1]/(1+s*.25),rgb[2]/(1+s*.25));terrainMesh.setColorAt(n++,col);
+          var bh=NS.PLAYFIELD_H-b.z+inset;terrainDummy.position.set(sx+.5,simY(b.z+bh/2),z);terrainDummy.scale.set(1.03,bh,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);terrainMesh.setColorAt(n++,col);
+        }
+      }
+    }else{
+      for(var sy=-TERRAIN_MARGIN;sy<NS.PLAYFIELD_H+TERRAIN_MARGIN;sy++){
+        b=C.bounds(C.scroll+NS.PLAYFIELD_H-sy);
+        for(s=0;s<TERRAIN_SLABS;s++){
+          d=LAYER.terrain.d/TERRAIN_SLABS;z=LAYER.terrain.z+d*(s+.5);inset=s*1.2;
+          var lw=b.a+inset+TERRAIN_MARGIN;terrainDummy.position.set((b.a+inset-TERRAIN_MARGIN)/2,simY(sy+.5),z);terrainDummy.scale.set(lw,1.03,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);col.setRGB(rgb[0]/(1+s*.25),rgb[1]/(1+s*.25),rgb[2]/(1+s*.25));terrainMesh.setColorAt(n++,col);
+          var rw=NS.W-b.z+inset+TERRAIN_MARGIN;terrainDummy.position.set(NS.W+(TERRAIN_MARGIN-(NS.W-b.z)-inset)/2,simY(sy+.5),z);terrainDummy.scale.set(rw,1.03,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);terrainMesh.setColorAt(n++,col);
+        }
+      }
+    }
+    terrainMesh.count=n;terrainMesh.instanceMatrix.needsUpdate=true;if(terrainMesh.instanceColor)terrainMesh.instanceColor.needsUpdate=true;
+  }
+
+  /* ======================================================================
+     Scene assembly
+     ====================================================================== */
+  function buildScene() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x05060a);
+    scene.fog = new THREE.Fog(0x05060a, 210, 460);
+
+    dummy = new THREE.Object3D();
+
+    /* The fov here is only a seed: frameCorridor() rewrites the projection
+       from the corridor's own corners every frame. The camera sits slightly
+       above and to the side of dead-on, which is the whole point: that
+       offset is what reveals the depth the extrusion just created. */
+    camera = new THREE.PerspectiveCamera(42, 16 / 9, 1, 900);
+    camera.position.set(NS.W * 0.5 - 6, NS.PLAYFIELD_H * 0.5 + 14, 268);
+    camera.lookAt(NS.W * 0.5, NS.PLAYFIELD_H * 0.5, -10);
+    frameCorridor();
+
+    lightRig = new THREE.Group();
+    var key = new THREE.DirectionalLight(0xffe8f2, 2.0);
+    key.position.set(0.4, 0.9, 1.0);
+    lightRig.add(key);
+    var fill = new THREE.DirectionalLight(0x6fa0ff, 0.7);
+    fill.position.set(-0.8, -0.3, 0.5);
+    lightRig.add(fill);
+    scene.add(lightRig);
+    scene.add(new THREE.AmbientLight(0x404a66, 1.5));
+
+    /* a warm point light riding with the ship, so the corridor lights up
+       around you as you move through it */
+    V.shipLight = new THREE.PointLight(0xffd0a0, 120, 150, 2);
+    scene.add(V.shipLight);
+
+    buildTerrain();
+    buildBackdrop();
+  }
+
+  /* ---- backdrop --------------------------------------------------------
+     Without this the tunnel hangs in a black void. The 2D renderer paints a
+     deep tissue gradient with drifting motes behind the corridor; here that
+     becomes a far wall plus a parallax field of voxel motes between it and
+     the corridor, which is what gives the gap real distance. */
+  var backWall = null, moteMesh = null, moteDummy = null, motes = [];
+  var MOTE_COUNT = 150;
+
+  function buildBackdrop() {
+    backWall = new THREE.Mesh(
+      new THREE.PlaneGeometry(NS.W * 3.2, NS.PLAYFIELD_H * 3.2),
+      new THREE.MeshBasicMaterial({ color: 0x1d0c18 })
+    );
+    backWall.position.set(NS.W * 0.5, NS.PLAYFIELD_H * 0.5, LAYER.backdrop.z - 30);
+    scene.add(backWall);
+
+    var rng = NS.makeRng(0xC0FFEE);
+    motes.length = 0;
+    for (var i = 0; i < MOTE_COUNT; i++) {
+      motes.push({
+        x: rng() * NS.W * 1.4 - NS.W * 0.2,
+        y: rng() * NS.PLAYFIELD_H,
+        z: LAYER.backdrop.z + rng() * 110,
+        s: 0.8 + rng() * 2.4,
+        p: rng() * 6.28,
+        c: rng() < 0.34 ? 0x7fd4ff : (rng() < 0.5 ? 0xffb9d0 : 0xc8a0d8)
+      });
+    }
+    moteMesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshBasicMaterial({ vertexColors: false }),
+      MOTE_COUNT
+    );
+    moteMesh.instanceColor = new THREE.InstancedBufferAttribute(
+      new Float32Array(MOTE_COUNT * 3), 3);
+    moteMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    moteMesh.frustumCulled = false;
+    scene.add(moteMesh);
+    moteDummy = new THREE.Object3D();
+  }
+
+  function updateBackdrop(scroll, vertical) {
+    if (!moteMesh) return;
+    var col = new THREE.Color();
+    for (var i = 0; i < motes.length; i++) {
+      var m = motes[i];
+      /* parallax: the nearer a mote sits to the corridor, the faster it
+         slides past, which is what sells the empty middle as depth */
+      var par = 0.10 + (m.z - LAYER.backdrop.z) / 110 * 0.5;
+      var x = m.x;
+      var y = m.y;
+      if (vertical) {
+        /* The camera travels upward in Stage 2, so distant stars cross the
+           screen downward. Wrap beyond both vertical frustum margins. */
+        y = m.y + (scroll * par) % (NS.PLAYFIELD_H * 1.6);
+        if (y > NS.PLAYFIELD_H * 1.3) y -= NS.PLAYFIELD_H * 1.6;
+      } else {
+        x = m.x - (scroll * par) % (NS.W * 1.6);
+        if (x < -NS.W * 0.3) x += NS.W * 1.6;
+      }
+      m.p += 0.01;
+      moteDummy.position.set(x, simY(y + Math.sin(m.p) * 2), m.z);
+      moteDummy.scale.set(m.s, m.s, m.s);
+      moteDummy.rotation.set(m.p * 0.3, m.p * 0.2, 0);
+      moteDummy.updateMatrix();
+      moteMesh.setMatrixAt(i, moteDummy.matrix);
+      col.setHex(m.c);
+      moteMesh.setColorAt(i, col);
+    }
+    moteMesh.count = motes.length;
+    moteMesh.instanceMatrix.needsUpdate = true;
+    if (moteMesh.instanceColor) moteMesh.instanceColor.needsUpdate = true;
+  }
+
+  /* ======================================================================
+     Per-frame: read the simulation, draw it as voxels
+     ====================================================================== */
+  function drawWorld(G) {
+    var i;
+
+    if (G.stage === 2) { drawStage2World(G); return; }
+    if (G.stage >= 3) { drawCampaignWorld(G); return; }
+
+    updateBackdrop(G.scrollX);
+    updateTerrain(G.scrollX, G.frame);
+
+    /* capsules */
+    for (i = 0; i < G.capsules.length; i++) {
+      var c = G.capsules[i];
+      if (c.dead) continue;
+      var cs = NS.S.capsule[(c.t >> 3) & 1];
+      place('capsule' + ((c.t >> 3) & 1), cs, c.x, c.y, 'capsule',
+            { rz: Math.sin((c.t + i * 9) * 0.06) * 0.35, cap: 32 });
+    }
+
+    /* Options released by a dead ship are real green voxel pickups too. */
+    for (i = 0; i < G.looseOptions.length; i++) {
+      var lo = G.looseOptions[i];
+      if (lo.dead) continue;
+      var lf = (lo.t >> 3) & 1;
+      place('looseOption' + lf, NS.S.looseOption[lf], lo.x - 2, lo.y - 2,
+            'capsule', { ry: lo.t * 0.055, cap: 16 });
+    }
+
+    /* enemies — each kind maps to the same sprite the 2D renderer uses,
+       so the bestiary needs no separate 3D art */
+    var list = NS.Enemies.list;
+    for (i = 0; i < list.length; i++) {
+      var e = list[i];
+      if (e.dead || e.spawnDelay > 0) continue;
+      var f = (e.t >> 3) & 1;
+
+      switch (e.kind) {
+        case 'flapper':
+          var fs = e.bonus ? NS.S.carrier[f] : NS.S.flapper[f];
+          place((e.bonus ? 'carrier' : 'flapper') + f, fs, e.x, e.y, 'enemy',
+                { ry: Math.sin(e.t * 0.08) * 0.5, cap: 128 });
+          break;
+        case 'rusher':
+          place('rusher' + ((e.t >> 2) & 1), NS.S.rusher[(e.t >> 2) & 1],
+                e.x, e.y, 'enemy', { rz: -0.25, cap: 96 });
+          break;
+        case 'splitter':
+          var ss = e.tier === 1 ? NS.S.splitterBig[f] : NS.S.splitterSmall[f];
+          place('split' + e.tier + f, ss, e.x, e.y, 'enemy',
+                { ry: e.t * 0.04, rz: Math.sin(e.t * 0.05) * 0.3, cap: 64 });
+          break;
+        case 'spore':
+          place('spore', NS.S.spore, e.x, e.y, 'enemy',
+                { ry: e.t * 0.03, rx: e.t * 0.02, cap: 48 });
+          break;
+        case 'ducker': {
+          var dw = (e.walk | 0) & 1;
+          place('ducker' + dw + (e.carrier ? 'C' : ''),
+                NS.Enemies.skin(e, NS.S.ducker[dw]),
+                e.x, e.y, 'enemy', { rz: e.onCeiling ? Math.PI : 0, cap: 48 });
+          break;
+        }
+        case 'mouth':
+          var ms = NS.Enemies.skin(e, e.open ? NS.S.mouthOpen : NS.S.mouthClosed);
+          place((e.open ? 'mouthO' : 'mouthC') + (e.carrier ? 'C' : ''),
+                ms, e.x, e.y, 'enemy',
+                { rz: e.onCeiling ? Math.PI : 0, depth: 14, cap: 32 });
+          break;
+        case 'hatch':
+          var hs = NS.Enemies.skin(e, e.open ? NS.S.hatchOpen : NS.S.hatchClosed);
+          place((e.open ? 'hatchO' : 'hatchC') + (e.carrier ? 'C' : ''),
+                hs, e.x, e.y, 'enemy',
+                { rz: e.onCeiling ? Math.PI : 0, depth: 14, cap: 32 });
+          break;
+        case 'tentacle':
+          for (var q = 0; q < e.joints.length; q++) {
+            var jt = e.joints[q];
+            var seg = jt.tip ? NS.S.tentacleTip : NS.S.tentacleSeg;
+            place(jt.tip ? 'tentTip' : 'tentSeg', seg,
+                  jt.x - seg.width / 2, jt.y - seg.height / 2, 'hazard',
+                  { ry: q * 0.4 + e.t * 0.03, cap: 128 });
+          }
+          place('tentRoot' + f + (e.carrier ? 'C' : ''),
+                NS.Enemies.skin(e, NS.S.tentacleRoot[f]), e.x, e.y, 'enemy',
+                { rz: e.onCeiling ? Math.PI : 0, depth: 12, cap: 24 });
+          break;
+        case 'prominence':
+          for (var j = 0; j < e.flames.length; j++) {
+            var fl = e.flames[j];
+            var ps = NS.S.prom[(fl.t >> 2) & 1];
+            place('prom' + ((fl.t >> 2) & 1), ps, fl.x - 2, fl.y - 2, 'hazard',
+                  { ry: fl.t * 0.2, rz: fl.t * 0.14,
+                    sx: 1.2, sy: 1.2, sz: 1.6, cap: 256 });
+          }
+          break;
+      }
+    }
+
+    /* boss: the shell is drawn procedurally in 2D, so here it is built from
+       stacked voxel slabs, with the eye sprite riding in the channel */
+    if (G.boss) drawBoss(G.boss);
+
+    /* projectiles */
+    var W = NS.Weapons;
+    for (i = 0; i < W.player.length; i++) {
+      var p = W.player[i];
+      if (p.dead) continue;
+      if (p.type === 'normal') {
+        place('shot', NS.S.shot, p.x, p.y, 'shot', { sx: 1, sz: 1.5, cap: 96 });
+      } else if (p.type === 'missile') {
+        place('missile', NS.S.missile, p.x, p.y, 'shot',
+              { rx: p.anim * 0.3, cap: 32 });
+      } else if (p.type === 'ripple') {
+        place('ripple', NS.S.spore, p.x - p.r, p.y - p.r, 'shot',
+              { sx: p.r / 3, sy: p.r / 3, sz: 0.6, ry: p.x * 0.05, cap: 48 });
+      } else if (p.type === 'laser') {
+        place('laserSeg', NS.S.shot, p.x, p.y, 'shot',
+              { sx: p.w / 6, sy: 2, sz: 2, cap: 48 });
+      }
+    }
+    for (i = 0; i < W.enemy.length; i++) {
+      var es = W.enemy[i];
+      if (es.dead) continue;
+      place('eshot', NS.S.eshot, es.x, es.y, 'shot',
+            { ry: es.t * 0.25, sx: es.big ? 1.5 : 1, sy: es.big ? 1.5 : 1,
+              sz: es.big ? 1.5 : 1, cap: 128 });
+    }
+
+    /* the ship, its Options and its exhaust */
+    var pl = G.player;
+    if (pl.alive && !(pl.invuln > 0 && (pl.anim >> 1) % 2 === 0 && pl.invuln > 14)) {
+      var shipSpr = pl.bank < 0 ? NS.S.shipUp : (pl.bank > 0 ? NS.S.shipDown : NS.S.ship);
+      var shipKey = pl.bank < 0 ? 'shipUp' : (pl.bank > 0 ? 'shipDown' : 'ship');
+      place(shipKey, shipSpr, pl.x - shipSpr.cx, pl.y - shipSpr.cy, 'player',
+            { rz: pl.bank * -0.16, cap: 4 });
+      var flameSpr = NS.S.flame[(pl.anim >> 2) & 1];
+      place('flame' + ((pl.anim >> 2) & 1), flameSpr,
+            pl.x - shipSpr.cx - flameSpr.width + 1, pl.y - flameSpr.cy,
+            'player', { sx: 1.4, sz: 1.4, cap: 4 });
+      var of = (pl.anim >> 3) & 1;
+      for (i = 0; i < pl.options.length; i++) {
+        place('option' + of, NS.S.option[of],
+              pl.options[i].x - 2, pl.options[i].y - 2, 'player',
+              { ry: pl.anim * 0.1, cap: 8 });
+      }
+      if (V.shipLight) {
+        V.shipLight.position.set(pl.x + 6, simY(pl.y), LAYER.player.z + 26);
+        V.shipLight.intensity = 120;
+      }
+    } else if (V.shipLight) {
+      V.shipLight.intensity = 0;
+    }
+
+    /* explosion and spark particles */
+    drawFx();
+  }
+
+  function drawStage2World(G) {
+    var i, L = NS.Level2;
+    updateBackdrop(L.scrollY, true);
+    updateTerrain2(L.scrollY, G.frame);
+
+    /* Central volcanic islands and destructible defenses share the same
+       deep voxel terrain layer as the side banks. */
+    for (i = 0; i < L.islands.length; i++) {
+      var a = L.islands[i], ay = L.screenY(a.wy);
+      if (ay < -a.ry - 20 || ay > NS.PLAYFIELD_H + a.ry + 20) continue;
+      place('v2island', NS.S.spore, a.x - NS.S.spore.width / 2, ay - NS.S.spore.height / 2,
+            'terrain', { sx: a.rx / 3.5, sy: a.ry / 3.5, sz: 1.5, depth: 38, ry: 0.25, cap: 12 });
+    }
+    for (i = 0; i < L.volcanoes.length; i++) {
+      var v = L.volcanoes[i]; if (v.dead || v.y < -35 || v.y > NS.PLAYFIELD_H + 35) continue;
+      place('v2volcano', NS.S.spore, v.x - NS.S.spore.width / 2, v.y - NS.S.spore.height / 2,
+            'hazard', { sx: 3.2, sy: 3.5, sz: 2.5, rx: -0.25, cap: 8 });
+    }
+    for (i = 0; i < L.gates.length; i++) {
+      var gate = L.gates[i]; if (gate.y < -25 || gate.y > NS.PLAYFIELD_H + 25) continue;
+      for (var gc = 0; gc < gate.cells.length; gc++) {
+        var cell = gate.cells[gc]; if (cell.dead) continue;
+        place('v2gate', NS.S.spore, cell.x, gate.y - 7, 'terrain',
+              { sx: cell.w / NS.S.spore.width, sy: 2, sz: 1.8, depth: 20, cap: 40 });
+      }
+    }
+    for (i = 0; i < L.rocks.length; i++) {
+      var rock = L.rocks[i]; if (rock.dead) continue;
+      place('v2rock', NS.S.spore, rock.x - 3, rock.y - 3, 'hazard',
+            { sx: 0.9, sy: 0.9, sz: 1.2, ry: rock.t * 0.08, cap: 48 });
+    }
+    var fort = L.fortress;
+    if (fort && L.phase === 'fortress') {
+      for (i = 0; i < fort.cores.length; i++) {
+        var fc = fort.cores[i]; if (fc.dead) continue;
+        place('v2fortcore', NS.S.spore, fc.x - NS.S.spore.width / 2, fc.y - NS.S.spore.height / 2,
+              'boss', { sx: 2.5, sy: 2.5, sz: 2.5, ry: fort.t * 0.02, cap: 4 });
+      }
+      for (i = 0; i < fort.balls.length; i++) {
+        var ball = fort.balls[i];
+        place('v2ball', NS.S.capsule[0], ball.x - 3, ball.y - 3, 'hazard',
+              { sx: 1.5, sy: 1.5, sz: 1.5, ry: ball.t * 0.12, cap: 8 });
+      }
+    }
+
+    for (i = 0; i < L.enemies.length; i++) {
+      var e = L.enemies[i];
+      if (e.dead || !e.active || e.y < -30 || e.y > NS.PLAYFIELD_H + 30) continue;
+      var squadCarrier = e.carrier || e.bonus;
+      var spr = e.kind === 'turret' ? NS.S.spore : (squadCarrier ? NS.S.carrier[(e.t >> 3) & 1] : NS.S.flapper[(e.t >> 3) & 1]);
+      place('v2' + e.kind + (squadCarrier ? 'C' : '') + ((e.t >> 3) & 1), spr,
+            e.x - spr.width / 2, e.y - spr.height / 2, 'enemy',
+            { rz: Math.PI / 2, ry: e.t * 0.025, depth: e.kind === 'turret' ? 13 : 8, cap: 160 });
+    }
+    for (i = 0; i < L.pickups.length; i++) {
+      var c = L.pickups[i]; if (c.dead) continue;
+      var cp = c.kind === 'crash' ? NS.S.crashCapsule : NS.S.capsule;
+      place((c.kind === 'crash' ? 'crash' : 'capsule') + ((c.t >> 3) & 1), cp[(c.t >> 3) & 1], c.x - 3, c.y - 3, 'capsule', { ry: c.t * 0.06, cap: 32 });
+    }
+    for (i = 0; i < G.looseOptions.length; i++) {
+      var o = G.looseOptions[i]; if (o.dead) continue;
+      place('looseOption' + ((o.t >> 3) & 1), NS.S.looseOption[(o.t >> 3) & 1], o.x - 2, o.y - 2, 'capsule', { ry: o.t * 0.05, cap: 16 });
+    }
+    for (i = 0; i < L.shots.length; i++) {
+      var s = L.shots[i]; if (s.dead) continue;
+      place('shot', NS.S.shot, s.x - 1, s.y, 'shot', { rz: Math.PI / 2, sy: s.type === 'laser' ? 3 : 1, cap: 128 });
+    }
+    for (i = 0; i < L.enemyShots.length; i++) {
+      var es = L.enemyShots[i]; if (es.dead) continue;
+      place('eshot', NS.S.eshot, es.x - 2, es.y - 2, 'shot', { ry: es.t * 0.2, cap: 128 });
+    }
+
+    var b = L.boss;
+    if (b && (!b.dead || (b.dying >> 2) % 2 === 0)) {
+      place('v2core', NS.S.spore, b.x - NS.S.spore.width / 2, b.y - NS.S.spore.height / 2,
+            'boss', { sx: 3.8, sy: 3.8, sz: 2.4, ry: b.t * 0.02, cap: 4 });
+      for (var q = 0; q < 4; q++) {
+        var a = q * Math.PI / 2 + b.t * 0.025;
+        var ox = b.x + Math.cos(a) * 36, oy = b.y + Math.sin(a) * 36;
+        place('v2orb' + (q & 1), NS.S.capsule[q & 1], ox - 3, oy - 3, 'boss',
+              { sx: 2, sy: 2, sz: 2, ry: b.t * 0.04, cap: 8 });
+      }
+    }
+
+    var p = G.player;
+    if (p.alive && !(p.invuln > 14 && (p.anim >> 1) % 2 === 0)) {
+      place('shipTop', NS.S.shipTop, p.x - NS.S.shipTop.cx, p.y - NS.S.shipTop.cy,
+            'player', { rz: p.bank * -0.08, cap: 4 });
+      place('flameTop', NS.S.flameTop, p.x - NS.S.flameTop.cx,
+            p.y + NS.S.shipTop.height / 2 - 1, 'player', { sz: 1.4, cap: 4 });
+      var of = (p.anim >> 3) & 1;
+      for (i = 0; i < p.options.length; i++) place('option' + of, NS.S.option[of], p.options[i].x - 2, p.options[i].y - 2, 'player', { ry: p.anim * 0.1, cap: 8 });
+      if (V.shipLight) { V.shipLight.position.set(p.x, simY(p.y), LAYER.player.z + 26); V.shipLight.intensity = 120; }
+    } else if (V.shipLight) V.shipLight.intensity = 0;
+    drawFx();
+  }
+
+  /* ----------------------------------------------------------------------
+     Campaign bosses
+
+     The 2D renderer builds these four out of tinted primitives
+     (campaign.js drawBoss). The voxel view used to draw every one of them
+     from the same purple `spore` stand-in at one size, so all four came out
+     the wrong colour and the Stage 6 serpent lost its body altogether — it
+     was a floating head. Each entry below mirrors the 2D silhouette and
+     quotes the same hex strings, so the two renderers cannot drift apart.
+     `round` marks the ones 2D draws with arc(), which become spheres.
+     ---------------------------------------------------------------------- */
+  var BOSS_SKIN = {
+    3: { body: '#9b3020', w: 56, h: 76, round: true },   // Intruder
+    4: { body: '#d5d5c9', w: 50, h: 50, round: true },   // Giga
+    5: { body: '#d1a336', w: 34, h: 50, round: false },  // Tutanhamanattack
+    6: { body: '#b81735', w: 48, h: 48, round: true }    // Zelos core
+  };
+
+  /* The serpent reads as one creature only if its body has depth, so the
+     coil weaves through z as well as the plane. x/y still follow the 2D
+     curve exactly — only z is invented, and the body carries no hitbox
+     (collide() targets dragonX/dragonY), so nothing about the fight moves. */
+  var DRAGON_SEGS = 54;
+  var DRAGON_TINT = ['#3f8c39', '#4a9e42', '#57ad4c', '#63bc57',
+                     '#6fcb5f', '#72dc67', '#80e772', '#8ef07f'];
+
+  function blob(key, x, y, z, d, tint, spin, cap) {
+    var sp = NS.S.spore, s = d / sp.width;
+    place(key, sp, x - sp.width / 2, y - sp.height / 2, 'boss',
+          { sx: s, sy: s, sz: s, z: z, ry: spin, tint: tint, cap: cap || 4 });
+  }
+
+  function drawCampaignBoss(C, b) {
+    var skin = BOSS_SKIN[C.stage], sp = NS.S.spore, i;
+    var bz = LAYER.boss.z;
+
+    place('campBoss' + C.stage, sp, b.x - sp.width / 2, b.y - sp.height / 2, 'boss',
+          { sx: skin.w / sp.width, sy: skin.h / sp.height, sz: skin.w / sp.width,
+            ry: b.t * 0.02, tint: skin.body, cap: 4 });
+
+    if (C.stage === 3) {
+      /* the maw: wide open is the tell that it can be hurt */
+      place('campIntruderMaw', sp, b.x - 25, b.y - 7, 'boss',
+            { sx: 14 / sp.width, sy: (b.open ? 14 : 4) / sp.height, sz: 1.6,
+              z: bz + 20, tint: b.open ? '#ffe0a0' : '#5d1515', cap: 4 });
+    } else if (C.stage === 4) {
+      place('campGigaMaw', sp, b.x - 9, b.y + 8, 'boss',
+            { sx: 18 / sp.width, sy: (b.open ? 12 : 3) / sp.height, sz: 1.6,
+              z: bz + 20, tint: b.open ? '#ff704f' : '#342020', cap: 4 });
+      if (b.eyeList) for (i = 0; i < b.eyeList.length; i++) {
+        var eye = b.eyeList[i];
+        blob('campGigaEye', eye.x, eye.y, bz + 16, 10, '#ffef8b', eye.t * 0.08, 4);
+      }
+    } else if (C.stage === 5) {
+      place('campTutEye', sp, b.x - b.side * 13 - 4, b.y - 9, 'boss',
+            { sx: 8 / sp.width, sy: 8 / sp.height, sz: 1.6, z: bz + 22,
+              tint: '#62d8ff', cap: 4 });
+      for (i = 0; i < 8; i++) {
+        var oa = i * Math.PI / 4 + b.t * 0.025;
+        blob('campTutOrb', b.x + Math.cos(oa) * 29, b.y + Math.sin(oa) * 29,
+             bz + Math.sin(oa) * 18, 8, '#ffd96b', b.t * 0.06, 8);
+      }
+    } else if (C.stage === 6) {
+      if (b.form === 'dragon') {
+        var near = null, nd = 1e9;
+        for (i = 0; i <= DRAGON_SEGS; i++) {
+          var u = i / DRAGON_SEGS, a = u * Math.PI * 2 + b.t * 0.025;
+          var weave = Math.sin(a * 3);
+          var sxp = b.x + Math.cos(a) * 48, syp = b.y + Math.sin(a * 2) * 40;
+          var szp = bz + weave * 15;
+          /* nearer coils are lit brighter, which is what makes the weave
+             legible instead of reading as a flat ring */
+          var t = DRAGON_TINT[Math.min(DRAGON_TINT.length - 1,
+                    ((weave + 1) * 0.5 * DRAGON_TINT.length) | 0)];
+          blob('campDragonBody', sxp, syp, szp, 7 + Math.sin(a) * 1.5, t, a,
+               DRAGON_SEGS + 2);
+          /* remember where the coil passes closest to the head, so the neck
+             can join the two — 2D leaves the head floating unattached */
+          var d2 = NS.dist2(sxp, syp, b.dragonX, b.dragonY);
+          if (d2 < nd) { nd = d2; near = [sxp, syp, szp]; }
+        }
+        /* the neck: a short taper from the coil out to the head. Without it
+           the head reads as a separate object rather than as this creature's */
+        var NECK = 7;
+        for (i = 1; i < NECK; i++) {
+          var k = i / NECK;
+          blob('campDragonNeck',
+               NS.lerp(near[0], b.dragonX, k), NS.lerp(near[1], b.dragonY, k),
+               NS.lerp(near[2], bz + 18, k), 6 + k * 6,
+               DRAGON_TINT[Math.min(DRAGON_TINT.length - 1,
+                 (4 + k * 4) | 0)], b.t * 0.04, NECK + 1);
+        }
+        blob('campDragonHead', b.dragonX, b.dragonY, bz + 18, 16, '#baff88',
+             b.t * 0.04, 4);
+      } else {
+        blob('campZelosHeart', b.x, b.y, bz + 16, 24, '#ff8aa0', b.t * 0.05, 4);
+      }
+    }
+  }
+
+  function drawCampaignWorld(G) {
+    var C=NS.Campaign,i;
+    updateBackdrop(C.scroll,!C.horizontal());updateCampaignTerrain(C);
+    for(i=0;i<C.hazards.length;i++){
+      var h=C.hazards[i],m=C.horizontal()?h.world-C.scroll:NS.PLAYFIELD_H-(h.world-C.scroll);
+      var ex=Math.max(0,Math.sin(((h.t%h.period)/h.period)*Math.PI))*h.span;
+      if(C.horizontal())place('campHaz',NS.S.prom[(h.t>>2)&1],m-3,h.side==='top'?0:NS.PLAYFIELD_H-ex,'hazard',{sx:2,sy:Math.max(1,ex/5),sz:2,cap:64});
+      else place('campHaz',NS.S.prom[(h.t>>2)&1],h.side==='left'?0:NS.W-ex,m-3,'hazard',{sx:Math.max(1,ex/5),sy:2,sz:2,cap:64});
+    }
+    for(i=0;i<C.enemies.length;i++){
+      var e=C.enemies[i];if(e.dead||!e.active)continue;var spr=(e.bonus?NS.S.carrier:NS.S.flapper)[(e.t>>3)&1];
+      if(e.kind==='moai'||e.kind==='rock'||e.kind==='lung')spr=NS.S.spore;
+      place('camp'+e.kind+(e.bonus?'C':'')+((e.t>>3)&1),spr,e.x-spr.width/2,e.y-spr.height/2,'enemy',{rz:C.horizontal()?0:Math.PI/2,ry:e.t*.025,sx:e.kind==='dragon'?2:1,sy:e.kind==='dragon'?1.5:1,cap:128});
+    }
+    if(C.mini&&!C.mini.dead)for(i=0;i<C.mini.cores.length;i++){var mc=C.mini.cores[i];if(mc.hp>0)blob('campMini',mc.x,mc.y,LAYER.boss.z+10,20,'#72c6ff',C.mini.t*.03,4);}
+    for(i=0;i<C.pickups.length;i++){var c=C.pickups[i];place('capsule'+((c.t>>3)&1),NS.S.capsule[(c.t>>3)&1],c.x-3,c.y-3,'capsule',{ry:c.t*.06,cap:32});}
+    for(i=0;i<G.looseOptions.length;i++){var o=G.looseOptions[i];place('looseOption'+((o.t>>3)&1),NS.S.looseOption[(o.t>>3)&1],o.x-2,o.y-2,'capsule',{ry:o.t*.05,cap:16});}
+    for(i=0;i<C.shots.length;i++){var s=C.shots[i];place('shot',NS.S.shot,s.x,s.y,'shot',{rz:C.horizontal()?0:Math.PI/2,sx:s.type==='laser'?3:1,cap:128});}
+    for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];place('eshot',NS.S.eshot,q.x-2,q.y-2,'shot',{ry:q.t*.2,cap:128});}
+    var b=C.boss;if(b&&(!b.dead||(b.dying>>2)%2===0))drawCampaignBoss(C,b);
+    if(C.ending)for(i=0;i<C.escapeBars.length;i++){var eb=C.escapeBars[i],bx=eb.side==='left'?0:NS.W-eb.w;place('campEscapeBar',NS.S.prom[0],bx,eb.y,'hazard',{sx:Math.max(2,eb.w/3),sy:2.4,sz:3,cap:16});}
+    var p=G.player;if(p.alive&&!(p.invuln>14&&(p.anim>>1)%2===0)){
+      var ps=p.orientation==='vertical'?NS.S.shipTop:NS.S.ship;
+      place(p.orientation==='vertical'?'shipTop':'ship',ps,p.x-ps.cx,p.y-ps.cy,'player',{rz:p.bank*-.1,cap:4});
+      var fl=p.orientation==='vertical'?NS.S.flameTop:NS.S.flame[(p.anim>>2)&1];
+      place(p.orientation==='vertical'?'flameTop':'flame'+((p.anim>>2)&1),fl,p.orientation==='vertical'?p.x-fl.cx:p.x-ps.cx-fl.width+1,p.orientation==='vertical'?p.y+ps.height/2-1:p.y-fl.cy,'player',{cap:4});
+      var of=(p.anim>>3)&1;for(i=0;i<p.options.length;i++)place('option'+of,NS.S.option[of],p.options[i].x-2,p.options[i].y-2,'player',{ry:p.anim*.1,cap:8});
+      if(V.shipLight){V.shipLight.position.set(p.x,simY(p.y),LAYER.player.z+26);V.shipLight.intensity=120;}
+    }else if(V.shipLight)V.shipLight.intensity=0;
+    drawFx();
+  }
+
+  function drawBoss(b) {
+    var cy = b.y + b.bob;
+    /* body: concentric slabs approximating the drawn blobs */
+    var rings = [
+      { rx: 30, ry: 41, z: -14, c: 0x8d2a4a },
+      { rx: 24, ry: 33, z: 2,   c: 0xb23d61 },
+      { rx: 16, ry: 22, z: 14,  c: 0xd2618a }
+    ];
+    for (var i = 0; i < rings.length; i++) {
+      var r = rings[i];
+      bossSlab(i, b.x + (i === 1 ? 4 : (i === 2 ? 2 : 0)), cy, r, b.hitFlash > 0);
+    }
+    /* armour plates slide apart as the eye opens */
+    var sep = b.eyeOpen * 9;
+    bossPlate(0, b.x - 1, cy - 20 - sep, b.hitFlash > 0);
+    bossPlate(1, b.x - 1, cy + 20 + sep, b.hitFlash > 0);
+
+    if (b.eyeOpen > 0.05) {
+      var spr = b.hitFlash > 0 ? NS.S.bossEyeHit : NS.S.bossEye;
+      /* the innermost body blob reaches z+23, so the eye has to sit past
+         that or it renders buried inside the mass */
+      place('bossEye', spr, b.x - 6, cy - 6, 'boss',
+            { z: LAYER.boss.z + 30, sy: Math.max(0.15, b.eyeOpen),
+              depth: 10, cap: 2 });
+    }
+    for (var j = 0; j < b.cells.length; j++) {
+      var c = b.cells[j];
+      if (c.dead) continue;
+      place('bossCell', NS.S.cell, c.x - 2, c.y - 2, 'enemy',
+            { ry: c.phase, cap: 48 });
+    }
+  }
+
+  /* The boss body is drawn procedurally in 2D — there is no sprite grid to
+     extrude — so it gets voxelised directly: each blob becomes an ellipsoid
+     sampled on a lattice, one cube per cell, with the cube's depth set by
+     how far through the ellipsoid that column runs. A smooth sphere would
+     read as a foreign object in a scene made entirely of cubes. */
+  var bossMeshes = [], plateMeshes = [];
+  var BOSS_CELL = 3;         // voxel size for the body lattice
+
+  function ellipsoidGeometry(rx, ry, rz) {
+    var boxes = [];
+    for (var x = -rx; x <= rx; x += BOSS_CELL) {
+      for (var y = -ry; y <= ry; y += BOSS_CELL) {
+        var q = (x * x) / (rx * rx) + (y * y) / (ry * ry);
+        if (q > 1) continue;
+        var d = 2 * rz * Math.sqrt(1 - q);
+        if (d < 1) continue;
+        boxes.push([x, y, d]);
+      }
+    }
+    if (!boxes.length) return null;
+
+    var base = new THREE.BoxGeometry(1, 1, 1);
+    var bp = base.attributes.position.array;
+    var bn = base.attributes.normal.array;
+    var bi = base.index.array;
+    var vpb = base.attributes.position.count;
+
+    var positions = [], normals = [], indices = [];
+    for (var i = 0; i < boxes.length; i++) {
+      var b = boxes[i];
+      var vs = positions.length / 3;
+      for (var v = 0; v < vpb; v++) {
+        positions.push(
+          bp[v * 3] * BOSS_CELL + b[0],
+          bp[v * 3 + 1] * BOSS_CELL + b[1],
+          bp[v * 3 + 2] * b[2]
+        );
+        normals.push(bn[v * 3], bn[v * 3 + 1], bn[v * 3 + 2]);
+      }
+      for (var k = 0; k < bi.length; k++) indices.push(bi[k] + vs);
+    }
+    base.dispose();
+
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geo.setIndex(indices);
+    geo.computeBoundingSphere();
+    return geo;
+  }
+
+  function bossSlab(i, x, y, r, flash) {
+    var m = bossMeshes[i];
+    if (!m) {
+      var geo = ellipsoidGeometry(r.rx, r.ry, r.rx * 0.55);
+      if (!geo) return;
+      m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: r.c }));
+      scene.add(m);
+      bossMeshes[i] = m;
+    }
+    m.visible = true;
+    m.position.set(x, simY(y), LAYER.boss.z + r.z);
+    m.material.color.setHex(flash ? 0xffd4de : r.c);
+  }
+  function bossPlate(i, x, y, flash) {
+    var m = plateMeshes[i];
+    if (!m) {
+      m = new THREE.Mesh(
+        new THREE.BoxGeometry(26, 8, 22),
+        new THREE.MeshLambertMaterial({ color: 0xe6a5bd })
+      );
+      scene.add(m);
+      plateMeshes[i] = m;
+    }
+    m.visible = true;
+    m.position.set(x, simY(y), LAYER.boss.z + 16);
+    m.material.color.setHex(flash ? 0xfff0f4 : 0xe6a5bd);
+  }
+  function hideBoss() {
+    for (var i = 0; i < bossMeshes.length; i++) if (bossMeshes[i]) bossMeshes[i].visible = false;
+    for (var j = 0; j < plateMeshes.length; j++) if (plateMeshes[j]) plateMeshes[j].visible = false;
+  }
+
+  /* ---- particles -------------------------------------------------------
+     FX.list holds sparks, expanding flash rings and floating score text.
+     Sparks and rings become voxel cubes here; the text stays in the 2D
+     overlay, where it is legible. Colours come from the same hue ramps the
+     2D renderer uses, so explosions match across both views. */
+  var FIRE = ['#fffbe0', '#ffe066', '#ffa02a', '#e8461e', '#8c1c10'];
+  var HIT  = ['#ffffff', '#bfe9ff', '#5fb0ff', '#2a5bd0'];
+  var BIO  = ['#e8ffe8', '#8cff9e', '#2fbf6a', '#0e5a35'];
+  function ramp(hue) { return hue === 'hit' ? HIT : (hue === 'bio' ? BIO : FIRE); }
+  function rampAt(hue, k) {
+    var pal = ramp(hue);
+    return pal[Math.min(pal.length - 1, (k * pal.length) | 0)];
+  }
+
+  var fxMesh = null, fxDummy = null;
+  function drawFx() {
+    if (!NS.FX.list) return;
+    if (!fxMesh) {
+      fxMesh = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(1, 1, 1),
+        new THREE.MeshBasicMaterial({ vertexColors: false }),
+        512
+      );
+      fxMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(512 * 3), 3);
+      fxMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      fxMesh.frustumCulled = false;
+      scene.add(fxMesh);
+      fxDummy = new THREE.Object3D();
+    }
+    var ps = NS.FX.list;
+    var n = 0;
+    var col = new THREE.Color();
+    for (var i = 0; i < ps.length && n < 512; i++) {
+      var p = ps[i];
+      if (p.dead || p.kind === 'text') continue;
+      var k = p.t / p.life;
+
+      if (p.kind === 'spark') {
+        var s = (p.size || 1) * 1.8;
+        fxDummy.position.set(p.x, simY(p.y), LAYER.player.z + 6);
+        fxDummy.scale.set(s, s, s);
+        fxDummy.rotation.set(p.t * 0.2, p.t * 0.15, 0);
+        fxDummy.updateMatrix();
+        fxMesh.setMatrixAt(n, fxDummy.matrix);
+        col.set(rampAt(p.hue, k));
+        fxMesh.setColorAt(n, col);
+        n++;
+      } else if (p.kind === 'flash') {
+        /* the 2D flash is a ring; in 3D it reads better as a thin shell of
+           cubes stepped around the circle */
+        var r = NS.lerp(p.r0, p.r1, k);
+        var seg = 10;
+        for (var a = 0; a < seg && n < 512; a++) {
+          var ang = (a / seg) * Math.PI * 2;
+          fxDummy.position.set(
+            p.x + Math.cos(ang) * r,
+            simY(p.y + Math.sin(ang) * r),
+            LAYER.player.z + 6 + Math.sin(ang * 2) * 3
+          );
+          fxDummy.scale.set(2, 2, 2);
+          fxDummy.rotation.set(0, ang, ang);
+          fxDummy.updateMatrix();
+          fxMesh.setMatrixAt(n, fxDummy.matrix);
+          col.set(rampAt(p.hue, k));
+          fxMesh.setColorAt(n, col);
+          n++;
+        }
+      }
+    }
+    fxMesh.count = n;
+    fxMesh.instanceMatrix.needsUpdate = true;
+    if (fxMesh.instanceColor) fxMesh.instanceColor.needsUpdate = true;
+  }
+
+  /* ======================================================================
+     Camera framing
+     ====================================================================== */
+
+  /* The 2D path stretches the whole 256x224 buffer onto the 1920x1080 frame,
+     so x=0 and x=NS.W land exactly on the screen edges and the player can fly
+     right up to them. A plain perspective camera cannot reproduce that: fit
+     the 208-tall playfield vertically at 16:9 and you get ~366 units of width
+     for a 256-wide corridor, i.e. ~55 units of look-but-can't-reach void on
+     each side — the "invisible wall".
+
+     So we don't ask for a fov at all. We take the corridor's edge midpoints,
+     move them into camera space, and solve for the two projection rows that
+     put them exactly on the frame edges. That is a shifted, anamorphic lens:
+     the corridor is pinned to the frame in both axes no matter where the
+     drift moves the camera, while depth, keystone and parallax are untouched.
+
+     Vertically the target is not the full frame — the 2D HUD strip is drawn
+     over the bottom NS.HUD_H/NS.H of the picture, so the playfield floor maps
+     to the top of that strip rather than to the bottom of the canvas. */
+  var framePt = null;
+
+  function cameraSpace(x, y, z) {
+    framePt.set(x, y, z);
+    camera.worldToLocal(framePt);
+    return framePt;
+  }
+
+  function frameCorridor() {
+    if (!camera) return;
+    if (!framePt) framePt = new THREE.Vector3();
+    camera.updateMatrixWorld();
+
+    var cx = NS.W * 0.5, cy = NS.PLAYFIELD_H * 0.5;
+    var p;
+    p = cameraSpace(0, cy, 0);              var l = p.x / p.z, lz = p.z;
+    p = cameraSpace(NS.W, cy, 0);           var r = p.x / p.z, rz = p.z;
+    p = cameraSpace(cx, NS.PLAYFIELD_H, 0); var tp = p.y / p.z, tz = p.z;
+    p = cameraSpace(cx, 0, 0);              var b = p.y / p.z, bz = p.z;
+
+    /* every reference point must be in front of the lens, and the two of a
+       pair must not collapse onto each other, or the solve blows up */
+    if (lz > -1 || rz > -1 || tz > -1 || bz > -1) return;
+    var dx = l - r, dy = tp - b;
+    if (Math.abs(dx) < 1e-6 || Math.abs(dy) < 1e-6) return;
+
+    /* ndc.x = -(m00 * xc / zc) - m02, solved for ndc -1 at the left edge and
+       +1 at the right; same shape vertically, with the floor lifted to sit on
+       top of the HUD strip instead of on the bottom of the frame */
+    var floor = -1 + 2 * (NS.HUD_H / NS.H);
+    var m00 = 2 / dx;
+    var m02 = 1 - m00 * l;
+    var m11 = (floor - 1) / dy;
+    var m12 = -m11 * tp - 1;
+
+    camera.updateProjectionMatrix();
+    var e = camera.projectionMatrix.elements;
+    e[0] = m00; e[8] = m02;
+    e[5] = m11; e[9] = m12;
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+  }
+
+  /* ======================================================================
+     Public entry points
+     ====================================================================== */
+  V.render = function (G) {
+    if (state !== 'on') return;
+    frame++;
+
+    beginFrame();
+    if (!G.boss) hideBoss();
+    drawWorld(G);
+    endFrame();
+
+    /* a slow drift on the camera keeps the depth legible without ever
+       moving far enough to change what you can see of the corridor */
+    var t = frame * 0.006;
+    camera.position.x = NS.W * 0.5 - 6 + Math.sin(t) * 5;
+    camera.position.y = NS.PLAYFIELD_H * 0.5 + 14 + Math.cos(t * 0.8) * 3;
+    camera.lookAt(NS.W * 0.5, NS.PLAYFIELD_H * 0.5, -10);
+    frameCorridor();
+
+    renderer.render(scene, camera);
+  };
+
+  V.resize = function () {
+    if (!renderer) return;
+
+    /* Render at the physical size of the displayed canvas.  The old fixed
+       1920x1080 drawing buffer looked good on a 1080p monitor, but a 4K or
+       high-DPI display enlarged it again in CSS and softened every voxel
+       edge.  Keep 1080p as a supersampled floor on smaller screens and
+       grow to the real device resolution, capped at 4K for predictable GPU
+       cost.  CSS still controls the canvas box; this only changes the
+       number of WebGL pixels inside it. */
+    var screen = document.getElementById('screen');
+    var rect = screen ? screen.getBoundingClientRect() : null;
+    var cssW = rect && rect.width ? rect.width : NS.SCREEN_W;
+    var cssH = rect && rect.height ? rect.height : NS.SCREEN_H;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var scale = Math.max(NS.SCREEN_W / cssW, NS.SCREEN_H / cssH, dpr);
+    var renderW = Math.min(3840, Math.round(cssW * scale));
+    var renderH = Math.min(2160, Math.round(cssH * scale));
+
+    renderer.setSize(renderW, renderH, false);
+    /* aspect only seeds the near/far rows now — frameCorridor() pins the
+       corridor to the canvas edges, so the fit follows the box, not the fov */
+    camera.aspect = cssW / cssH;
+    frameCorridor();
+    syncCanvasBox();
+  };
+
+  /* the WebGL canvas tracks the 2D canvas's CSS box exactly, so the HUD
+     drawn on top lines up with the world underneath */
+  function syncCanvasBox() {
+    var screen = document.getElementById('screen');
+    if (!screen || !canvasEl) return;
+    canvasEl.style.width = screen.style.width;
+    canvasEl.style.height = screen.style.height;
+  }
+  V.syncBox = syncCanvasBox;
+
+  V.enable = function (onDone) {
+    if (state === 'on' || state === 'loading') return;
+    if (state === 'failed') { onDone && onDone(false, failMsg); return; }
+    state = 'loading';
+
+    import('../vendor/three.module.js').then(function (mod) {
+      THREE = mod;
+      try {
+        canvasEl = document.createElement('canvas');
+        canvasEl.id = 'voxel';
+        canvasEl.width = NS.SCREEN_W;
+        canvasEl.height = NS.SCREEN_H;
+        var screen = document.getElementById('screen');
+        screen.parentNode.insertBefore(canvasEl, screen);
+
+        renderer = new THREE.WebGLRenderer({
+          canvas: canvasEl,
+          antialias: true,
+          powerPreference: 'high-performance'
+        });
+        renderer.setPixelRatio(1);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.setSize(NS.SCREEN_W, NS.SCREEN_H, false);
+
+        buildScene();
+        document.body.classList.add('ns-voxel-on');
+        syncCanvasBox();
+        state = 'on';
+        onDone && onDone(true, '');
+      } catch (e) {
+        state = 'failed';
+        failMsg = 'WEBGL INIT FAILED';
+        onDone && onDone(false, failMsg);
+      }
+    }).catch(function () {
+      state = 'failed';
+      /* the overwhelmingly common cause: opened from file://, where ES
+         module imports are blocked by the browser */
+      failMsg = 'VOXEL NEEDS A SERVER';
+      onDone && onDone(false, failMsg);
+    });
+  };
+
+  V.disable = function () {
+    if (state !== 'on') return;
+    state = 'off';
+    if (canvasEl) canvasEl.style.display = 'none';
+    document.body.classList.remove('ns-voxel-on');
+  };
+
+  V.toggle = function (onDone) {
+    if (state === 'on') { V.disable(); onDone && onDone(false, ''); return; }
+    if (canvasEl && state === 'off') {
+      canvasEl.style.display = '';
+      document.body.classList.add('ns-voxel-on');
+      syncCanvasBox();
+      state = 'on';
+      onDone && onDone(true, '');
+      return;
+    }
+    V.enable(onDone);
+  };
+
+})(NS);
