@@ -37,16 +37,14 @@
   Gun.label = function () { return LABEL[Gun.mode]; };
 
   Gun.load = function () {
-    try {
-      var m = localStorage.getItem('ns_firemode');
-      if (m && MODES.indexOf(m) >= 0) Gun.mode = m;
-    } catch (e) { /* storage unavailable — stay on the default */ }
+    var m = NS.Save.read('ns_firemode', '');
+    if (m && MODES.indexOf(m) >= 0) Gun.mode = m;
   };
 
   Gun.set = function (m) {
     if (MODES.indexOf(m) < 0) return;
     Gun.mode = m;
-    try { localStorage.setItem('ns_firemode', m); } catch (e) {}
+    NS.Save.write('ns_firemode', m, 'FIRE MODE');
   };
 
   Gun.cycle = function () {

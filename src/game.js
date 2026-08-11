@@ -36,7 +36,52 @@
   G.departV = 0;
   G.nextStage = 2;
 
-  /* ---- boot ----------------------------------------------------------- */
+  /* ---- boot ------------------------------------------------------------
+     Startup used to run as one blocking block before the first frame: carve
+     9,400 columns of terrain, seed the background, then kick off the
+     three.js import and show the title over a half-built scene. On a slow
+     machine that is a black window, and the voxel geometry then popped in
+     behind an already-interactive title.
+
+     The work is now a queue, one step per frame, behind a loading screen
+     that says which step is running. Nothing here is faster — it is the same
+     work — but the frame loop is alive throughout, so the screen paints and
+     the player can see progress instead of a stalled tab. */
+  var boot = null, bootStep = 0, bootHold = 0;
+  var BOOT_MIN = 40;          // frames the screen stays up even if boot is instant
+
+  function buildBootQueue() {
+    return [
+      { label: 'CARVING THE CORRIDOR', run: function () { NS.Terrain.build(); } },
+      { label: 'SEEDING THE DEEP FIELD', run: function () { NS.FX.initBackground(); } },
+      { label: 'READING PILOT RECORDS', run: function () {
+          G.hiScore = parseInt(NS.Save.read('ns_hiscore', '0'), 10) || 0;
+          NS.Gunner.load();
+        } },
+      { label: 'ARMING THE SERAPH', run: function () {
+          G.player = new NS.Player();
+          G.resetStage(true);
+        } },
+      { label: 'WIRING CONTROLS', run: function () { NS.Touch.init(); resize(); } },
+      /* The only genuinely asynchronous step: three.js is an ES module and
+         is fetched at runtime. `wait` holds the queue here until it resolves
+         or fails, which is what stops the voxel world assembling itself in
+         view behind a live title screen. */
+      { label: 'BUILDING VOXEL GEOMETRY', pending: false, done: false,
+        run: function () {
+          var step = this;
+          if (!NS.Voxel) { step.done = true; return; }
+          step.pending = true;
+          NS.Voxel.enable(function (on, err) {
+            step.done = true;
+            if (on) resize();
+            else if (err) { G.voxelMsg = err + ' - USING 2D'; G.voxelMsgT = 180; }
+          });
+        },
+        wait: function () { return this.pending && !this.done; } }
+    ];
+  }
+
   G.init = function () {
     screen = document.getElementById('screen');
     screen.width = NS.SCREEN_W;
@@ -51,38 +96,44 @@
     g.imageSmoothingEnabled = false;
     G.buffer = buffer;
 
-    NS.Terrain.build();
-    NS.FX.initBackground();
-
-    try { G.hiScore = parseInt(localStorage.getItem('ns_hiscore') || '0', 10) || 0; } catch (e) { G.hiScore = 0; }
-    NS.Gunner.load();
-    NS.Touch.init();
-
     resize();
     window.addEventListener('resize', resize);
 
-    G.player = new NS.Player();
-    G.resetStage(true);
-    G.state = 'title';
-
-    /* The geometry-backed voxel presentation is the primary renderer now.
-       It loads asynchronously so the Canvas2D version remains an immediate
-       fallback when the page was opened without a local web server or WebGL
-       is unavailable.  V still switches between the two at any time. */
-    if (NS.Voxel) {
-      NS.Voxel.enable(function (on, err) {
-        if (on) {
-          resize();
-        } else if (err) {
-          G.voxelMsg = err + ' - USING 2D';
-          G.voxelMsgT = 180;
-        }
-      });
-    }
+    boot = buildBootQueue();
+    bootStep = 0;
+    bootHold = 0;
+    G.state = 'loading';
 
     last = performance.now();
     requestAnimationFrame(loop);
   };
+
+  /* One step per frame. A step that declares `wait` keeps the queue parked
+     until it says otherwise. */
+  function advanceBoot() {
+    bootHold++;
+    if (bootStep >= boot.length) {
+      if (bootHold >= BOOT_MIN) { boot = null; G.state = 'title'; }
+      return;
+    }
+    var step = boot[bootStep];
+    if (step.started) {
+      if (!step.wait || !step.wait()) bootStep++;
+      return;
+    }
+    step.started = true;
+    try { step.run(); } catch (e) { step.failed = true; }
+    if (!step.wait || !step.wait()) bootStep++;
+  }
+
+  function bootProgress() {
+    if (!boot) return 1;
+    return NS.clamp(bootStep / boot.length, 0, 1);
+  }
+  function bootLabel() {
+    if (!boot || bootStep >= boot.length) return 'READY';
+    return boot[bootStep].label;
+  }
 
   /* Dynamic scaling: the 1920x1080 render target keeps its aspect and is
      fitted to whatever space the window gives us. On touch devices the
@@ -203,7 +254,11 @@
     }
     if (G.player.score > G.hiScore) {
       G.hiScore = G.player.score;
-      try { localStorage.setItem('ns_hiscore', String(G.hiScore)); } catch (e) {}
+      /* The high score changes on almost every kill, so writing on each one
+         would leave the throbber permanently lit and stop meaning anything.
+         Persist on a settled cadence instead; the run-end write below is the
+         one that actually has to land. */
+      hiScoreDirty = true;
     }
     if (n >= 1000 && x != null) NS.FX.popText(x, y, String(n), '#ffe9a0');
   };
@@ -258,6 +313,12 @@
        exactly the same semantics as keyboard and touch presses. */
     I.pollGamepads();
 
+    /* the save throbber is UI, not simulation: it keeps counting down in
+       every state, including while paused or on the title */
+    NS.Save.update();
+
+    if (G.state === 'loading') { G.frame++; advanceBoot(); return; }
+
     if (I.hit('fullscreen')) {
       if (!document.fullscreenElement) document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
       else document.exitFullscreen && document.exitFullscreen();
@@ -303,6 +364,7 @@
       G.clearT++;
       NS.FX.update();
       NS.FX.updateBackground();
+      if (G.clearT === 1) flushHiScore();
       if (G.clearT > 90 && (I.hit('start') || I.hit('fire'))) {
         G.state = 'title';
         G.resetStage(true);
@@ -312,10 +374,16 @@
     }
 
     if (I.hit('pause')) {
-      if (G.state === 'paused') { G.state = G.prevState; NS.Audio.startMusic(); }
-      else { G.prevState = G.state; G.state = 'paused'; NS.Audio.stopMusic(); }
+      if (G.state === 'paused') resumeFromPause();
+      else {
+        G.prevState = G.state;
+        G.state = 'paused';
+        pause.index = 0;
+        pause.confirm = null;
+        NS.Audio.stopMusic();
+      }
     }
-    if (G.state === 'paused') return;
+    if (G.state === 'paused') { updatePause(I); return; }
 
     G.frame++;
     if (G.stageMsg > 0) G.stageMsg--;
@@ -449,6 +517,122 @@
       if(G.stage<6){G.state='departing';G.nextStage=G.stage+1;G.departV=0;}
       else{G.state='clear';}
     }
+  }
+
+  /* ---- pause menu ------------------------------------------------------
+     Two of these three entries throw away a run in progress, so neither
+     fires on a single press: each opens a confirmation whose default answer
+     is the harmless one. A player reaching for pause on a stray input can
+     press through nothing here and lose their ship. */
+  var pause = { index: 0, confirm: null };
+  /* exposed so the debug console — and the automated menu tests — can see
+     which entry is selected without inferring it from pixels */
+  G.pause = pause;
+
+  var PAUSE_ITEMS = [
+    { label: 'RESUME', act: resumeFromPause },
+    { label: 'RESTART STAGE',
+      confirm: ['RESTART STAGE ' + '%S' + '?',
+                'POWER-UPS AND STAGE PROGRESS ARE LOST.',
+                'SCORE AND REMAINING SHIPS ARE KEPT.'],
+      act: restartStage },
+    { label: 'QUIT TO TITLE',
+      confirm: ['END THIS RUN?',
+                'THE RUN IS OVER — SHIPS, SCORE AND POWER-UPS GO.',
+                'YOUR HIGH SCORE IS ALREADY SAVED.'],
+      act: quitToTitle }
+  ];
+
+  function resumeFromPause() {
+    G.state = G.prevState;
+    pause.confirm = null;
+    NS.Audio.startMusic();
+  }
+
+  /* Restart the stage the player is actually in, keeping what the death
+     rules would keep: ships and score survive, the loadout does not. */
+  function restartStage() {
+    pause.confirm = null;
+    NS.Intro.stop();
+    if (G.stage === 1) {
+      G.resetStage(false);              // respawn(): keeps lives and score
+      G.state = 'play';
+      NS.Audio.setTrack('stage'); NS.Audio.rewind(); NS.Audio.startMusic();
+    } else {
+      /* startStage() for stage 2+ leaves the ship exactly as it was, which
+         would have made the confirmation a lie — it promises the loadout is
+         lost. respawn() strips power-ups and keeps ships and score, which is
+         the same bargain a death makes. */
+      G.player.respawn();
+      G.startStage(G.stage);
+    }
+  }
+
+  function quitToTitle() {
+    pause.confirm = null;
+    flushHiScore();
+    NS.Intro.stop();
+    G.resetStage(true);
+    G.state = 'title';
+    G.clearT = 0;
+    NS.Audio.stopMusic();
+  }
+
+  /* The touch pad and the analog stick report movement as an axis, not as
+     key presses, so a menu driven only by hit('up')/hit('down') cannot be
+     used on a phone or a gamepad stick at all. Latch the axis into discrete
+     steps here instead. */
+  var stickLatched = false;
+  function menuStep(I) {
+    /* A key press arrives twice: once as the edge from hit(), and again as a
+       held axis on every frame after. Latching on the edge as well as on the
+       axis is what stops one tap of a real keyboard — held for more than a
+       single frame — from moving two rows. */
+    var pressed = I.hit('up') ? -1 : (I.hit('down') ? 1 : 0);
+    if (pressed) { stickLatched = true; return pressed; }
+    var ay = I.axis().y;
+    if (Math.abs(ay) < 0.5) { stickLatched = false; return 0; }
+    if (stickLatched) return 0;
+    stickLatched = true;
+    return ay < 0 ? -1 : 1;
+  }
+
+  function updatePause(I) {
+    var list = pause.confirm ? 2 : PAUSE_ITEMS.length;
+    var step = menuStep(I);
+    if (step) {
+      pause.index = (pause.index + list + step) % list;
+      NS.Audio.sfx.pickup();
+    }
+
+    if (pause.confirm) {
+      if (I.hit('fire') || I.hit('start')) {
+        /* index 0 is CANCEL, and the menu opens on it */
+        if (pause.index === 0) { var back = pause.confirm.from; pause.confirm = null; pause.index = back; NS.Audio.sfx.hit(); }
+        else { NS.Audio.sfx.power(); pause.confirm.act(); }
+      }
+      return;
+    }
+
+    if (I.hit('fire') || I.hit('start')) {
+      var item = PAUSE_ITEMS[pause.index];
+      if (item.confirm) {
+        pause.confirm = { lines: item.confirm, act: item.act, from: pause.index };
+        pause.index = 0;                // default to CANCEL
+        NS.Audio.sfx.alarm();
+      } else {
+        item.act();
+      }
+    }
+  }
+
+  /* The high score is written when a run actually ends, not on every kill
+     that raises it — see addScore(). */
+  var hiScoreDirty = false;
+  function flushHiScore() {
+    if (!hiScoreDirty) return;
+    hiScoreDirty = false;
+    NS.Save.write('ns_hiscore', G.hiScore, 'HIGH SCORE');
   }
 
   function updateCapsules() {
@@ -585,7 +769,9 @@
      drawFrame() below is the original Canvas2D renderer, unchanged in its
      coordinate space — it always paints into the 256x224 buffer. */
   function render() {
-    var vox = NS.Voxel && NS.Voxel.active();
+    /* the loading screen is opaque, so rendering the world behind it is
+       pure waste on exactly the machines that need the loading screen */
+    var vox = NS.Voxel && NS.Voxel.active() && G.state !== 'loading';
     /* In voxel mode the world is drawn by three.js and the 2D buffer keeps
        only what belongs flat on top: the HUD, the messages, and the score
        pops. Everything else is left transparent so the 3D shows through. */
@@ -611,7 +797,8 @@
     if (overlayOnly) g.clearRect(0, 0, NS.W, NS.H);
     else { g.fillStyle = '#000'; g.fillRect(0, 0, NS.W, NS.H); }
 
-    if (G.state === 'title') { drawTitle(overlayOnly); drawHud(); return; }
+    if (G.state === 'loading') { drawLoading(); return; }
+    if (G.state === 'title') { drawTitle(overlayOnly); drawHud(); NS.Save.draw(g); return; }
 
     /* playfield is clipped so nothing bleeds into the HUD strip */
     g.save();
@@ -660,11 +847,7 @@
                  NS.Voxel.status() === 'failed' ? '#ff9a9a' : '#9fe8ff');
     }
     if (NS.Debug) NS.Debug.draw(g, G);
-    if (G.state === 'paused') {
-      g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(0, 0, NS.W, NS.PLAYFIELD_H);
-      centerText('PAUSED', 96, '#ffffff');
-    }
+    if (G.state === 'paused') drawPause();
     if (G.state === 'gameover') {
       g.fillStyle = 'rgba(0,0,0,0.6)';
       g.fillRect(0, 0, NS.W, NS.PLAYFIELD_H);
@@ -682,6 +865,78 @@
 
     g.restore();
     drawHud();
+    /* above the HUD and clear of the boss bar, so it never lands on top of
+       anything else the player is reading */
+    NS.Save.draw(g);
+  }
+
+  /* ---- loading screen -------------------------------------------------- */
+  function drawLoading() {
+    g.fillStyle = '#05060a';
+    g.fillRect(0, 0, NS.W, NS.H);
+
+    centerText(NS.THEME.title, 74, '#ffffff', '12px');
+    centerText(NS.THEME.subtitle, 90, '#ff9ec0');
+
+    var pct = bootProgress();
+    var barW = 148, barX = (NS.W - barW) / 2, barY = 116;
+    g.fillStyle = '#151a26';
+    g.fillRect(barX, barY, barW, 6);
+    g.fillStyle = '#2a3450';
+    g.fillRect(barX, barY, barW, 1);
+    g.fillStyle = '#4fb0ff';
+    g.fillRect(barX + 1, barY + 1, Math.round((barW - 2) * pct), 4);
+    /* a moving highlight on the filled part, so a step that takes a while
+       still looks like it is working rather than wedged */
+    if (pct > 0.02) {
+      var head = barX + 1 + Math.round((barW - 2) * pct);
+      g.fillStyle = ((G.frame >> 2) & 1) ? '#eaf6ff' : '#9fe8ff';
+      g.fillRect(head - 2, barY + 1, 2, 4);
+    }
+
+    centerText(bootLabel(), 132, '#8fd0ff');
+    centerText(Math.round(pct * 100) + '%', 144, '#5f6c86');
+  }
+
+  /* ---- pause menu ------------------------------------------------------ */
+  function drawPause() {
+    g.fillStyle = 'rgba(0,0,0,0.72)';
+    g.fillRect(0, 0, NS.W, NS.PLAYFIELD_H);
+
+    if (pause.confirm) {
+      centerText('ARE YOU SURE?', 52, '#ff7676');
+      var lines = pause.confirm.lines;
+      centerText(lines[0].replace('%S', String(G.stage)), 70, '#ffffff', '8px');
+      centerText(lines[1], 86, '#c8d2e8');
+      if (lines[2]) centerText(lines[2], 96, '#7f8aa3');
+      drawMenu(['CANCEL', 'YES, DO IT'], 116, ['#8fd0ff', '#ff8080']);
+      centerText('THIS CANNOT BE UNDONE', 154, '#5f6c86');
+      return;
+    }
+
+    centerText('PAUSED', 56, '#ffffff', '10px');
+    centerText('STAGE ' + G.stage + '  —  ' + stageName(), 72, '#7f8aa3');
+    drawMenu(PAUSE_ITEMS.map(function (i) { return i.label; }), 96, null);
+    centerText('ARROWS CHOOSE    Z SELECT    P RESUME', 158, '#5f6c86');
+  }
+
+  /* Shared list rendering for both menu levels: the selection marker, the
+     colour and the blink all come from one place so the confirmation cannot
+     end up looking like a different control scheme than the menu above it. */
+  function drawMenu(labels, top, colors) {
+    for (var i = 0; i < labels.length; i++) {
+      var on = pause.index === i;
+      var y = top + i * 14;
+      var color = colors ? colors[i] : '#c8d2e8';
+      if (on) {
+        g.fillStyle = 'rgba(80,120,200,0.30)';
+        g.fillRect(48, y - 8, NS.W - 96, 12);
+        centerText('▶ ' + labels[i] + ' ◀', y,
+                   ((G.frame >> 2) & 1) ? '#ffffff' : color, '8px');
+      } else {
+        centerText(labels[i], y, color === '#ff8080' ? '#8a5560' : '#6f7d99', '8px');
+      }
+    }
   }
 
   function drawCapsules() {
