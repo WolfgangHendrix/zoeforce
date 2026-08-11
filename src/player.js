@@ -1,11 +1,14 @@
 /* player.js — the ship, the Gradius/Life Force power meter, and Options.
-   Meter slots, left to right, exactly as on the arcade original:
-     SPEED UP | MISSILE | RIPPLE | LASER | OPTION | FORCE FIELD
-   A capsule advances the highlight; the POWER key spends it. */
+   Meter slots, left to right:
+     SPEED UP | MISSILE | LASER | OPTION | FORCE FIELD
+   A capsule advances the highlight; the POWER key spends it.
+
+   The arcade original carries a RIPPLE slot between MISSILE and LASER. It is
+   deliberately absent here. */
 (function (NS) {
   'use strict';
 
-  var SLOTS = ['SPEED', 'MISSILE', 'RIPPLE', 'LASER', 'OPTION', 'FORCE'];
+  var SLOTS = ['SPEED', 'MISSILE', 'LASER', 'OPTION', 'FORCE'];
   /* NES movement is digital and has no inertial ramp: pressing a direction
      immediately applies the current speed and releasing it stops movement.
      Life Force stores ship speed on a 0..10 scale; these are the equivalent
@@ -46,7 +49,7 @@
     this.speedLv = 0;
     this.missileLv = 0;
     this.missile = false;            // compatibility flag for HUD/AI checks
-    this.weapon = 'normal';           // 'normal' | 'ripple' | 'laser'
+    this.weapon = 'normal';           // 'normal' | 'laser'
     this.options = [];
     this.shield = 0;                  // force field hit points
     this.shieldMax = 4;
@@ -57,6 +60,25 @@
   };
 
   Player.prototype.speed = function () { return SPEEDS[this.speedLv]; };
+
+  /* What the meter should show for slot `i`: 'empty', 'owned', or 'max'.
+     The HUD used to answer this itself with a chain of index comparisons, so
+     removing a slot silently shifted every test onto the wrong power-up.
+     Asking the player keeps the two in step by construction. */
+  Player.prototype.slotState = function (i) {
+    switch (SLOTS[i]) {
+      case 'SPEED':   return this.speedLv >= SPEEDS.length - 1 ? 'max'
+                           : (this.speedLv > 0 ? 'owned' : 'empty');
+      case 'MISSILE': return this.missileLv >= 3 ? 'max'
+                           : (this.missileLv > 0 ? 'owned' : 'empty');
+      case 'LASER':   return this.weapon === 'laser' ? 'max' : 'empty';
+      case 'OPTION':  return this.options.length >= MAX_OPTIONS ? 'max'
+                           : (this.options.length > 0 ? 'owned' : 'empty');
+      case 'FORCE':   return this.shield >= this.shieldMax ? 'max'
+                           : (this.shield > 0 ? 'owned' : 'empty');
+    }
+    return 'empty';
+  };
 
   Player.prototype.setOrientation = function (mode) {
     this.orientation = mode === 'vertical' ? 'vertical' : 'side';
@@ -89,9 +111,6 @@
           this.missile = true;
           ok = true;
         }
-        break;
-      case 'RIPPLE':
-        if (this.weapon !== 'ripple') { this.weapon = 'ripple'; ok = true; }
         break;
       case 'LASER':
         if (this.weapon !== 'laser') { this.weapon = 'laser'; ok = true; }
@@ -256,14 +275,6 @@
         fired = true;
         this.fireCd = 9;
       }
-    } else if (this.weapon === 'ripple') {
-      if (W.countNormal() + W.player.length < 14) {
-        W.shootRipple(muzzleX, muzzleY);
-        for (var j = 0; j < this.options.length; j++) W.shootRipple(this.options[j].x + 4, this.options[j].y);
-        NS.Audio.sfx.shot();
-        fired = true;
-        this.fireCd = 11;
-      }
     } else {
       if (W.countNormal() < 4 + this.options.length * 2) {
         W.shootNormal(muzzleX, muzzleY);
@@ -279,20 +290,15 @@
          one downward. Options duplicate the base pair. Missile levels two
          and three add another ship-launched pair and raise projectile speed;
          two complete salvos may coexist on screen. */
-      var muzzles = [{ x: this.x + 2, y: this.y }];
-      for (var mi = 0; mi < this.options.length; mi++) {
-        muzzles.push({ x: this.options[mi].x + 2, y: this.options[mi].y });
-      }
-      var pairs = muzzles.length + this.missileLv - 1;
-      var salvoSize = pairs * 2;
+      /* The launch geometry is shared with the other stages, so a salvo
+         fans the same way whichever direction the camera is facing. */
+      var fan = W.missileFan(this, false);
+      var salvoSize = fan.length;
       if (W.countMissiles() + salvoSize <= salvoSize * 2) {
-        for (var mm = 0; mm < muzzles.length; mm++) {
-          W.shootMissile(muzzles[mm].x, muzzles[mm].y + 1, this.missileLv);
-          W.shootMissileUp(muzzles[mm].x, muzzles[mm].y - 1, this.missileLv);
-        }
-        for (var extra = 1; extra < this.missileLv; extra++) {
-          W.shootMissile(this.x + 2 - extra * 3, this.y + 1, this.missileLv);
-          W.shootMissileUp(this.x + 2 - extra * 3, this.y - 1, this.missileLv);
+        for (var mm = 0; mm < fan.length; mm++) {
+          var launch = fan[mm];
+          if (launch.wall < 0) W.shootMissileUp(launch.x + 2, launch.y - 1, this.missileLv, launch.lead);
+          else W.shootMissile(launch.x + 2, launch.y + 1, this.missileLv, launch.lead);
         }
         NS.Audio.sfx.missile();
       }

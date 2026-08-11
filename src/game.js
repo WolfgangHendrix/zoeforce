@@ -738,7 +738,8 @@
 
        score/hi    3 .. 40      power meter   MET_X .. MET_X+MET_W
        stats/lives right-aligned to NS.W-3, never left of STAT_X          */
-  var MET_X = 44, MET_PITCH = 24, MET_W = MET_PITCH * 6;
+  var MET_X = 44, MET_PITCH = 29;
+  var MET_W = MET_PITCH * NS.Player.SLOTS.length;
   var STAT_X = MET_X + MET_W + 4;
 
   function drawHud() {
@@ -762,25 +763,25 @@
     for (var i = 0; i < slots.length; i++) {
       var sx = MET_X + i * MET_PITCH;
       var on = G.player && G.player.sel === i + 1;
-      var owned = false;
-      if (G.player) {
-        if (i === 0) owned = G.player.speedLv > 0;
-        else if (i === 1) owned = G.player.missileLv > 0;
-        else if (i === 2) owned = G.player.weapon === 'ripple';
-        else if (i === 3) owned = G.player.weapon === 'laser';
-        else if (i === 4) owned = G.player.options.length > 0;
-        else if (i === 5) owned = G.player.shield > 0;
-      }
-      g.fillStyle = on ? ((G.frame >> 2) % 2 ? '#ff5a5a' : '#ffa0a0') : (owned ? '#1c3a5c' : '#151a26');
+      /* the player owns the mapping from slot to power-up; the HUD used to
+         re-derive it from hardcoded indices, which quietly pointed every
+         test at the wrong power-up the moment a slot was added or removed */
+      var state = G.player ? G.player.slotState(i) : 'empty';
+      var maxed = state === 'max';
+      var owned = maxed || state === 'owned';
+      /* a maxed power-up gets its own amber, so "I have this" and "this is
+         as good as it gets" are not the same colour */
+      g.fillStyle = on ? ((G.frame >> 2) % 2 ? '#ff5a5a' : '#ffa0a0')
+                       : (maxed ? '#6a4a12' : (owned ? '#1c3a5c' : '#151a26'));
       g.fillRect(sx, y + 3, MET_PITCH - 2, 10);
-      g.strokeStyle = on ? '#ffd0d0' : '#2a3450';
+      g.strokeStyle = on ? '#ffd0d0' : (maxed ? '#ffca3a' : '#2a3450');
       g.lineWidth = 1;
       g.strokeRect(sx + 0.5, y + 3.5, MET_PITCH - 3, 9);
       /* the labels are set a size down: MISSILE is seven characters and does
          not fit a 22px cell at 6px, so at 6px it bled across the divider */
       g.font = '5px monospace';
       g.textAlign = 'center';
-      g.fillStyle = on ? '#ffffff' : (owned ? '#8fd0ff' : '#4b5673');
+      g.fillStyle = on ? '#ffffff' : (maxed ? '#ffe9a0' : (owned ? '#8fd0ff' : '#4b5673'));
       g.fillText(slots[i], sx + (MET_PITCH - 2) / 2, y + 10);
       g.textAlign = 'left';
       g.font = '6px monospace';

@@ -117,34 +117,44 @@
   function hazardExtent(h){var q=(h.t%h.period)/h.period;var pulse=Math.sin(q*Math.PI);return Math.max(0,pulse)*h.span;}
 
   C.firePlayer=function(p){
-    var vertical=!horizontal(),type=p.weapon,m=[];m.push({x:p.x+(vertical?0:10),y:p.y-(vertical?9:0)});
-    for(var i=0;i<p.options.length;i++)m.push({x:p.options[i].x+(vertical?0:4),y:p.options[i].y-(vertical?5:0)});
-    for(i=0;i<m.length;i++)C.shots.push({id:uid++,x:m[i].x-1,y:m[i].y,vx:vertical?0:(type==='laser'?9:6),vy:vertical?(type==='laser'?-9:-6):0,
-      w:vertical?3:(type==='laser'?32:6),h:vertical?(type==='laser'?22:6):3,dmg:type==='laser'?2:1,pierce:type!=='normal',hit:{},dead:false,type:type});
+    var vertical=!horizontal(),type=p.weapon,m=[],i;
+    /* one beam at a time, as in stage 1 */
+    if(type==='laser'&&NS.Weapons.laserLive(C.shots))return 4;
+    m.push({x:p.x+(vertical?0:10),y:p.y-(vertical?9:0)});
+    for(i=0;i<p.options.length;i++)m.push({x:p.options[i].x+(vertical?0:4),y:p.options[i].y-(vertical?5:0)});
+    for(i=0;i<m.length;i++){
+      /* the shared armament table, not a local description of it */
+      var sh=NS.Weapons.makeShot(type,m[i].x,m[i].y,vertical?0:1,vertical?-1:0);
+      sh.id=uid++;C.shots.push(sh);
+    }
     if(p.missileLv){
       /* One weapon, four cameras: the missile always leaves at 45 degrees
          toward the two surfaces bounding the corridor and then runs along
          whichever it reaches — walls in the climbing stages, ceiling and
          floor in the side-on ones. It used to be a symmetric spread here,
          which read as a different gun entirely. */
-      var salvo=[{x:p.x,y:p.y}];
-      for(i=0;i<p.options.length;i++)salvo.push({x:p.options[i].x,y:p.options[i].y});
-      for(var extra=1;extra<p.missileLv;extra++)salvo.push({x:p.x-(vertical?0:extra*3),y:p.y+(vertical?extra*3:0)});
-      if(countMissiles()+salvo.length*2<=salvo.length*4){
-        for(i=0;i<salvo.length;i++)for(var wall=-1;wall<=1;wall+=2)launchMissile(salvo[i].x,salvo[i].y,wall,p.missileLv);
+      var salvo=NS.Weapons.missileFan(p,vertical);
+      if(countMissiles()+salvo.length<=salvo.length*2){
+        for(i=0;i<salvo.length;i++)launchMissile(salvo[i].x,salvo[i].y,salvo[i].wall,p.missileLv,salvo[i].lead);
         NS.Audio.sfx.missile();
       }
     }
-    NS.Audio.sfx[type==='laser'?'laser':'shot']();return type==='laser'?9:(type==='ripple'?11:6);
+    NS.Audio.sfx[type==='laser'?'laser':'shot']();return type==='laser'?9:6;
   };
 
   function countMissiles(){var n=0;for(var i=0;i<C.shots.length;i++)if(!C.shots[i].dead&&C.shots[i].type==='missile')n++;return n;}
 
-  function launchMissile(x,y,wall,level){
-    level=NS.clamp(level,1,3);var v=1.55+level*.16;
+  function launchMissile(x,y,wall,level,lead){
+    var k=NS.Weapons.missileLaunch(level,lead);
+    /* lateral-dominant for the same reason stage 2 is: the missile has to
+       meet its surface while still on screen from any position the ship can
+       hold. `lead` scales only the forward run, which strings the salvo out
+       along the surface rather than stacking it on one track. */
     C.shots.push({id:uid++,x:x-2,y:y-2,w:5,h:5,dmg:2,pierce:false,hit:{},dead:false,type:'missile',
-      vx:horizontal()?v:wall*v,vy:horizontal()?wall*v:-v,
-      crawlSpeed:2.0+level*.42,wall:wall,crawling:false,anim:0});
+      vertical:!horizontal(),
+      vx:horizontal()?k.forward:wall*k.lateral,
+      vy:horizontal()?wall*k.lateral:-k.forward,
+      accel:k.accel,crawlSpeed:k.crawl,wall:wall,crawling:false,anim:0});
   }
 
   /* Position of the surface this missile is bound for, in the axis it will
@@ -160,7 +170,7 @@
     var face=missileSurface(m);
     if(!m.crawling){
       m.x+=m.vx;m.y+=m.vy;
-      if(horizontal())m.vy+=m.wall*.11;else m.vx+=m.wall*.11;
+      if(horizontal())m.vy+=m.wall*m.accel;else m.vx+=m.wall*m.accel;
       var landed=horizontal()
         ? (m.wall<0?m.y<=face:m.y+m.h>=face)
         : (m.wall<0?m.x<=face:m.x+m.w>=face);
@@ -340,11 +350,8 @@
     if(C.mini&&!C.mini.dead)for(i=0;i<C.mini.cores.length;i++){var mc=C.mini.cores[i];if(mc.hp>0){g.fillStyle='#72c6ff';g.beginPath();g.arc(mc.x,mc.y,10,0,Math.PI*2);g.fill();}}
     for(i=0;i<C.pickups.length;i++){var c=C.pickups[i];g.drawImage(NS.S.capsule[(c.t>>3)&1],c.x-3,c.y-3);}
     for(i=0;i<NS.Game.looseOptions.length;i++){var o=NS.Game.looseOptions[i];g.drawImage(NS.S.looseOption[(o.t>>3)&1],o.x-2,o.y-2);}
-    for(i=0;i<C.shots.length;i++){var s=C.shots[i];
-      if(s.type==='missile'){g.save();g.translate((s.x+s.w/2)|0,(s.y+s.h/2)|0);
-        g.rotate(horizontal()?(s.crawling?0:s.wall*.7):(s.crawling?-Math.PI/2:(s.wall<0?-Math.PI*.75:-Math.PI*.25)));
-        g.drawImage(NS.S.missile,-3,-1);g.restore();continue;}
-      g.fillStyle=s.type==='laser'?'#8feaff':'#fff19a';g.fillRect(s.x,s.y,s.w,s.h);}
+    /* one painter for every stage's projectiles */
+    for(i=0;i<C.shots.length;i++)NS.Weapons.drawShot(g,C.shots[i]);
     for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];g.drawImage(NS.S.eshot,q.x-2,q.y-2);}
     if(C.boss)drawBoss(g,C.boss);
     if(C.ending){g.fillStyle='rgba(255,80,80,.18)';g.fillRect(0,0,NS.W,NS.PLAYFIELD_H);

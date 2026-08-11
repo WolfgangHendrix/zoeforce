@@ -356,44 +356,36 @@
   }
 
   L.firePlayer = function (p) {
+    var type = p.weapon, i;
+    /* The laser is one beam at a time, exactly as in stage 1. Without that
+       gate it fires every nine frames and stops reading as a beam at all. */
+    if (type === 'laser' && NS.Weapons.laserLive(L.shots)) return 4;
+
     var muzzles = [{ x: p.x, y: p.y - 9 }];
-    for (var i = 0; i < p.options.length; i++) muzzles.push({ x: p.options[i].x, y: p.options[i].y - 5 });
-    var type = p.weapon;
+    for (i = 0; i < p.options.length; i++) muzzles.push({ x: p.options[i].x, y: p.options[i].y - 5 });
     for (i = 0; i < muzzles.length; i++) {
-      L.shots.push({ x: muzzles[i].x - 1, y: muzzles[i].y, vx: 0, vy: type === 'laser' ? -8 : -5.5,
-        w: type === 'laser' ? 3 : 3, h: type === 'laser' ? 20 : 7, dmg: type === 'laser' ? 2 : 1,
-        type: type, pierce: type !== 'normal', dead: false, hit: {} });
+      /* built from the shared armament table rather than described here, so
+         a shot is the same object and the same colour in every stage */
+      var s = NS.Weapons.makeShot(type, muzzles[i].x, muzzles[i].y, 0, -1);
+      s.id = nextId++;
+      L.shots.push(s);
     }
     if (p.missileLv) {
       /* The same twin launch stage 1 uses, rotated with the camera. Forward
          is up here, so the pair splays out toward the left and right banks
          instead of the ceiling and floor, then crawls along whichever wall it
-         reaches. It was a symmetric spread of straight shots before, which is
-         a different weapon wearing the missile's name. */
-      var salvo = missileSalvo(p);
+         reaches. */
+      var salvo = NS.Weapons.missileFan(p, true);
       if (countMissiles() + salvo.length <= salvo.length * 2) {
-        for (i = 0; i < salvo.length; i++) launchMissile(salvo[i].x, salvo[i].y, salvo[i].wall, p.missileLv);
+        for (i = 0; i < salvo.length; i++) {
+          launchMissile(salvo[i].x, salvo[i].y, salvo[i].wall, p.missileLv, salvo[i].lead);
+        }
         NS.Audio.sfx.missile();
       }
     }
     NS.Audio.sfx[type === 'laser' ? 'laser' : 'shot']();
-    return type === 'laser' ? 9 : (type === 'ripple' ? 11 : 6);
+    return type === 'laser' ? 9 : 6;
   };
-
-  /* One launch point per muzzle, each firing a left/right pair; missile
-     levels above one add further pairs stepped back along the hull. */
-  function missileSalvo(p) {
-    var out = [], i, wall;
-    var muzzles = [{ x: p.x, y: p.y - 2 }];
-    for (i = 0; i < p.options.length; i++) muzzles.push({ x: p.options[i].x, y: p.options[i].y });
-    for (i = 0; i < muzzles.length; i++) {
-      for (wall = -1; wall <= 1; wall += 2) out.push({ x: muzzles[i].x, y: muzzles[i].y, wall: wall });
-    }
-    for (var extra = 1; extra < p.missileLv; extra++) {
-      for (wall = -1; wall <= 1; wall += 2) out.push({ x: p.x, y: p.y + extra * 3, wall: wall });
-    }
-    return out;
-  }
 
   function countMissiles() {
     var n = 0;
@@ -403,15 +395,17 @@
     return n;
   }
 
-  function launchMissile(x, y, wall, level) {
-    level = NS.clamp(level, 1, 3);
+  function launchMissile(x, y, wall, level, lead) {
+    var k = NS.Weapons.missileLaunch(level, lead);
     L.shots.push({
-      x: x - 2, y: y - 3, w: 5, h: 5, dmg: 2, type: 'missile',
-      pierce: false, dead: false, hit: {},
-      /* the diagonal: equal outward and forward speed, with the outward
-         component still building, so the track bows toward the wall */
-      vx: wall * (1.55 + level * 0.16), vy: -(1.55 + level * 0.16),
-      crawlSpeed: 2.0 + level * 0.42,
+      id: nextId++, x: x - 2, y: y - 3, w: 5, h: 5, dmg: 2, type: 'missile',
+      pierce: false, dead: false, hit: {}, vertical: true,
+      /* out toward the bank and up the screen at once, with the outward
+         component still building so the track bows into the wall. `lead`
+         scales only the forward run, which is what strings a salvo out
+         along the wall instead of stacking it. */
+      vx: wall * k.lateral, vy: -k.forward,
+      accel: k.accel, crawlSpeed: k.crawl,
       wall: wall, crawling: false, anim: 0
     });
   }
@@ -427,7 +421,7 @@
     if (!m.crawling) {
       m.x += m.vx;
       m.y += m.vy;
-      m.vx += m.wall * 0.11;
+      m.vx += m.wall * m.accel;
       var face = wallAt(m.wall, m.y);
       if (m.wall < 0 ? m.x <= face : m.x + m.w >= face) {
         m.crawling = true;
@@ -707,25 +701,10 @@
       g.restore();
     }
     for (i = 0; i < L.pickups.length; i++) { var c = L.pickups[i]; var pickupSprite = c.kind === 'crash' ? NS.S.crashCapsule : NS.S.capsule; g.drawImage(pickupSprite[(c.t >> 3) & 1], c.x - 3, c.y - 3); }
-    for (i = 0; i < L.shots.length; i++) {
-      var s = L.shots[i];
-      if (s.type === 'missile') {
-        /* the stage 1 crawler sprite, turned to face the wall it is running
-           along, so the weapon looks the same in both cameras */
-        g.save();
-        g.translate((s.x + s.w / 2) | 0, (s.y + s.h / 2) | 0);
-        g.rotate(s.crawling ? -Math.PI / 2 : (s.wall < 0 ? -Math.PI * 0.75 : -Math.PI * 0.25));
-        g.drawImage(NS.S.missile, -3, -1);
-        g.restore();
-        if ((s.anim & 3) < 2) {
-          g.fillStyle = 'rgba(255,180,80,0.7)';
-          g.fillRect(s.x | 0, (s.y + s.h) | 0, 2, 2);
-        }
-        continue;
-      }
-      g.fillStyle = s.type === 'laser' ? '#8feaff' : '#fff29a';
-      g.fillRect(s.x, s.y, s.w, s.h);
-    }
+    /* one painter for every stage's projectiles — this list used to be drawn
+       as flat yellow and cyan rectangles that matched neither stage 1 nor
+       this stage's own voxel view */
+    for (i = 0; i < L.shots.length; i++) NS.Weapons.drawShot(g, L.shots[i]);
     for (i = 0; i < L.enemyShots.length; i++) { var es = L.enemyShots[i]; g.drawImage(NS.S.eshot, es.x - 2, es.y - 2); }
     for (i = 0; i < NS.Game.looseOptions.length; i++) { var o = NS.Game.looseOptions[i]; g.drawImage(NS.S.looseOption[(o.t >> 3) & 1], o.x - 2, o.y - 2); }
     if (L.boss) drawBoss(g, L.boss);

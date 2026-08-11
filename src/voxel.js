@@ -330,6 +330,41 @@
   /* sim y is measured downward from the top of the screen */
   function simY(y) { return NS.PLAYFIELD_H - y; }
 
+  /* place() anchors a sprite by its top-left corner, which is what the flat
+     renderer's blits use. Anything sized by its bounding box — a 46px beam,
+     a missile turned to face its wall — wants its centre instead. */
+  function placeAt(key, canvas, cx, cy, layer, opt) {
+    place(key, canvas, cx - canvas.width / 2, cy - canvas.height / 2, layer, opt);
+  }
+
+  /* One placer for every player projectile, whichever list it came from.
+     The three world renderers each carried their own copy of this and they
+     had drifted apart: stage 2 drew its laser as a stretched normal shot,
+     and its flat view painted yellow rectangles while its voxel view drew
+     stage 1's blue sprite. Now all three ask this. */
+  function placeShot(p) {
+    var cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+    var vertical = p.h > p.w;
+
+    if (p.type === 'missile') {
+      placeAt('missile', NS.S.missile, cx, cy, 'shot',
+              { rz: -NS.Weapons.missileAngle(p), rx: p.anim * 0.3,
+                cap: 64, glow: true });
+      return;
+    }
+    if (p.type === 'laser') {
+      /* the sprite is 6px long, so sx carries the beam's real length; the
+         model is centred on the beam rather than parked at its leading end */
+      placeAt('laserSeg', NS.S.shot, cx, cy, 'shot',
+              { rz: vertical ? Math.PI / 2 : 0,
+                sx: (vertical ? p.h : p.w) / 6, sy: 2, sz: 2,
+                cap: 48, glow: true });
+      return;
+    }
+    placeAt('shot', NS.S.shot, cx, cy, 'shot',
+            { rz: vertical ? Math.PI / 2 : 0, sz: 1.5, cap: 128, glow: true });
+  }
+
   /* three.js only multiplies instanceColor into the shaded colour when the
      material declares vertexColors, and that path reads a per-vertex `color`
      attribute which defaults to black when the geometry has none. So every
@@ -853,19 +888,7 @@
     for (i = 0; i < W.player.length; i++) {
       var p = W.player[i];
       if (p.dead) continue;
-      if (p.type === 'normal') {
-        place('shot', NS.S.shot, p.x, p.y, 'shot', { sx: 1, sz: 1.5, cap: 96, glow: true });
-      } else if (p.type === 'missile') {
-        place('missile', NS.S.missile, p.x, p.y, 'shot',
-              { rx: p.anim * 0.3, cap: 32, glow: true });
-      } else if (p.type === 'ripple') {
-        place('ripple', NS.S.spore, p.x - p.r, p.y - p.r, 'shot',
-              { sx: p.r / 3, sy: p.r / 3, sz: 0.6, ry: p.x * 0.05, cap: 48,
-                tint: '#7fe9ff', glow: true });
-      } else if (p.type === 'laser') {
-        place('laserSeg', NS.S.shot, p.x, p.y, 'shot',
-              { sx: p.w / 6, sy: 2, sz: 2, cap: 48, glow: true });
-      }
+      placeShot(p);
     }
     for (i = 0; i < W.enemy.length; i++) {
       var es = W.enemy[i];
@@ -978,16 +1001,7 @@
       place('looseOption' + ((o.t >> 3) & 1), NS.S.looseOption[(o.t >> 3) & 1], o.x - 2, o.y - 2, 'capsule', { ry: o.t * 0.05, cap: 16, glow: true });
     }
     for (i = 0; i < L.shots.length; i++) {
-      var s = L.shots[i]; if (s.dead) continue;
-      if (s.type === 'missile') {
-        /* the same crawler sprite stage 1 uses, turned to face the bank it
-           is running along */
-        place('missile', NS.S.missile, s.x, s.y, 'shot',
-              { rz: s.crawling ? Math.PI / 2 : (s.wall < 0 ? Math.PI * 0.75 : Math.PI * 0.25),
-                rx: s.anim * 0.3, cap: 48, glow: true });
-        continue;
-      }
-      place('shot', NS.S.shot, s.x - 1, s.y, 'shot', { rz: Math.PI / 2, sy: s.type === 'laser' ? 3 : 1, cap: 128, glow: true });
+      if (!L.shots[i].dead) placeShot(L.shots[i]);
     }
     for (i = 0; i < L.enemyShots.length; i++) {
       var es = L.enemyShots[i]; if (es.dead) continue;
@@ -1167,11 +1181,7 @@
       vring('campMiniRing',mc.x,mc.y,LAYER.boss.z+4,13,2.2,'#bde8ff',12,C.mini.t*.04+i,40,true);}}
     for(i=0;i<C.pickups.length;i++){var c=C.pickups[i];place('capsule'+((c.t>>3)&1),NS.S.capsule[(c.t>>3)&1],c.x-3,c.y-3,'capsule',{ry:c.t*.06,cap:32,glow:true});}
     for(i=0;i<G.looseOptions.length;i++){var o=G.looseOptions[i];place('looseOption'+((o.t>>3)&1),NS.S.looseOption[(o.t>>3)&1],o.x-2,o.y-2,'capsule',{ry:o.t*.05,cap:16,glow:true});}
-    for(i=0;i<C.shots.length;i++){var s=C.shots[i];
-      if(s.type==='missile'){place('missile',NS.S.missile,s.x,s.y,'shot',
-        {rz:C.horizontal()?(s.crawling?0:-s.wall*0.7):(s.crawling?Math.PI/2:(s.wall<0?Math.PI*0.75:Math.PI*0.25)),
-         rx:s.anim*0.3,cap:48,glow:true});continue;}
-      place('shot',NS.S.shot,s.x,s.y,'shot',{rz:C.horizontal()?0:Math.PI/2,sx:s.type==='laser'?3:1,cap:128,glow:true});}
+    for(i=0;i<C.shots.length;i++)if(!C.shots[i].dead)placeShot(C.shots[i]);
     for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];place('eshot',NS.S.eshot,q.x-2,q.y-2,'shot',{ry:q.t*.2,cap:128,glow:true});}
     var b=C.boss;if(b&&(!b.dead||(b.dying>>2)%2===0))drawCampaignBoss(C,b);
     if(C.ending)for(i=0;i<C.escapeBars.length;i++){var eb=C.escapeBars[i],bx=eb.side==='left'?0:NS.W-eb.w;place('campEscapeBar',NS.S.prom[0],bx,eb.y,'hazard',{sx:Math.max(2,eb.w/3),sy:2.4,sz:3,cap:16});}

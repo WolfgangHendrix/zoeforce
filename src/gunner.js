@@ -56,11 +56,11 @@
 
   /* ---- shot characteristics per equipped weapon ------------------------ */
   function shotSpeed(p) {
-    return p.weapon === 'laser' ? 10 : (p.weapon === 'ripple' ? 3.1 : 6);
+    return p.weapon === 'laser' ? 10 : 6;
   }
   /* vertical tolerance: how far off-lane a target can be and still be hit */
   function shotHalfHeight(p) {
-    return p.weapon === 'ripple' ? 6 : (p.weapon === 'laser' ? 2 : 1.5);
+    return p.weapon === 'laser' ? 2 : 1.5;
   }
   /* how many frames ahead it is worth predicting */
   var MAX_LEAD = 110;
@@ -83,8 +83,8 @@
     var tol = th * 0.5 + shotHalfHeight(p) + 1;
     if (Math.abs(predY - my) > tol) return false;
 
-    /* Normal shots and ripples are stopped by the flesh; do not spend a
-       volley on a wall. Laser pierces terrain, so it always has the lane. */
+    /* Normal shots are stopped by the flesh; do not spend a volley on a
+       wall. Laser pierces terrain, so it always has the lane. */
     if (checkTerrain && p.weapon !== 'laser') {
       var steps = 5;
       for (var i = 1; i <= steps; i++) {
