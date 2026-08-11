@@ -170,7 +170,7 @@
      (and their loose, uncollected form), the enemy fireballs, and every
      campaign boss part the 2D renderer draws with arc(). Matched by pool key
      prefix so every call site agrees without having to pass a flag. */
-  var ROUND = /^(option|looseOption|eshot|campBoss[346]|campGigaEye|campTutOrb|campDragon|campZelosHeart|campMini)/;
+  var ROUND = /^(option|looseOption|eshot)/;
 
   /* An instanced pool for one sprite. Pools grow on demand and are reset
      each frame; unused instances are parked off-screen.
@@ -233,19 +233,108 @@
   /* sim y is measured downward from the top of the screen */
   function simY(y) { return NS.PLAYFIELD_H - y; }
 
-  function beginFrame() {
-    for (var k in pools) if (pools.hasOwnProperty(k)) pools[k].used = 0;
+  /* three.js only multiplies instanceColor into the shaded colour when the
+     material declares vertexColors, and that path reads a per-vertex `color`
+     attribute which defaults to black when the geometry has none. So every
+     instanced-colour mesh needs both: the flag, and a white attribute for it
+     to multiply. Without this the tint is silently dropped and the mesh
+     renders in the material's flat white — which is what the corridor walls,
+     the background motes and every explosion particle were doing. */
+  function whiteColors(geo) {
+    var n = geo.attributes.position.count;
+    var c = new Float32Array(n * 3);
+    for (var i = 0; i < c.length; i++) c[i] = 1;
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(c, 3));
+    return geo;
   }
-  function endFrame() {
-    for (var k in pools) {
-      if (!pools.hasOwnProperty(k)) continue;
-      var p = pools[k];
+
+  /* ======================================================================
+     Procedural voxel primitives
+
+     The bosses are the one part of the game with no sprite grid behind them:
+     2D draws them from ellipses, rectangles and arcs, so there is nothing to
+     extrude. They were all standing in the same purple `spore` sprite scaled
+     to different sizes, which is why they read as a different creature in
+     this view than in the flat one. These build the same primitives the 2D
+     renderer uses, out of cubes, and take the same hex strings — so the two
+     silhouettes are the same shape in the same colours by construction.
+     ====================================================================== */
+  var primPools = {};
+
+  function primPool(key, build, cap) {
+    var p = primPools[key];
+    if (p) return p;
+    var geo = build();
+    if (!geo) { primPools[key] = { mesh: null, used: 0, cap: 0 }; return primPools[key]; }
+    whiteColors(geo);
+    var n = cap || 8;
+    var mesh = new THREE.InstancedMesh(
+      geo, new THREE.MeshLambertMaterial({ vertexColors: true }), n);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
+    mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+    mesh.frustumCulled = false;
+    mesh.count = 0;
+    mesh.name = key;
+    scene.add(mesh);
+    p = primPools[key] = { mesh: mesh, used: 0, cap: n };
+    return p;
+  }
+
+  /* Geometry is built once per key from the dimensions of the first call, so
+     a key must always be asked for the same size; anything that animates its
+     size does it through opt.sx/sy/sz. */
+  function putPrim(p, x, y, z, tint, o) {
+    if (!p.mesh || p.used >= p.cap) return;
+    o = o || {};
+    dummy.position.set(x, simY(y), z);
+    dummy.rotation.set(o.rx || 0, o.ry || 0, o.rz || 0);
+    dummy.scale.set(o.sx || 1, o.sy || 1, o.sz || 1);
+    dummy.updateMatrix();
+    p.mesh.setColorAt(p.used, asColor(tint || '#ffffff'));
+    p.mesh.setMatrixAt(p.used++, dummy.matrix);
+  }
+
+  function vbox(key, x, y, z, w, h, d, tint, o) {
+    putPrim(primPool('B:' + key,
+      function () { return new THREE.BoxGeometry(w, h, d); },
+      o && o.cap), x, y, z, tint, o);
+  }
+
+  function vell(key, x, y, z, rx, ry, rz, tint, o) {
+    putPrim(primPool('E:' + key,
+      function () { return ellipsoidGeometry(rx, ry, rz, Math.max(1, Math.min(3, rx / 4))); },
+      o && o.cap), x, y, z, tint, o);
+  }
+
+  function vball(key, x, y, z, r, tint, o) { vell(key, x, y, z, r, r, r, tint, o); }
+
+  /* A ring of cubes, which is how the flat renderer's stroked circles (boss
+     shields, core halos) survive the trip into a world made of boxes. */
+  function vring(key, x, y, z, radius, cube, tint, seg, phase, cap) {
+    for (var i = 0; i < seg; i++) {
+      var a = (i / seg) * Math.PI * 2 + phase;
+      vbox(key, x + Math.cos(a) * radius, y + Math.sin(a) * radius, z,
+           cube, cube, cube, tint, { rz: -a, cap: cap || seg + 2 });
+    }
+  }
+
+  function beginFrame() {
+    var k;
+    for (k in pools) if (pools.hasOwnProperty(k)) pools[k].used = 0;
+    for (k in primPools) if (primPools.hasOwnProperty(k)) primPools[k].used = 0;
+  }
+  function flushPools(map) {
+    for (var k in map) {
+      if (!map.hasOwnProperty(k)) continue;
+      var p = map[k];
       if (!p.mesh) continue;
       p.mesh.count = p.used;
       p.mesh.instanceMatrix.needsUpdate = true;
       if (p.mesh.instanceColor) p.mesh.instanceColor.needsUpdate = true;
     }
   }
+  function endFrame() { flushPools(pools); flushPools(primPools); }
 
   /* ======================================================================
      Terrain — the heightmap becomes a real tunnel
@@ -258,8 +347,8 @@
   var TERRAIN_SLABS = 4;           // depth slices, so the walls have relief
 
   function buildTerrain() {
-    var geo = new THREE.BoxGeometry(1, 1, 1);
-    var mat = new THREE.MeshLambertMaterial({ vertexColors: false });
+    var geo = whiteColors(new THREE.BoxGeometry(1, 1, 1));
+    var mat = new THREE.MeshLambertMaterial({ vertexColors: true });
     var count = TERRAIN_COLS * 2 * TERRAIN_SLABS;
     terrainMesh = new THREE.InstancedMesh(geo, mat, count);
     terrainMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -460,8 +549,8 @@
       });
     }
     moteMesh = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshBasicMaterial({ vertexColors: false }),
+      whiteColors(new THREE.BoxGeometry(1, 1, 1)),
+      new THREE.MeshBasicMaterial({ vertexColors: true }),
       MOTE_COUNT
     );
     moteMesh.instanceColor = new THREE.InstancedBufferAttribute(
@@ -697,15 +786,25 @@
     }
     var fort = L.fortress;
     if (fort && L.phase === 'fortress') {
+      var fz = LAYER.boss.z;
+      /* the ceiling plate the cores are socketed into, grinding down during
+         the entrance exactly as the flat renderer draws it */
+      var fdrop = fort.drop == null ? 1 : fort.drop;
+      vbox('v2fortPlate', NS.W / 2, 22 * fdrop - 11, LAYER.terrain.z + 30,
+           NS.W, 22, 44, '#263c58', { cap: 2 });
       for (i = 0; i < fort.cores.length; i++) {
         var fc = fort.cores[i]; if (fc.dead) continue;
-        place('v2fortcore', NS.S.spore, fc.x - NS.S.spore.width / 2, fc.y - NS.S.spore.height / 2,
-              'boss', { sx: 2.5, sy: 2.5, sz: 2.5, ry: fort.t * 0.02, cap: 4 });
+        vball('v2fortCore', fc.x, fc.y, fz, 12, '#184b78', { cap: 4, ry: fort.t * 0.02 });
+        vball('v2fortPip', fc.x, fc.y, fz + 13, 5, '#ff7b4c', { cap: 4 });
+        if (fc.shield > 0) {
+          vring('v2fortShield', fc.x, fc.y, fz + 4, 15, 2.6, '#8ee8ff',
+                14, fort.t * 0.03 + i, 48);
+        }
       }
       for (i = 0; i < fort.balls.length; i++) {
         var ball = fort.balls[i];
-        place('v2ball', NS.S.capsule[0], ball.x - 3, ball.y - 3, 'hazard',
-              { sx: 1.5, sy: 1.5, sz: 1.5, ry: ball.t * 0.12, cap: 8 });
+        vball('v2fortBall', ball.x, ball.y, LAYER.hazard.z + 6, 5, '#8fcaff',
+              { cap: 8, ry: ball.t * 0.12, rx: ball.t * 0.09 });
       }
     }
 
@@ -729,6 +828,14 @@
     }
     for (i = 0; i < L.shots.length; i++) {
       var s = L.shots[i]; if (s.dead) continue;
+      if (s.type === 'missile') {
+        /* the same crawler sprite stage 1 uses, turned to face the bank it
+           is running along */
+        place('missile', NS.S.missile, s.x, s.y, 'shot',
+              { rz: s.crawling ? Math.PI / 2 : (s.wall < 0 ? Math.PI * 0.75 : Math.PI * 0.25),
+                rx: s.anim * 0.3, cap: 48 });
+        continue;
+      }
       place('shot', NS.S.shot, s.x - 1, s.y, 'shot', { rz: Math.PI / 2, sy: s.type === 'laser' ? 3 : 1, cap: 128 });
     }
     for (i = 0; i < L.enemyShots.length; i++) {
@@ -736,15 +843,29 @@
       place('eshot', NS.S.eshot, es.x - 2, es.y - 2, 'shot', { ry: es.t * 0.2, cap: 128 });
     }
 
+    /* Cruiser Tetran, built from the same parts the flat renderer draws:
+       a dark hull disc, a red core, four arms, four pods on their ends, and
+       one halo per surviving shield. It used to be a single purple blob with
+       four capsules parked around it, which is neither the right shape nor
+       the right colour. */
     var b = L.boss;
     if (b && (!b.dead || (b.dying >> 2) % 2 === 0)) {
-      place('v2core', NS.S.spore, b.x - NS.S.spore.width / 2, b.y - NS.S.spore.height / 2,
-            'boss', { sx: 3.8, sy: 3.8, sz: 2.4, ry: b.t * 0.02, cap: 4 });
+      var bz = LAYER.boss.z, dep = b.deploy == null ? 1 : b.deploy;
+      vball('v2hull', b.x, b.y, bz, 22, '#273d61', { cap: 2, sz: 0.85, ry: b.spin * 0.4 });
+      vball('v2coreLamp', b.x, b.y, bz + 17, 8,
+            b.shield ? '#ff5964' : '#ffd0d0', { cap: 2 });
       for (var q = 0; q < 4; q++) {
-        var a = q * Math.PI / 2 + b.t * 0.025;
-        var ox = b.x + Math.cos(a) * 36, oy = b.y + Math.sin(a) * 36;
-        place('v2orb' + (q & 1), NS.S.capsule[q & 1], ox - 3, oy - 3, 'boss',
-              { sx: 2, sy: 2, sz: 2, ry: b.t * 0.04, cap: 8 });
+        var a = q * Math.PI / 2 + b.spin;
+        /* the arm spans radius 7..35 in 2D, so its centre is at 21 */
+        vbox('v2arm', b.x + Math.cos(a) * 21 * dep, b.y + Math.sin(a) * 21 * dep,
+             bz + 4, 28, 5, 8, '#7a9ab8', { rz: -a, sx: Math.max(0.05, dep), cap: 8 });
+        vball('v2pod', b.x + Math.cos(a) * 36 * dep, b.y + Math.sin(a) * 36 * dep,
+              bz + 6, 7, '#d8e7ef', { cap: 8, ry: b.spin * 2, rx: b.spin });
+      }
+      for (var ring = 0; ring < b.shield; ring++) {
+        vring('v2shield', b.x, b.y, bz + 2, 26 + ring * 4, 2.4,
+              ring === b.shield - 1 ? '#a9f4ff' : '#5fc8e0',
+              20, b.t * 0.012 * (ring + 1), 72);
       }
     }
 
@@ -764,20 +885,17 @@
   /* ----------------------------------------------------------------------
      Campaign bosses
 
-     The 2D renderer builds these four out of tinted primitives
-     (campaign.js drawBoss). The voxel view used to draw every one of them
-     from the same purple `spore` stand-in at one size, so all four came out
-     the wrong colour and the Stage 6 serpent lost its body altogether — it
-     was a floating head. Each entry below mirrors the 2D silhouette and
-     quotes the same hex strings, so the two renderers cannot drift apart.
-     `round` marks the ones 2D draws with arc(), which become spheres.
+     campaign.js draws these four out of ellipses, rectangles and arcs. The
+     voxel view used to substitute a scaled `spore` sprite for every part of
+     every one of them, so a stone sarcophagus and a fleshy maw came out as
+     the same blob in the same purple, and the shapes shared nothing with the
+     flat art beyond a rough size.
+
+     Each is rebuilt below from the primitives above, quoting the same hex
+     strings and the same radii the 2D renderer uses, so the two views are
+     the same design and cannot drift apart. `deploy` scales whatever unfolds
+     during the entrance cut, matching the flat renderer part for part.
      ---------------------------------------------------------------------- */
-  var BOSS_SKIN = {
-    3: { body: '#9b3020', w: 56, h: 76, round: true },   // Intruder
-    4: { body: '#d5d5c9', w: 50, h: 50, round: true },   // Giga
-    5: { body: '#d1a336', w: 34, h: 50, round: false },  // Tutanhamanattack
-    6: { body: '#b81735', w: 48, h: 48, round: true }    // Zelos core
-  };
 
   /* The serpent reads as one creature only if its body has depth, so the
      coil weaves through z as well as the plane. x/y still follow the 2D
@@ -787,76 +905,89 @@
   var DRAGON_TINT = ['#3f8c39', '#4a9e42', '#57ad4c', '#63bc57',
                      '#6fcb5f', '#72dc67', '#80e772', '#8ef07f'];
 
-  function blob(key, x, y, z, d, tint, spin, cap) {
-    var sp = NS.S.spore, s = d / sp.width;
-    place(key, sp, x - sp.width / 2, y - sp.height / 2, 'boss',
-          { sx: s, sy: s, sz: s, z: z, ry: spin, tint: tint, cap: cap || 4 });
-  }
-
   function drawCampaignBoss(C, b) {
-    var skin = BOSS_SKIN[C.stage], sp = NS.S.spore, i;
-    var bz = LAYER.boss.z;
-
-    place('campBoss' + C.stage, sp, b.x - sp.width / 2, b.y - sp.height / 2, 'boss',
-          { sx: skin.w / sp.width, sy: skin.h / sp.height, sz: skin.w / sp.width,
-            ry: b.t * 0.02, tint: skin.body, cap: 4 });
+    var bz = LAYER.boss.z, i;
+    var dep = b.deploy == null ? 1 : b.deploy;
 
     if (C.stage === 3) {
-      /* the maw: wide open is the tell that it can be hurt */
-      place('campIntruderMaw', sp, b.x - 25, b.y - 7, 'boss',
-            { sx: 14 / sp.width, sy: (b.open ? 14 : 4) / sp.height, sz: 1.6,
-              z: bz + 20, tint: b.open ? '#ffe0a0' : '#5d1515', cap: 4 });
+      /* Intruder: an upright ovoid with a maw cut into its leading face.
+         Wide open is the tell that it can be hurt. */
+      vell('c3Body', b.x, b.y, bz, 28, 38, 26, '#9b3020', { cap: 2, ry: Math.sin(b.t * 0.01) * 0.2 });
+      vell('c3Ridge', b.x + 6, b.y, bz + 16, 16, 30, 10, '#c4532f', { cap: 2 });
+      vbox('c3Maw', b.x - 18, b.y - 7 + (b.open ? 7 : 2), bz + 20, 14, 14, 12,
+           b.open ? '#ffe0a0' : '#5d1515', { sy: b.open ? 1 : 0.3, cap: 2 });
+      for (i = -1; i <= 1; i += 2) {
+        vbox('c3Tusk', b.x - 24, b.y + i * 13, bz + 14, 8, 5, 8, '#e8c9a0', { cap: 4 });
+      }
+
     } else if (C.stage === 4) {
-      place('campGigaMaw', sp, b.x - 9, b.y + 8, 'boss',
-            { sx: 18 / sp.width, sy: (b.open ? 12 : 3) / sp.height, sz: 1.6,
-              z: bz + 20, tint: b.open ? '#ff704f' : '#342020', cap: 4 });
+      /* Giga: a pale sphere with a mouth on its underside and eyes that
+         detach and hunt as it loses health. */
+      vball('c4Body', b.x, b.y, bz, 25, '#d5d5c9', { cap: 2, ry: b.t * 0.012 });
+      vbox('c4Maw', b.x, b.y + 8 + (b.open ? 6 : 1.5), bz + 20, 18, 12, 12,
+           b.open ? '#ff704f' : '#342020', { sy: b.open ? 1 : 0.25, cap: 2 });
+      for (i = -1; i <= 1; i += 2) {
+        vball('c4Socket', b.x + i * 13, b.y - 5, bz + 18, 7, '#9c9c92', { cap: 4 });
+      }
       if (b.eyeList) for (i = 0; i < b.eyeList.length; i++) {
         var eye = b.eyeList[i];
-        blob('campGigaEye', eye.x, eye.y, bz + 16, 10, '#ffef8b', eye.t * 0.08, 4);
+        vball('c4Eye', eye.x, eye.y, bz + 16, 5, '#ffef8b', { cap: 4, ry: eye.t * 0.08 });
       }
+
     } else if (C.stage === 5) {
-      place('campTutEye', sp, b.x - b.side * 13 - 4, b.y - 9, 'boss',
-            { sx: 8 / sp.width, sy: 8 / sp.height, sz: 1.6, z: bz + 22,
-              tint: '#62d8ff', cap: 4 });
+      /* Tutanhamanattack: a rectangular gilt sarcophagus. 2D draws it with
+         fillRect, so a rounded blob was simply the wrong object. */
+      vbox('c5Body', b.x, b.y, bz, 34, 50, 28, '#d1a336', { cap: 2 });
+      vbox('c5Crown', b.x, b.y - 22, bz + 6, 40, 8, 32, '#8f6a18', { cap: 2 });
+      vbox('c5Band', b.x, b.y + 6, bz + 15, 34, 5, 6, '#8f6a18', { cap: 4 });
+      vbox('c5Chin', b.x, b.y + 20, bz + 12, 20, 10, 14, '#b98c22', { cap: 2 });
+      vbox('c5Eye', b.x - b.side * 13 + 4, b.y - 5, bz + 17, 8, 8, 8, '#62d8ff', { cap: 2 });
       for (i = 0; i < 8; i++) {
         var oa = i * Math.PI / 4 + b.t * 0.025;
-        blob('campTutOrb', b.x + Math.cos(oa) * 29, b.y + Math.sin(oa) * 29,
-             bz + Math.sin(oa) * 18, 8, '#ffd96b', b.t * 0.06, 8);
+        vball('c5Orb', b.x + Math.cos(oa) * 29 * dep, b.y + Math.sin(oa) * 29 * dep,
+              bz + Math.sin(oa) * 16, 4, '#ffd96b', { cap: 8, ry: b.t * 0.06 });
       }
-    } else if (C.stage === 6) {
+
+    } else {
+      /* Zelos: the core, ringed by the serpent until the serpent dies. */
+      vball('c6Core', b.x, b.y, bz, 24, '#b81735', { cap: 2, ry: b.t * 0.015 });
       if (b.form === 'dragon') {
         var near = null, nd = 1e9;
         for (i = 0; i <= DRAGON_SEGS; i++) {
           var u = i / DRAGON_SEGS, a = u * Math.PI * 2 + b.t * 0.025;
           var weave = Math.sin(a * 3);
-          var sxp = b.x + Math.cos(a) * 48, syp = b.y + Math.sin(a * 2) * 40;
+          var sxp = b.x + Math.cos(a) * 48 * dep;
+          var syp = b.y + Math.sin(a * 2) * 40 * dep;
           var szp = bz + weave * 15;
           /* nearer coils are lit brighter, which is what makes the weave
              legible instead of reading as a flat ring */
           var t = DRAGON_TINT[Math.min(DRAGON_TINT.length - 1,
                     ((weave + 1) * 0.5 * DRAGON_TINT.length) | 0)];
-          blob('campDragonBody', sxp, syp, szp, 7 + Math.sin(a) * 1.5, t, a,
-               DRAGON_SEGS + 2);
+          vball('c6Coil', sxp, syp, szp, 4 + Math.sin(a) * 0.8, t,
+                { cap: DRAGON_SEGS + 2, ry: a });
           /* remember where the coil passes closest to the head, so the neck
              can join the two — 2D leaves the head floating unattached */
           var d2 = NS.dist2(sxp, syp, b.dragonX, b.dragonY);
           if (d2 < nd) { nd = d2; near = [sxp, syp, szp]; }
         }
-        /* the neck: a short taper from the coil out to the head. Without it
-           the head reads as a separate object rather than as this creature's */
         var NECK = 7;
         for (i = 1; i < NECK; i++) {
           var k = i / NECK;
-          blob('campDragonNeck',
-               NS.lerp(near[0], b.dragonX, k), NS.lerp(near[1], b.dragonY, k),
-               NS.lerp(near[2], bz + 18, k), 6 + k * 6,
-               DRAGON_TINT[Math.min(DRAGON_TINT.length - 1,
-                 (4 + k * 4) | 0)], b.t * 0.04, NECK + 1);
+          vball('c6Neck',
+                NS.lerp(near[0], b.dragonX, k), NS.lerp(near[1], b.dragonY, k),
+                NS.lerp(near[2], bz + 18, k), 4,
+                DRAGON_TINT[Math.min(DRAGON_TINT.length - 1, (4 + k * 4) | 0)],
+                { cap: NECK + 1 });
         }
-        blob('campDragonHead', b.dragonX, b.dragonY, bz + 18, 16, '#baff88',
-             b.t * 0.04, 4);
+        vball('c6Head', b.dragonX, b.dragonY, bz + 18, 8, '#baff88',
+              { cap: 2, ry: b.t * 0.04 });
+        for (i = -1; i <= 1; i += 2) {
+          vball('c6Eye', b.dragonX - 3, b.dragonY + i * 4, bz + 25, 2, '#ff5a5a', { cap: 4 });
+        }
       } else {
-        blob('campZelosHeart', b.x, b.y, bz + 16, 24, '#ff8aa0', b.t * 0.05, 4);
+        vball('c6Heart', b.x, b.y, bz + 16, 12, '#ff8aa0', { cap: 2, ry: b.t * 0.05 });
+        vring('c6Pulse', b.x, b.y, bz + 6, 20 + Math.sin(b.t * 0.08) * 3, 2.4,
+              '#ff5a7a', 16, b.t * 0.02, 48);
       }
     }
   }
@@ -875,10 +1006,16 @@
       if(e.kind==='moai'||e.kind==='rock'||e.kind==='lung')spr=NS.S.spore;
       place('camp'+e.kind+(e.bonus?'C':'')+((e.t>>3)&1),spr,e.x-spr.width/2,e.y-spr.height/2,'enemy',{rz:C.horizontal()?0:Math.PI/2,ry:e.t*.025,sx:e.kind==='dragon'?2:1,sy:e.kind==='dragon'?1.5:1,cap:128});
     }
-    if(C.mini&&!C.mini.dead)for(i=0;i<C.mini.cores.length;i++){var mc=C.mini.cores[i];if(mc.hp>0)blob('campMini',mc.x,mc.y,LAYER.boss.z+10,20,'#72c6ff',C.mini.t*.03,4);}
+    if(C.mini&&!C.mini.dead)for(i=0;i<C.mini.cores.length;i++){var mc=C.mini.cores[i];if(mc.hp>0){
+      vball('campMiniCore',mc.x,mc.y,LAYER.boss.z+10,10,'#72c6ff',{cap:4,ry:C.mini.t*.03});
+      vring('campMiniRing',mc.x,mc.y,LAYER.boss.z+4,13,2.2,'#bde8ff',12,C.mini.t*.04+i,40);}}
     for(i=0;i<C.pickups.length;i++){var c=C.pickups[i];place('capsule'+((c.t>>3)&1),NS.S.capsule[(c.t>>3)&1],c.x-3,c.y-3,'capsule',{ry:c.t*.06,cap:32});}
     for(i=0;i<G.looseOptions.length;i++){var o=G.looseOptions[i];place('looseOption'+((o.t>>3)&1),NS.S.looseOption[(o.t>>3)&1],o.x-2,o.y-2,'capsule',{ry:o.t*.05,cap:16});}
-    for(i=0;i<C.shots.length;i++){var s=C.shots[i];place('shot',NS.S.shot,s.x,s.y,'shot',{rz:C.horizontal()?0:Math.PI/2,sx:s.type==='laser'?3:1,cap:128});}
+    for(i=0;i<C.shots.length;i++){var s=C.shots[i];
+      if(s.type==='missile'){place('missile',NS.S.missile,s.x,s.y,'shot',
+        {rz:C.horizontal()?(s.crawling?0:-s.wall*0.7):(s.crawling?Math.PI/2:(s.wall<0?Math.PI*0.75:Math.PI*0.25)),
+         rx:s.anim*0.3,cap:48});continue;}
+      place('shot',NS.S.shot,s.x,s.y,'shot',{rz:C.horizontal()?0:Math.PI/2,sx:s.type==='laser'?3:1,cap:128});}
     for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];place('eshot',NS.S.eshot,q.x-2,q.y-2,'shot',{ry:q.t*.2,cap:128});}
     var b=C.boss;if(b&&(!b.dead||(b.dying>>2)%2===0))drawCampaignBoss(C,b);
     if(C.ending)for(i=0;i<C.escapeBars.length;i++){var eb=C.escapeBars[i],bx=eb.side==='left'?0:NS.W-eb.w;place('campEscapeBar',NS.S.prom[0],bx,eb.y,'hazard',{sx:Math.max(2,eb.w/3),sy:2.4,sz:3,cap:16});}
@@ -905,10 +1042,20 @@
       var r = rings[i];
       bossSlab(i, b.x + (i === 1 ? 4 : (i === 2 ? 2 : 0)), cy, r, b.hitFlash > 0);
     }
-    /* armour plates slide apart as the eye opens */
+    /* armour plates slide apart as the eye opens. 2D draws them as 26x8
+       rects whose centres sit 12px off the core, not 20 — at 20 they hung
+       clear of the mass with a gap the flat art does not have. */
     var sep = b.eyeOpen * 9;
-    bossPlate(0, b.x - 1, cy - 20 - sep, b.hitFlash > 0);
-    bossPlate(1, b.x - 1, cy + 20 + sep, b.hitFlash > 0);
+    bossPlate(0, b.x - 1, cy - 12 - sep, b.hitFlash > 0);
+    bossPlate(1, b.x - 1, cy + 12 + sep, b.hitFlash > 0);
+
+    /* the tendrils rooting it to the chamber wall — the single loudest part
+       of the 2D silhouette, and absent here entirely until now */
+    var bz = LAYER.boss.z;
+    b.eachTendril(7, function (tx, ty, strand, u) {
+      vball('golemTendril', tx, ty, bz - 8 + Math.sin(strand * 2 + u * 5) * 7,
+            2.2, u > 0.75 ? '#5a1530' : '#7a2440', { cap: 48 });
+    });
 
     if (b.eyeOpen > 0.05) {
       var spr = b.hitFlash > 0 ? NS.S.bossEyeHit : NS.S.bossEye;
@@ -934,10 +1081,11 @@
   var bossMeshes = [], plateMeshes = [];
   var BOSS_CELL = 3;         // voxel size for the body lattice
 
-  function ellipsoidGeometry(rx, ry, rz) {
+  function ellipsoidGeometry(rx, ry, rz, cell) {
+    cell = cell || BOSS_CELL;
     var boxes = [];
-    for (var x = -rx; x <= rx; x += BOSS_CELL) {
-      for (var y = -ry; y <= ry; y += BOSS_CELL) {
+    for (var x = -rx; x <= rx; x += cell) {
+      for (var y = -ry; y <= ry; y += cell) {
         var q = (x * x) / (rx * rx) + (y * y) / (ry * ry);
         if (q > 1) continue;
         var d = 2 * rz * Math.sqrt(1 - q);
@@ -959,8 +1107,8 @@
       var vs = positions.length / 3;
       for (var v = 0; v < vpb; v++) {
         positions.push(
-          bp[v * 3] * BOSS_CELL + b[0],
-          bp[v * 3 + 1] * BOSS_CELL + b[1],
+          bp[v * 3] * cell + b[0],
+          bp[v * 3 + 1] * cell + b[1],
           bp[v * 3 + 2] * b[2]
         );
         normals.push(bn[v * 3], bn[v * 3 + 1], bn[v * 3 + 2]);
@@ -1028,8 +1176,8 @@
     if (!NS.FX.list) return;
     if (!fxMesh) {
       fxMesh = new THREE.InstancedMesh(
-        new THREE.BoxGeometry(1, 1, 1),
-        new THREE.MeshBasicMaterial({ vertexColors: false }),
+        whiteColors(new THREE.BoxGeometry(1, 1, 1)),
+        new THREE.MeshBasicMaterial({ vertexColors: true }),
         512
       );
       fxMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(512 * 3), 3);
@@ -1116,12 +1264,23 @@
     if (!framePt) framePt = new THREE.Vector3();
     camera.updateMatrixWorld();
 
-    var cx = NS.W * 0.5, cy = NS.PLAYFIELD_H * 0.5;
+    /* Normally the framed rectangle is the whole corridor. The boss entrance
+       cut hands us a smaller one centred on what is arriving — and because
+       the projection is solved from that rectangle every frame, handing over
+       a smaller rectangle *is* the dolly in. There is no second camera path:
+       the push, the settle and the pull back out are all one interpolation
+       of these four numbers. The rectangle keeps the corridor's aspect, so
+       nothing stretches while it moves. */
+    var cx = NS.W * 0.5, cy = NS.PLAYFIELD_H * 0.5, k = 1;
+    var focus = NS.Intro && NS.Intro.focus && NS.Intro.focus();
+    if (focus) { cx = focus.x; cy = focus.y; k = focus.k; }
+    var hw = NS.W * 0.5 * k, hh = NS.PLAYFIELD_H * 0.5 * k;
+
     var p;
-    p = cameraSpace(0, cy, 0);              var l = p.x / p.z, lz = p.z;
-    p = cameraSpace(NS.W, cy, 0);           var r = p.x / p.z, rz = p.z;
-    p = cameraSpace(cx, NS.PLAYFIELD_H, 0); var tp = p.y / p.z, tz = p.z;
-    p = cameraSpace(cx, 0, 0);              var b = p.y / p.z, bz = p.z;
+    p = cameraSpace(cx - hw, cy, 0);  var l = p.x / p.z, lz = p.z;
+    p = cameraSpace(cx + hw, cy, 0);  var r = p.x / p.z, rz = p.z;
+    p = cameraSpace(cx, cy + hh, 0);  var tp = p.y / p.z, tz = p.z;
+    p = cameraSpace(cx, cy - hh, 0);  var b = p.y / p.z, bz = p.z;
 
     /* every reference point must be in front of the lens, and the two of a
        pair must not collapse onto each other, or the solve blows up */

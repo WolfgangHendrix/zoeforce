@@ -121,9 +121,60 @@
     for(var i=0;i<p.options.length;i++)m.push({x:p.options[i].x+(vertical?0:4),y:p.options[i].y-(vertical?5:0)});
     for(i=0;i<m.length;i++)C.shots.push({id:uid++,x:m[i].x-1,y:m[i].y,vx:vertical?0:(type==='laser'?9:6),vy:vertical?(type==='laser'?-9:-6):0,
       w:vertical?3:(type==='laser'?32:6),h:vertical?(type==='laser'?22:6):3,dmg:type==='laser'?2:1,pierce:type!=='normal',hit:{},dead:false,type:type});
-    if(p.missileLv){for(i=0;i<p.missileLv+1;i++){var spread=(i-p.missileLv/2)*.55;C.shots.push({id:uid++,x:p.x,y:p.y,vx:vertical?spread:4.2,vy:vertical?-4.2:spread,w:4,h:5,dmg:2,pierce:false,hit:{},dead:false,type:'missile'});}NS.Audio.sfx.missile();}
-    else NS.Audio.sfx[type==='laser'?'laser':'shot']();return type==='laser'?9:(type==='ripple'?11:6);
+    if(p.missileLv){
+      /* One weapon, four cameras: the missile always leaves at 45 degrees
+         toward the two surfaces bounding the corridor and then runs along
+         whichever it reaches — walls in the climbing stages, ceiling and
+         floor in the side-on ones. It used to be a symmetric spread here,
+         which read as a different gun entirely. */
+      var salvo=[{x:p.x,y:p.y}];
+      for(i=0;i<p.options.length;i++)salvo.push({x:p.options[i].x,y:p.options[i].y});
+      for(var extra=1;extra<p.missileLv;extra++)salvo.push({x:p.x-(vertical?0:extra*3),y:p.y+(vertical?extra*3:0)});
+      if(countMissiles()+salvo.length*2<=salvo.length*4){
+        for(i=0;i<salvo.length;i++)for(var wall=-1;wall<=1;wall+=2)launchMissile(salvo[i].x,salvo[i].y,wall,p.missileLv);
+        NS.Audio.sfx.missile();
+      }
+    }
+    NS.Audio.sfx[type==='laser'?'laser':'shot']();return type==='laser'?9:(type==='ripple'?11:6);
   };
+
+  function countMissiles(){var n=0;for(var i=0;i<C.shots.length;i++)if(!C.shots[i].dead&&C.shots[i].type==='missile')n++;return n;}
+
+  function launchMissile(x,y,wall,level){
+    level=NS.clamp(level,1,3);var v=1.55+level*.16;
+    C.shots.push({id:uid++,x:x-2,y:y-2,w:5,h:5,dmg:2,pierce:false,hit:{},dead:false,type:'missile',
+      vx:horizontal()?v:wall*v,vy:horizontal()?wall*v:-v,
+      crawlSpeed:2.0+level*.42,wall:wall,crawling:false,anim:0});
+  }
+
+  /* Position of the surface this missile is bound for, in the axis it will
+     eventually lock to: y for the side stages, x for the climbing ones. */
+  function missileSurface(m){
+    var b=horizontal()?bounds(C.scroll+m.x+m.w/2)
+                      :bounds(C.scroll+NS.PLAYFIELD_H-(m.y+m.h/2));
+    return m.wall<0?b.a:b.z;
+  }
+
+  function updateMissile(m){
+    m.anim++;
+    var face=missileSurface(m);
+    if(!m.crawling){
+      m.x+=m.vx;m.y+=m.vy;
+      if(horizontal())m.vy+=m.wall*.11;else m.vx+=m.wall*.11;
+      var landed=horizontal()
+        ? (m.wall<0?m.y<=face:m.y+m.h>=face)
+        : (m.wall<0?m.x<=face:m.x+m.w>=face);
+      if(landed){
+        m.crawling=true;
+        if(horizontal())m.y=m.wall<0?face:face-m.h;else m.x=m.wall<0?face:face-m.w;
+        NS.FX.spark(m.x+m.w/2,m.y+m.h/2,3,'fire');
+      }
+    }else{
+      if(horizontal()){m.x+=m.crawlSpeed;m.y=NS.lerp(m.y,m.wall<0?face:face-m.h,.5);}
+      else{m.y-=m.crawlSpeed;m.x=NS.lerp(m.x,m.wall<0?face:face-m.w,.5);}
+    }
+    if(m.x<-20||m.x>NS.W+20||m.y<-20||m.y>NS.PLAYFIELD_H+20)m.dead=true;
+  }
 
   function enemyPos(e){
     var p=point(e),travel=horizontal()?p.x:p.y;
@@ -160,25 +211,63 @@
     if(horizontal()?e.x<-80:e.y>lim+80)e.dead=true;}}
   function aimed(x,y,p,s){var a=NS.angleTo(x,y,p.x,p.y);C.enemyShots.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:0,dead:false});}
 
-  function startMini(G){C.phase='mini';C.mini={cores:[{x:176,y:52,hp:32,rewarded:false},{x:194,y:104,hp:32,rewarded:false},{x:176,y:156,hp:32,rewarded:false}],t:0,dead:false,hp:96,maxHp:96,state:'active'};G.boss=C.mini;G.bossName='TRIPLE CORE GUARD';G.bossWarn=120;NS.Audio.setTrack('boss');}
-  function updateMini(G){var m=C.mini;m.t++;var hp=0;for(var i=0;i<m.cores.length;i++){var c=m.cores[i];if(c.hp>0){hp+=c.hp;if(m.t%75===i*17)aimed(c.x,c.y,G.player,1.6);}}m.hp=hp;if(hp<=0){m.dead=true;C.phase='flight';C.spec.miniDone=true;G.boss=null;G.addScore(9000);NS.Audio.setTrack('stage');NS.Audio.startMusic();}}
+  function startMini(G){C.phase='mini';C.mini={cores:[{x:176,y:52,hp:32,rewarded:false},{x:194,y:104,hp:32,rewarded:false},{x:176,y:156,hp:32,rewarded:false}],t:0,dead:false,hp:96,maxHp:96,state:'active',intro:true};G.boss=C.mini;G.bossName='TRIPLE CORE GUARD';
+    NS.Intro.start({name:'TRIPLE CORE GUARD',sub:'TEMPLE CHECKPOINT',x:186,y:104,dur:170,zoom:0.70});NS.Audio.setTrack('boss');}
+  function updateMini(G){var m=C.mini;m.t++;
+    if(m.intro){if(!NS.Intro.holding())m.intro=false;return;}var hp=0;for(var i=0;i<m.cores.length;i++){var c=m.cores[i];if(c.hp>0){hp+=c.hp;if(m.t%75===i*17)aimed(c.x,c.y,G.player,1.6);}}m.hp=hp;if(hp<=0){m.dead=true;C.phase='flight';C.spec.miniDone=true;G.boss=null;G.addScore(9000);NS.Audio.setTrack('stage');NS.Audio.startMusic();}}
 
-  function startBoss(G){C.phase='boss';var b={stage:C.stage,t:0,dead:false,dying:150,state:'active',hitCd:0};
-    if(C.stage===3){b.x=228;b.y=104;b.hp=b.maxHp=105;b.open=true;}
-    if(C.stage===4){b.x=128;b.y=42;b.hp=b.maxHp=125;b.open=false;b.eyes=2;b.eyeList=[];}
-    if(C.stage===5){b.x=218;b.y=104;b.hp=b.maxHp=150;b.open=true;b.side=1;b.orbs=8;}
-    if(C.stage===6){b.x=128;b.y=65;b.hp=b.maxHp=150;b.dragonHp=120;b.maxDragonHp=120;b.form='dragon';}
-    C.boss=b;G.boss=b;G.bossName=NS.THEME[C.spec.boss];G.bossWarn=150;NS.Audio.sfx.alarm();NS.Audio.setTrack('boss');}
+  function ease(u){return u<0?0:(u>1?1:u*u*(3-2*u));}
+
+  /* Where each boss comes from, and the line it says when it gets there.
+     Kept as data so the entrance below is one path rather than four. */
+  var ENTRANCE={
+    3:{sub:'FIRE MAW — STRIKE WHEN IT OPENS'},
+    4:{sub:'CELL LORD — THE EYES DETACH'},
+    5:{sub:'TOMB GUARDIAN — RING OF EIGHT'},
+    6:{sub:'FINAL CORE — KILL THE SERPENT FIRST'}
+  };
+
+  function startBoss(G){C.phase='boss';var b={stage:C.stage,t:0,introT:0,intro:true,deploy:0,dead:false,dying:150,state:'active',hitCd:0};
+    if(C.stage===3){b.x=NS.W+56;b.y=104;b.hp=b.maxHp=105;b.open=false;}
+    if(C.stage===4){b.x=128;b.y=-42;b.hp=b.maxHp=125;b.open=false;b.eyes=2;b.eyeList=[];}
+    if(C.stage===5){b.x=NS.W+44;b.y=104;b.hp=b.maxHp=150;b.open=true;b.side=1;b.orbs=8;}
+    if(C.stage===6){b.x=128;b.y=-40;b.hp=b.maxHp=150;b.dragonHp=120;b.maxDragonHp=120;b.form='dragon';}
+    C.boss=b;G.boss=b;G.bossName=NS.THEME[C.spec.boss];
+    NS.Intro.start({name:NS.THEME[C.spec.boss],sub:ENTRANCE[C.stage].sub,
+      x:C.stage===3?228:(C.stage===5?218:128),y:C.stage===4?42:(C.stage===6?65:104),
+      dur:210,zoom:C.stage===6?0.54:0.60});
+    NS.Audio.setTrack('boss');}
+
+  /* The entrance: each boss hauls itself into frame along its own line and
+     unfolds whatever it fights with, landing on the frame the name plate
+     locks in.  Nothing here can be hit and nothing here shoots — see
+     bossHit() and updateBoss(). */
+  function enterBoss(b){
+    var k=NS.Intro.active?NS.Intro.k():NS.clamp(b.t/170,0,1),e=ease(k);
+    b.deploy=NS.clamp((k-0.40)/0.45,0,1);
+    if(C.stage===3){b.x=NS.lerp(NS.W+56,228,e);b.open=k>0.58;}
+    else if(C.stage===4){b.y=NS.lerp(-42,42,e);b.open=k>0.62;}
+    else if(C.stage===5){b.x=NS.lerp(NS.W+44,218,e);b.y=104-Math.sin(k*Math.PI)*10;}
+    else{b.y=NS.lerp(-40,65,e);
+      b.dragonX=b.x+Math.cos(b.t*.025)*48*b.deploy;b.dragonY=b.y+Math.sin(b.t*.05)*42*b.deploy;}
+    if(k>0.42&&b.t%8===0)NS.FX.spark(b.x+(Math.random()-.5)*44,b.y+(Math.random()-.5)*44,2,'fire');
+    if(k>=1){b.intro=false;b.introT=b.t;b.deploy=1;
+      NS.FX.explode(b.x,b.y,2.4,'fire');NS.Audio.sfx.explode();}
+  }
 
   function updateBoss(G){var b=C.boss;if(!b||b.dead)return;b.t++;if(b.hitCd>0)b.hitCd--;
-    if(C.stage===3){b.y=NS.lerp(b.y,G.player.y,.025);b.open=b.t%160<105;if(b.open&&b.t%90===0)for(var i=-1;i<=1;i++)C.enemyShots.push({x:b.x-18,y:b.y,vx:-2.1,vy:i*.65,t:0,dead:false,big:true});}
-    else if(C.stage===4){b.x=128+Math.sin(b.t*.018)*70;b.open=b.t%150>82;if(b.open&&b.t%22===0)aimed(b.x,b.y+12,G.player,1.35);
+    if(b.intro){enterBoss(b);return;}
+    /* pattern clock, zeroed when the cut released — otherwise every boss
+       starts its cycle mid-phase, at whatever frame the entrance ended on */
+    var ft=b.t-b.introT;
+    if(C.stage===3){b.y=NS.lerp(b.y,G.player.y,.025);b.open=ft%160<105;if(b.open&&ft%90===0)for(var i=-1;i<=1;i++)C.enemyShots.push({x:b.x-18,y:b.y,vx:-2.1,vy:i*.65,t:0,dead:false,big:true});}
+    else if(C.stage===4){b.x=128+Math.sin(ft*.018)*70;b.open=ft%150>82;if(b.open&&ft%22===0)aimed(b.x,b.y+12,G.player,1.35);
       var wanted=b.hp<40?0:(b.hp<80?1:2);while(b.eyes>wanted){var side=b.eyes===2?-1:1;b.eyeList.push({x:b.x+side*13,y:b.y-5,vx:side*.45,vy:.65,t:0,dead:false});b.eyes--;}
       for(var ei=0;ei<b.eyeList.length;ei++){var eye=b.eyeList[ei];eye.t++;var aa=NS.angleTo(eye.x,eye.y,G.player.x,G.player.y);eye.vx=NS.lerp(eye.vx,Math.cos(aa)*1.2,.025);eye.vy=NS.lerp(eye.vy,Math.sin(aa)*1.2,.025);eye.x+=eye.vx;eye.y+=eye.vy;}}
-    else if(C.stage===5){b.y=104+Math.sin(b.t*.025)*62;if(b.t%260===0)b.side*=-1;b.x=b.side>0?218:38;if(b.t%45===0)aimed(b.x,b.y,G.player,1.45);if(b.t%90===0){var oa=b.t*.025;C.enemyShots.push({x:b.x+Math.cos(oa)*29,y:b.y+Math.sin(oa)*29,vx:-b.side*1.7,vy:Math.sin(oa)*.7,t:0,dead:false,big:true});}}
-    else {if(b.form==='dragon'){b.dragonX=b.x+Math.cos(b.t*.025)*48;b.dragonY=b.y+Math.sin(b.t*.05)*42;if(b.t%50===0)aimed(b.dragonX,b.dragonY,G.player,1.5);}else if(b.t%75===0)for(i=0;i<5;i++)aimed(b.x,b.y,G.player,1.1+i*.1);}}
+    else if(C.stage===5){b.y=104+Math.sin(ft*.025)*62;if(ft%260===0)b.side*=-1;b.x=b.side>0?218:38;if(ft%45===0)aimed(b.x,b.y,G.player,1.45);if(ft%90===0){var oa=b.t*.025;C.enemyShots.push({x:b.x+Math.cos(oa)*29,y:b.y+Math.sin(oa)*29,vx:-b.side*1.7,vy:Math.sin(oa)*.7,t:0,dead:false,big:true});}}
+    else {if(b.form==='dragon'){b.dragonX=b.x+Math.cos(b.t*.025)*48;b.dragonY=b.y+Math.sin(b.t*.05)*42;if(ft%50===0)aimed(b.dragonX,b.dragonY,G.player,1.5);}else if(ft%75===0)for(i=0;i<5;i++)aimed(b.x,b.y,G.player,1.1+i*.1);}}
 
-  function bossHit(s,G){var b=C.boss;if(!b||b.dead||b.hitCd>0||s.hit.boss)return false;var tx=b.x,ty=b.y,vulnerable=true;
+  function bossHit(s,G){var b=C.boss;if(!b||b.dead||b.intro||b.hitCd>0||s.hit.boss)return false;var tx=b.x,ty=b.y,vulnerable=true;
     if(C.stage===3){tx=b.x-15;ty=b.y;vulnerable=b.open;}
     else if(C.stage===4){ty=b.y+12;vulnerable=b.open;}
     else if(C.stage===5){tx=b.x-b.side*9;ty=b.y-5;
@@ -199,17 +288,17 @@
   function collide(G){var p=G.player,i,j;
     for(i=0;i<C.shots.length;i++){var s=C.shots[i];if(s.dead)continue;var r={x:s.x,y:s.y,w:s.w,h:s.h};
       for(j=0;j<C.enemies.length;j++){var e=C.enemies[j];if(e.dead||!e.active||s.hit[e.id])continue;if(NS.rectHit(r,{x:e.x-e.w/2,y:e.y-e.h/2,w:e.w,h:e.h})){s.hit[e.id]=1;if(e.kind==='moai'&&!e.open)NS.FX.spark(s.x,s.y,2,'hit');else{e.hp-=s.dmg;if(e.hp<=0)killEnemy(e,G);}if(!s.pierce){s.dead=true;break;}}}
-      if(!s.dead&&C.mini&&!C.mini.dead){for(j=0;j<C.mini.cores.length;j++){var mc=C.mini.cores[j];if(mc.hp<=0||s.hit['m'+j])continue;if(NS.rectHit(r,{x:mc.x-10,y:mc.y-10,w:20,h:20})){s.hit['m'+j]=1;mc.hp-=s.dmg;if(mc.hp<=0&&!mc.rewarded){mc.rewarded=true;C.pickups.push({x:mc.x,y:mc.y,t:0,dead:false});G.addScore(1500,mc.x,mc.y);NS.FX.explode(mc.x,mc.y,1.4,'fire');}if(!s.pierce)s.dead=true;break;}}}
+      if(!s.dead&&C.mini&&!C.mini.dead&&!C.mini.intro){for(j=0;j<C.mini.cores.length;j++){var mc=C.mini.cores[j];if(mc.hp<=0||s.hit['m'+j])continue;if(NS.rectHit(r,{x:mc.x-10,y:mc.y-10,w:20,h:20})){s.hit['m'+j]=1;mc.hp-=s.dmg;if(mc.hp<=0&&!mc.rewarded){mc.rewarded=true;C.pickups.push({x:mc.x,y:mc.y,t:0,dead:false});G.addScore(1500,mc.x,mc.y);NS.FX.explode(mc.x,mc.y,1.4,'fire');}if(!s.pierce)s.dead=true;break;}}}
       if(!s.dead&&C.boss&&bossHit(s,G)&&!s.pierce)s.dead=true;
     }
     if(!p.alive)return;var pr={x:p.x-p.w/2,y:p.y-p.h/2,w:p.w,h:p.h};
     for(i=0;i<C.enemyShots.length;i++){var es=C.enemyShots[i];if(!es.dead&&NS.rectHit(pr,{x:es.x-2,y:es.y-2,w:5,h:5})){es.dead=true;if(!p.hit())return;}}
     for(i=0;i<C.enemies.length;i++){e=C.enemies[i];if(!e.dead&&e.active&&NS.rectHit(pr,{x:e.x-e.w/2,y:e.y-e.h/2,w:e.w,h:e.h})){killEnemy(e,G);if(!p.hit())return;}}
-    if(C.boss&&!C.boss.dead&&C.stage===4)for(i=0;i<C.boss.eyeList.length;i++){var eye=C.boss.eyeList[i];if(!eye.dead&&NS.rectHit(pr,{x:eye.x-5,y:eye.y-5,w:10,h:10})&&!p.hit())return;}
-    if(C.boss&&!C.boss.dead&&C.stage===5)for(i=0;i<8;i++){var oa=i*Math.PI/4+C.boss.t*.025,ox=C.boss.x+Math.cos(oa)*29,oy=C.boss.y+Math.sin(oa)*29;if(NS.rectHit(pr,{x:ox-4,y:oy-4,w:8,h:8})&&!p.hit())return;}
+    if(C.boss&&!C.boss.dead&&!C.boss.intro&&C.stage===4)for(i=0;i<C.boss.eyeList.length;i++){var eye=C.boss.eyeList[i];if(!eye.dead&&NS.rectHit(pr,{x:eye.x-5,y:eye.y-5,w:10,h:10})&&!p.hit())return;}
+    if(C.boss&&!C.boss.dead&&!C.boss.intro&&C.stage===5)for(i=0;i<8;i++){var oa=i*Math.PI/4+C.boss.t*.025,ox=C.boss.x+Math.cos(oa)*29*C.boss.deploy,oy=C.boss.y+Math.sin(oa)*29*C.boss.deploy;if(NS.rectHit(pr,{x:ox-4,y:oy-4,w:8,h:8})&&!p.hit())return;}
     for(i=0;i<C.pickups.length;i++){var c=C.pickups[i];if(!c.dead&&NS.rectHit(pr,{x:c.x-3,y:c.y-3,w:6,h:6})){c.dead=true;p.giveCapsule();G.addScore(100);}}
     for(i=0;i<G.looseOptions.length;i++){var o=G.looseOptions[i];if(!o.dead&&NS.rectHit(pr,{x:o.x-3,y:o.y-3,w:6,h:6})&&p.recoverOption())o.dead=true;}
-    if(C.boss&&!C.boss.dead){var b=C.boss,dx=p.x-b.x,dy=p.y-b.y;if(dx*dx+dy*dy<28*28&&!p.hit())return;}
+    if(C.boss&&!C.boss.dead&&!C.boss.intro){var b=C.boss,dx=p.x-b.x,dy=p.y-b.y;if(dx*dx+dy*dy<28*28&&!p.hit())return;}
   }
 
   C.update=function(G){C.t++;
@@ -222,7 +311,9 @@
       else if(C.scroll>=C.spec.length)startBoss(G);
     }else if(C.phase==='mini')updateMini(G);
     updateEnemies(G);for(var h=0;h<C.hazards.length;h++)C.hazards[h].t++;
-    for(var i=0;i<C.shots.length;i++){var s=C.shots[i];s.x+=s.vx;s.y+=s.vy;if(s.x<-60||s.x>NS.W+60||s.y<-40||s.y>NS.PLAYFIELD_H+40)s.dead=true;}
+    for(var i=0;i<C.shots.length;i++){var s=C.shots[i];if(s.dead)continue;
+      if(s.type==='missile'){updateMissile(s);continue;}
+      s.x+=s.vx;s.y+=s.vy;if(s.x<-60||s.x>NS.W+60||s.y<-40||s.y>NS.PLAYFIELD_H+40)s.dead=true;}
     for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];q.t++;q.x+=q.vx;q.y+=q.vy;if(q.bounce){if(q.x<3||q.x>NS.W-3)q.vx*=-1;if(q.y<3||q.y>NS.PLAYFIELD_H-3)q.vy*=-1;q.x=NS.clamp(q.x,3,NS.W-3);q.y=NS.clamp(q.y,3,NS.PLAYFIELD_H-3);}if(q.x<-10||q.x>NS.W+10||q.y<-10||q.y>NS.PLAYFIELD_H+10||q.t>500)q.dead=true;}
     for(i=0;i<C.pickups.length;i++){var c=C.pickups[i];c.t++;if(horizontal())c.x-=.15;else c.y+=.25;if(c.x<-10||c.y>NS.PLAYFIELD_H+10)c.dead=true;}
     for(i=0;i<G.looseOptions.length;i++){var o=G.looseOptions[i];if(o.dead)continue;o.t++;if(horizontal())o.x-=.07;else o.y+=.14;o.y+=Math.sin(o.t*.045+o.phase)*.05;if(o.x<-8||o.y>NS.PLAYFIELD_H+8||o.t>720)o.dead=true;}
@@ -235,10 +326,13 @@
     if(horizontal()){for(var x=0;x<NS.W;x+=3){var b=bounds(C.scroll+x);g.fillStyle=theme==='fire'?'#9f2c12':theme==='temple'?'#7b6a38':'#39485c';g.fillRect(x,0,3,b.a);g.fillRect(x,b.z,3,NS.PLAYFIELD_H-b.z);if(theme==='fire'){g.fillStyle='#ff8a20';g.fillRect(x,b.a-2,3,2);g.fillRect(x,b.z,3,2);}}}
     else for(var y=0;y<NS.PLAYFIELD_H;y+=3){b=bounds(C.scroll+NS.PLAYFIELD_H-y);g.fillStyle=theme==='cell'?'#7b294f':'#344b62';g.fillRect(0,y,b.a,3);g.fillRect(b.z,y,NS.W-b.z,3);}}
   function drawBoss(g,b){if(b.dead&&(b.dying>>2)%2)return;g.save();
+    /* everything that unfolds during the entrance is scaled by deploy, so
+       the silhouette grows into its fighting shape instead of snapping */
+    var dep=b.deploy==null?1:b.deploy;
     if(C.stage===3){g.fillStyle='#9b3020';g.beginPath();g.ellipse(b.x,b.y,28,38,0,0,Math.PI*2);g.fill();g.fillStyle=b.open?'#ffe0a0':'#5d1515';g.fillRect(b.x-25,b.y-7,14,b.open?14:4);}
     else if(C.stage===4){g.fillStyle='#d5d5c9';g.beginPath();g.arc(b.x,b.y,25,0,Math.PI*2);g.fill();g.fillStyle=b.open?'#ff704f':'#342020';g.fillRect(b.x-9,b.y+8,18,b.open?12:3);for(var ei=0;ei<b.eyeList.length;ei++){g.fillStyle='#ffef8b';g.beginPath();g.arc(b.eyeList[ei].x,b.eyeList[ei].y,5,0,Math.PI*2);g.fill();}}
-    else if(C.stage===5){g.fillStyle='#d1a336';g.fillRect(b.x-17,b.y-25,34,50);g.fillStyle='#62d8ff';g.fillRect(b.x-b.side*13,b.y-9,8,8);for(var i=0;i<8;i++){var a=i*Math.PI/4+b.t*.025;g.fillStyle='#ffd96b';g.beginPath();g.arc(b.x+Math.cos(a)*29,b.y+Math.sin(a)*29,4,0,Math.PI*2);g.fill();}}
-    else {g.fillStyle='#b81735';g.beginPath();g.arc(b.x,b.y,24,0,Math.PI*2);g.fill();if(b.form==='dragon'){g.strokeStyle='#72dc67';g.lineWidth=7;g.beginPath();for(i=0;i<18;i++){a=i/17*Math.PI*2+b.t*.025;var xx=b.x+Math.cos(a)*48,yy=b.y+Math.sin(a*2)*40;if(!i)g.moveTo(xx,yy);else g.lineTo(xx,yy);}g.stroke();g.fillStyle='#baff88';g.beginPath();g.arc(b.dragonX,b.dragonY,8,0,Math.PI*2);g.fill();}else{g.fillStyle='#ff8aa0';g.beginPath();g.arc(b.x,b.y,12,0,Math.PI*2);g.fill();}}
+    else if(C.stage===5){g.fillStyle='#d1a336';g.fillRect(b.x-17,b.y-25,34,50);g.fillStyle='#62d8ff';g.fillRect(b.x-b.side*13,b.y-9,8,8);for(var i=0;i<8;i++){var a=i*Math.PI/4+b.t*.025;g.fillStyle='#ffd96b';g.beginPath();g.arc(b.x+Math.cos(a)*29*dep,b.y+Math.sin(a)*29*dep,4,0,Math.PI*2);g.fill();}}
+    else {g.fillStyle='#b81735';g.beginPath();g.arc(b.x,b.y,24,0,Math.PI*2);g.fill();if(b.form==='dragon'){g.strokeStyle='#72dc67';g.lineWidth=7;g.beginPath();for(i=0;i<18;i++){a=i/17*Math.PI*2+b.t*.025;var xx=b.x+Math.cos(a)*48*dep,yy=b.y+Math.sin(a*2)*40*dep;if(!i)g.moveTo(xx,yy);else g.lineTo(xx,yy);}g.stroke();g.fillStyle='#baff88';g.beginPath();g.arc(b.dragonX,b.dragonY,8,0,Math.PI*2);g.fill();}else{g.fillStyle='#ff8aa0';g.beginPath();g.arc(b.x,b.y,12,0,Math.PI*2);g.fill();}}
     g.restore();}
   C.draw=function(g){drawTerrain(g);var i;
     for(i=0;i<C.hazards.length;i++){var h=C.hazards[i],m=mainScreen(h.world),ex=hazardExtent(h);g.fillStyle=C.stage===3?'#ff6a18':'#c6d7e8';if(horizontal())g.fillRect(m-5,h.side==='top'?0:NS.PLAYFIELD_H-ex,10,ex);else g.fillRect(h.side==='left'?0:NS.W-ex,m-5,ex,10);}
@@ -246,7 +340,11 @@
     if(C.mini&&!C.mini.dead)for(i=0;i<C.mini.cores.length;i++){var mc=C.mini.cores[i];if(mc.hp>0){g.fillStyle='#72c6ff';g.beginPath();g.arc(mc.x,mc.y,10,0,Math.PI*2);g.fill();}}
     for(i=0;i<C.pickups.length;i++){var c=C.pickups[i];g.drawImage(NS.S.capsule[(c.t>>3)&1],c.x-3,c.y-3);}
     for(i=0;i<NS.Game.looseOptions.length;i++){var o=NS.Game.looseOptions[i];g.drawImage(NS.S.looseOption[(o.t>>3)&1],o.x-2,o.y-2);}
-    for(i=0;i<C.shots.length;i++){var s=C.shots[i];g.fillStyle=s.type==='laser'?'#8feaff':'#fff19a';g.fillRect(s.x,s.y,s.w,s.h);}
+    for(i=0;i<C.shots.length;i++){var s=C.shots[i];
+      if(s.type==='missile'){g.save();g.translate((s.x+s.w/2)|0,(s.y+s.h/2)|0);
+        g.rotate(horizontal()?(s.crawling?0:s.wall*.7):(s.crawling?-Math.PI/2:(s.wall<0?-Math.PI*.75:-Math.PI*.25)));
+        g.drawImage(NS.S.missile,-3,-1);g.restore();continue;}
+      g.fillStyle=s.type==='laser'?'#8feaff':'#fff19a';g.fillRect(s.x,s.y,s.w,s.h);}
     for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];g.drawImage(NS.S.eshot,q.x-2,q.y-2);}
     if(C.boss)drawBoss(g,C.boss);
     if(C.ending){g.fillStyle='rgba(255,80,80,.18)';g.fillRect(0,0,NS.W,NS.PLAYFIELD_H);

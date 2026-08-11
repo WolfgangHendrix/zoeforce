@@ -76,7 +76,26 @@
       setTimeout(function () { tone({ f0: 880, f1: 1320, dur: 0.14, vol: 0.20, type: 'square' }); }, 90);
     },
     death:    function () { tone({ f0: 400, f1: 60, dur: 0.7, vol: 0.28, type: 'square' }); noise(0.6, 0.4, 700); },
-    alarm:    function () { tone({ f0: 880, f1: 440, dur: 0.18, vol: 0.20, type: 'square' }); }
+    alarm:    function () { tone({ f0: 880, f1: 440, dur: 0.18, vol: 0.20, type: 'square' }); },
+
+    /* ---- boss-entrance cues ----
+       The intro sequence needs three sounds the fight itself never uses: a
+       two-tone klaxon under the warning plate, a long sub rumble while the
+       thing hauls itself into the arena, and a metal slam on the beat the
+       name locks in. */
+    klaxon:   function () {
+      tone({ f0: 520, f1: 300, dur: 0.42, vol: 0.20, type: 'square' });
+      tone({ f0: 261, f1: 152, dur: 0.42, vol: 0.13, type: 'sawtooth' });
+    },
+    rumble:   function () {
+      noise(1.10, 0.14, 200);
+      tone({ f0: 68, f1: 34, dur: 1.30, vol: 0.20, type: 'triangle' });
+    },
+    slam:     function () {
+      noise(0.28, 0.42, 700);
+      tone({ f0: 150, f1: 44, dur: 0.36, vol: 0.24, type: 'square' });
+      setTimeout(function () { tone({ f0: 92, f1: 30, dur: 0.5, vol: 0.18, type: 'triangle' }); }, 60);
+    }
   };
 
   /* ======================================================================

@@ -126,26 +126,79 @@
     addGate(5050); addGate(6550); addGate(7700);
   };
 
+  function ease(u) { return u < 0 ? 0 : (u > 1 ? 1 : u * u * (3 - 2 * u)); }
+
   function spawnBoss(G) {
     L.bossStarted = true;
     L.boss = {
-      x: NS.W / 2, y: -58, targetY: 61, t: 0, hp: 150, maxHp: 150,
+      x: NS.W / 2, y: -70, targetY: 61, t: 0, hp: 150, maxHp: 150,
       shields: [55, 55, 55], shield: 3, hitCd: 0,
+      /* spin is accumulated rather than read off t, because the entrance
+         brakes it: the cruiser drops in whirling and settles to its fight
+         speed, and the arms and their collision segments must follow the
+         same angle the drawing does */
+      spin: 0, deploy: 0, intro: true, introT: 0,
       radius: 23, dead: false, dying: 0, state: 'active'
     };
     G.boss = L.boss;
     G.bossName = NS.THEME.boss2Name;
-    G.bossWarn = 150;
-    NS.Audio.sfx.alarm(); NS.Audio.setTrack('boss');
+    NS.Intro.start({ name: NS.THEME.boss2Name, sub: 'ORBITAL GUARD — ARMS DEPLOYING',
+                     x: NS.W / 2, y: 61, dur: 210, zoom: 0.58 });
+    NS.Audio.setTrack('boss');
+  }
+
+  /* Tetran drops out of the ash column with its arms folded against the
+     hull, brakes hard over the arena, then throws them out to full span. */
+  function enterBoss(b) {
+    var k = NS.Intro.active ? NS.Intro.k() : NS.clamp(b.t / 170, 0, 1);
+    b.y = NS.lerp(-70, b.targetY, ease(k));
+    b.x = NS.W / 2 + Math.sin(k * 7.5) * 12 * (1 - k);
+    b.spin += 0.22 - 0.195 * ease(k);
+    b.deploy = NS.clamp((k - 0.46) / 0.42, 0, 1);
+    if (k > 0.46 && b.t % 6 === 0) {
+      var a = b.spin + (b.t % 4) * Math.PI / 2;
+      NS.FX.spark(b.x + Math.cos(a) * 36 * b.deploy,
+                  b.y + Math.sin(a) * 36 * b.deploy, 2, 'hit');
+    }
+    if (k >= 1) {
+      /* the fight's own clock starts here, so the circling pattern and its
+         slow descent begin from the arena centre rather than mid-arc */
+      b.intro = false; b.deploy = 1; b.introT = b.t;
+      for (var q = 0; q < 4; q++) {
+        var qa = q * Math.PI / 2 + b.spin;
+        NS.FX.explode(b.x + Math.cos(qa) * 36, b.y + Math.sin(qa) * 36, 1.4, 'hit');
+      }
+    }
   }
 
   function startFortress(G) {
     L.phase = 'fortress';
     var cores = [];
-    for (var i = 0; i < 3; i++) cores.push({ id: nextId++, x: 68 + i * 60, y: 43, shield: 34, hp: 38, dead: false, t: 0 });
-    L.fortress = { cores: cores, balls: [], t: 0, hp: 216, maxHp: 216, state: 'active', dead: false, clearT: 0 };
-    G.boss = L.fortress; G.bossName = 'VALIS FORTRESS'; G.bossWarn = 150;
-    NS.Audio.sfx.alarm(); NS.Audio.setTrack('boss');
+    for (var i = 0; i < 3; i++) cores.push({ id: nextId++, x: 68 + i * 60, y: -14, restY: 43, shield: 34, hp: 38, dead: false, t: 0 });
+    L.fortress = { cores: cores, balls: [], t: 0, hp: 216, maxHp: 216,
+                   state: 'active', dead: false, clearT: 0, intro: true, drop: 0 };
+    G.boss = L.fortress; G.bossName = 'VALIS FORTRESS';
+    NS.Intro.start({ name: 'VALIS FORTRESS', sub: 'THREE CORES — BREACH THE SHIELDS',
+                     x: NS.W / 2, y: 46, dur: 200, zoom: 0.66 });
+    NS.Audio.setTrack('boss');
+  }
+
+  /* The fortress plate grinds down out of the ceiling and its three cores
+     drop into their sockets one after another. */
+  function enterFortress(f) {
+    var k = NS.Intro.active ? NS.Intro.k() : NS.clamp(f.t / 160, 0, 1);
+    f.drop = ease(k);
+    for (var i = 0; i < f.cores.length; i++) {
+      var c = f.cores[i];
+      var stagger = NS.clamp((k - 0.30 - i * 0.14) / 0.34, 0, 1);
+      c.y = NS.lerp(-14, c.restY, ease(stagger));
+      if (stagger >= 1 && !c.seated) {
+        c.seated = true;
+        NS.FX.explode(c.x, c.y, 1.1, 'hit');
+        NS.Audio.sfx.slam();
+      }
+    }
+    if (k >= 1) f.intro = false;
   }
 
   L.hitsPlayer = function (p) {
@@ -204,6 +257,7 @@
   function updateFortress(G) {
     var f = L.fortress; if (!f || f.dead) return;
     f.t++;
+    if (f.intro) { enterFortress(f); return; }
     var alive = 0, totalHp = 0;
     for (var i = 0; i < f.cores.length; i++) {
       var c = f.cores[i]; if (c.dead) continue;
@@ -285,18 +339,18 @@
     if (!b || b.dead) return;
     b.t++;
     if (b.hitCd > 0) b.hitCd--;
-    if (b.y < b.targetY) b.y += 0.75;
-    else {
-      /* Tetran circles clockwise and gradually presses down the arena. */
-      var descent = Math.min(62, Math.max(0, b.t - 220) * 0.010);
-      b.x = NS.W / 2 + Math.sin(b.t * 0.018) * 54;
-      b.y = b.targetY + Math.cos(b.t * 0.018) * 18 + descent;
-      if (b.t % 70 === 0) {
-        aimed(b.x, b.y, p, 1.65);
-        for (var q = 0; q < 4; q++) {
-          var a = q * Math.PI / 2 + b.t * 0.025;
-          L.enemyShots.push({ x: b.x, y: b.y, vx: Math.cos(a) * 1.25, vy: Math.sin(a) * 1.25, t: 0, dead: false });
-        }
+    if (b.intro) { enterBoss(b); return; }
+    b.spin += 0.025;
+    /* Tetran circles clockwise and gradually presses down the arena. */
+    var fight = b.t - b.introT;
+    var descent = Math.min(62, Math.max(0, fight - 220) * 0.010);
+    b.x = NS.W / 2 + Math.sin(fight * 0.018) * 54;
+    b.y = b.targetY + Math.cos(fight * 0.018) * 18 + descent;
+    if (fight % 70 === 0) {
+      aimed(b.x, b.y, p, 1.65);
+      for (var q = 0; q < 4; q++) {
+        var a = q * Math.PI / 2 + b.spin;
+        L.enemyShots.push({ x: b.x, y: b.y, vx: Math.cos(a) * 1.25, vy: Math.sin(a) * 1.25, t: 0, dead: false });
       }
     }
   }
@@ -311,16 +365,84 @@
         type: type, pierce: type !== 'normal', dead: false, hit: {} });
     }
     if (p.missileLv) {
-      var count = p.missileLv + 1;
-      for (i = 0; i < count; i++) {
-        var spread = (i - (count - 1) / 2) * 0.62;
-        L.shots.push({ x: p.x - 2, y: p.y - 7, vx: spread, vy: -3.9 - p.missileLv * 0.25,
-          w: 4, h: 6, dmg: 2, type: 'missile', pierce: false, dead: false, hit: {} });
+      /* The same twin launch stage 1 uses, rotated with the camera. Forward
+         is up here, so the pair splays out toward the left and right banks
+         instead of the ceiling and floor, then crawls along whichever wall it
+         reaches. It was a symmetric spread of straight shots before, which is
+         a different weapon wearing the missile's name. */
+      var salvo = missileSalvo(p);
+      if (countMissiles() + salvo.length <= salvo.length * 2) {
+        for (i = 0; i < salvo.length; i++) launchMissile(salvo[i].x, salvo[i].y, salvo[i].wall, p.missileLv);
+        NS.Audio.sfx.missile();
       }
-      NS.Audio.sfx.missile();
-    } else NS.Audio.sfx[type === 'laser' ? 'laser' : 'shot']();
+    }
+    NS.Audio.sfx[type === 'laser' ? 'laser' : 'shot']();
     return type === 'laser' ? 9 : (type === 'ripple' ? 11 : 6);
   };
+
+  /* One launch point per muzzle, each firing a left/right pair; missile
+     levels above one add further pairs stepped back along the hull. */
+  function missileSalvo(p) {
+    var out = [], i, wall;
+    var muzzles = [{ x: p.x, y: p.y - 2 }];
+    for (i = 0; i < p.options.length; i++) muzzles.push({ x: p.options[i].x, y: p.options[i].y });
+    for (i = 0; i < muzzles.length; i++) {
+      for (wall = -1; wall <= 1; wall += 2) out.push({ x: muzzles[i].x, y: muzzles[i].y, wall: wall });
+    }
+    for (var extra = 1; extra < p.missileLv; extra++) {
+      for (wall = -1; wall <= 1; wall += 2) out.push({ x: p.x, y: p.y + extra * 3, wall: wall });
+    }
+    return out;
+  }
+
+  function countMissiles() {
+    var n = 0;
+    for (var i = 0; i < L.shots.length; i++) {
+      if (!L.shots[i].dead && L.shots[i].type === 'missile') n++;
+    }
+    return n;
+  }
+
+  function launchMissile(x, y, wall, level) {
+    level = NS.clamp(level, 1, 3);
+    L.shots.push({
+      x: x - 2, y: y - 3, w: 5, h: 5, dmg: 2, type: 'missile',
+      pierce: false, dead: false, hit: {},
+      /* the diagonal: equal outward and forward speed, with the outward
+         component still building, so the track bows toward the wall */
+      vx: wall * (1.55 + level * 0.16), vy: -(1.55 + level * 0.16),
+      crawlSpeed: 2.0 + level * 0.42,
+      wall: wall, crawling: false, anim: 0
+    });
+  }
+
+  /* Screen-space x of the wall face on the given side, at a screen y. */
+  function wallAt(wall, y) {
+    var edge = L.edgesAt(L.scrollY + NS.PLAYFIELD_H - y);
+    return wall < 0 ? edge.left : NS.W - edge.right;
+  }
+
+  function updateMissile(m) {
+    m.anim++;
+    if (!m.crawling) {
+      m.x += m.vx;
+      m.y += m.vy;
+      m.vx += m.wall * 0.11;
+      var face = wallAt(m.wall, m.y);
+      if (m.wall < 0 ? m.x <= face : m.x + m.w >= face) {
+        m.crawling = true;
+        m.x = m.wall < 0 ? face : face - m.w;
+        NS.FX.spark(m.x + m.w / 2, m.y, 3, 'fire');
+      }
+    } else {
+      /* hug the bank as it slides past, exactly as the stage 1 crawler
+         hugs the corridor floor */
+      m.y -= m.crawlSpeed;
+      var surf = wallAt(m.wall, m.y - 3);
+      m.x = NS.lerp(m.x, m.wall < 0 ? surf : surf - m.w, 0.5);
+    }
+    if (m.y < -14 || m.x < -14 || m.x > NS.W + 14) m.dead = true;
+  }
 
   function collide(G) {
     var p = G.player, i, j;
@@ -364,7 +486,7 @@
         }
       }
       var fort = L.fortress;
-      if (!s.dead && fort && !fort.dead) {
+      if (!s.dead && fort && !fort.dead && !fort.intro) {
         for (j = 0; j < fort.cores.length; j++) {
           var fc = fort.cores[j]; if (fc.dead || s.hit[fc.id]) continue;
           var fdx = s.x + s.w / 2 - fc.x, fdy = s.y + s.h / 2 - fc.y;
@@ -378,7 +500,7 @@
         }
       }
       var b = L.boss;
-      if (!s.dead && b && !b.dead && !s.hit.boss && b.hitCd <= 0) {
+      if (!s.dead && b && !b.dead && !b.intro && !s.hit.boss && b.hitCd <= 0) {
         var dx = (s.x + s.w / 2) - b.x, dy = (s.y + s.h / 2) - b.y;
         if (dx * dx + dy * dy < b.radius * b.radius) {
           s.hit.boss = 1; b.hitCd = 2;
@@ -416,13 +538,14 @@
       var en = L.enemies[i]; if (en.dead || !en.active) continue;
       if (NS.rectHit(pr, { x: en.x - en.w / 2, y: en.y - en.h / 2, w: en.w, h: en.h })) { killEnemy(en, G); if (!p.hit()) return; }
     }
-    if (L.boss && !L.boss.dead) {
+    if (L.boss && !L.boss.dead && !L.boss.intro) {
       var bx = p.x - L.boss.x, by = p.y - L.boss.y;
       if (bx * bx + by * by < (L.boss.radius + 5) * (L.boss.radius + 5) && !p.hit()) return;
       for (var arm = 0; arm < 4; arm++) {
-        var aa = arm * Math.PI / 2 + L.boss.t * 0.025;
+        var aa = arm * Math.PI / 2 + L.boss.spin;
         for (var seg = 14; seg <= 38; seg += 11) {
-          var ax = L.boss.x + Math.cos(aa) * seg, ay = L.boss.y + Math.sin(aa) * seg;
+          var ax = L.boss.x + Math.cos(aa) * seg * L.boss.deploy,
+              ay = L.boss.y + Math.sin(aa) * seg * L.boss.deploy;
           var adx = p.x - ax, ady = p.y - ay;
           if (adx * adx + ady * ady < 9 * 9 && !p.hit()) return;
         }
@@ -474,7 +597,10 @@
     for (var i = 0; i < L.enemies.length; i++) if (!L.enemies[i].dead) updateEnemy(L.enemies[i], G.player, G);
     updateStructures(G);
     for (i = 0; i < L.shots.length; i++) {
-      var s = L.shots[i]; s.x += s.vx; s.y += s.vy;
+      var s = L.shots[i];
+      if (s.dead) continue;
+      if (s.type === 'missile') { updateMissile(s); continue; }
+      s.x += s.vx; s.y += s.vy;
       if (s.y < -30 || s.x < -20 || s.x > NS.W + 20) s.dead = true;
     }
     for (i = 0; i < L.enemyShots.length; i++) {
@@ -510,10 +636,12 @@
 
   function drawBoss(g, b) {
     if (b.dead && (b.dying >> 2) % 2) return;
-    g.save(); g.translate(b.x, b.y); g.rotate(b.t * 0.025);
+    var dep = b.deploy == null ? 1 : b.deploy;
+    g.save(); g.translate(b.x, b.y); g.rotate(b.spin);
     for (var q = 0; q < 4; q++) {
-      g.rotate(Math.PI / 2); g.fillStyle = '#7a9ab8'; g.fillRect(7, -2, 28, 4);
-      g.fillStyle = '#d8e7ef'; g.beginPath(); g.arc(36, 0, 7, 0, Math.PI * 2); g.fill();
+      g.rotate(Math.PI / 2); g.fillStyle = '#7a9ab8';
+      g.fillRect(7 * dep, -2, Math.max(1, 28 * dep), 4);
+      g.fillStyle = '#d8e7ef'; g.beginPath(); g.arc(36 * dep, 0, 7, 0, Math.PI * 2); g.fill();
     }
     g.restore();
     g.fillStyle = '#273d61'; g.beginPath(); g.arc(b.x, b.y, 22, 0, Math.PI * 2); g.fill();
@@ -553,8 +681,11 @@
     }
     var f = L.fortress;
     if (f && L.phase === 'fortress') {
-      g.fillStyle = '#263c58'; g.fillRect(0, 0, NS.W, 22);
-      g.fillStyle = '#58789b'; for (i = 0; i < 8; i++) g.fillRect(i * 34, 17, 25, 6);
+      /* the plate grinds down into frame during the entrance */
+      var drop = f.drop == null ? 1 : f.drop;
+      var py = 22 * drop;                      // bottom edge of the plate
+      g.fillStyle = '#263c58'; g.fillRect(0, py - 22, NS.W, 22);
+      g.fillStyle = '#58789b'; for (i = 0; i < 8; i++) g.fillRect(i * 34, py - 5, 25, 6);
       for (i = 0; i < f.cores.length; i++) {
         var c = f.cores[i]; if (c.dead) continue;
         g.fillStyle = '#184b78'; g.beginPath(); g.arc(c.x, c.y, 12, 0, Math.PI * 2); g.fill();
@@ -576,7 +707,25 @@
       g.restore();
     }
     for (i = 0; i < L.pickups.length; i++) { var c = L.pickups[i]; var pickupSprite = c.kind === 'crash' ? NS.S.crashCapsule : NS.S.capsule; g.drawImage(pickupSprite[(c.t >> 3) & 1], c.x - 3, c.y - 3); }
-    for (i = 0; i < L.shots.length; i++) { var s = L.shots[i]; g.fillStyle = s.type === 'laser' ? '#8feaff' : '#fff29a'; g.fillRect(s.x, s.y, s.w, s.h); }
+    for (i = 0; i < L.shots.length; i++) {
+      var s = L.shots[i];
+      if (s.type === 'missile') {
+        /* the stage 1 crawler sprite, turned to face the wall it is running
+           along, so the weapon looks the same in both cameras */
+        g.save();
+        g.translate((s.x + s.w / 2) | 0, (s.y + s.h / 2) | 0);
+        g.rotate(s.crawling ? -Math.PI / 2 : (s.wall < 0 ? -Math.PI * 0.75 : -Math.PI * 0.25));
+        g.drawImage(NS.S.missile, -3, -1);
+        g.restore();
+        if ((s.anim & 3) < 2) {
+          g.fillStyle = 'rgba(255,180,80,0.7)';
+          g.fillRect(s.x | 0, (s.y + s.h) | 0, 2, 2);
+        }
+        continue;
+      }
+      g.fillStyle = s.type === 'laser' ? '#8feaff' : '#fff29a';
+      g.fillRect(s.x, s.y, s.w, s.h);
+    }
     for (i = 0; i < L.enemyShots.length; i++) { var es = L.enemyShots[i]; g.drawImage(NS.S.eshot, es.x - 2, es.y - 2); }
     for (i = 0; i < NS.Game.looseOptions.length; i++) { var o = NS.Game.looseOptions[i]; g.drawImage(NS.S.looseOption[(o.t >> 3) & 1], o.x - 2, o.y - 2); }
     if (L.boss) drawBoss(g, L.boss);

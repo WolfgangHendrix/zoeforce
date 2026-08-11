@@ -139,6 +139,7 @@
     NS.Enemies.clearTimers();
     NS.Weapons.reset();
     NS.FX.reset();
+    NS.Intro.stop();
     NS.Level1.reset();
     if (full) G.player.reset(true);
     else G.player.respawn();
@@ -161,6 +162,7 @@
     G.capsules.length = 0;
     G.looseOptions.length = 0;
     NS.Enemies.reset(); NS.Enemies.clearTimers(); NS.Weapons.reset(); NS.FX.reset();
+    NS.Intro.stop();
     NS.Level2.reset();
     G.player.setOrientation('vertical');
     G.player.x = NS.W / 2; G.player.y = NS.PLAYFIELD_H - 28;
@@ -178,6 +180,7 @@
     G.stage = stage; G.scrollX = 0; G.boss = null; G.bossName = '';
     G.capsules.length = 0; G.looseOptions.length = 0;
     NS.Enemies.reset(); NS.Enemies.clearTimers(); NS.Weapons.reset(); NS.FX.reset();
+    NS.Intro.stop();
     NS.Campaign.reset(stage, G);
     G.player.setOrientation(NS.Campaign.spec.orientation === 'vertical' ? 'vertical' : 'side');
     G.player.x = NS.Campaign.horizontal() ? 38 : NS.W / 2;
@@ -293,6 +296,9 @@
     }
 
     if (G.state === 'gameover' || G.state === 'clear') {
+      /* dying mid-entrance must not leave the cut frozen over the results —
+       this branch returns before the intro's own update would run */
+      NS.Intro.stop();
       G.frame++;
       G.clearT++;
       NS.FX.update();
@@ -313,6 +319,9 @@
 
     G.frame++;
     if (G.stageMsg > 0) G.stageMsg--;
+    /* the boss entrance cut runs above every stage's own update, so each of
+       them can read Intro.holding() without owning a copy of the timing */
+    NS.Intro.update();
 
     /* Every stage ends with the ship accelerating in its current forward
        direction before the next horizontal/vertical camera takes over. */
@@ -347,8 +356,11 @@
       if (G.scrollX >= NS.Terrain.BOSS_X) {
         G.scrollX = NS.Terrain.BOSS_X;
         G.boss = new NS.Boss(G);
-        G.bossWarn = 120;
-        NS.Audio.sfx.alarm();
+        G.bossName = bossName();
+        NS.Intro.start({
+          name: bossName(), sub: 'SEALED CHAMBER BREACHED',
+          x: NS.W - 74, y: NS.PLAYFIELD_H / 2, dur: 210, zoom: 0.60
+        });
         NS.Audio.setTrack('boss');
       }
       NS.Level1.update(G.scrollX);
@@ -628,11 +640,15 @@
       NS.FX.draw(g);
     }
 
-    if (G.stageMsg > 0 && G.stageMsg % 30 < 20) {
+    /* the entrance cut owns the frame while it runs: its own letterbox and
+       name plate replace the stage banner and the blinking warning */
+    NS.Intro.draw(g);
+
+    if (G.stageMsg > 0 && G.stageMsg % 30 < 20 && !NS.Intro.active) {
       centerText(stageName(), 74, '#ffd7e6');
       centerText('STAGE ' + G.stage, 60, '#8fd0ff');
     }
-    if (G.bossWarn > 0 && (G.bossWarn >> 3) % 2 === 0) {
+    if (G.bossWarn > 0 && !NS.Intro.active && (G.bossWarn >> 3) % 2 === 0) {
       centerText('!! WARNING !!', 40, '#ff7676');
       centerText(G.bossName || bossName(), 52, '#ffb0b0');
     }
@@ -712,7 +728,19 @@
     }
   }
 
-  /* ---- HUD ------------------------------------------------------------ */
+  /* ---- HUD ------------------------------------------------------------
+     Three columns across 256px, sized so none of them can reach into the
+     next. The meter used to be laid out from a fixed left margin at 27px a
+     slot, which ran it to x=224 — straight through the right-hand stats
+     block, whose longest form ("SP4 M3 OP2 AUTO") starts at x=199. Both
+     ends are now derived from the same constants, so widening one column
+     cannot silently overlap another.
+
+       score/hi    3 .. 40      power meter   MET_X .. MET_X+MET_W
+       stats/lives right-aligned to NS.W-3, never left of STAT_X          */
+  var MET_X = 44, MET_PITCH = 24, MET_W = MET_PITCH * 6;
+  var STAT_X = MET_X + MET_W + 4;
+
   function drawHud() {
     var y = NS.PLAYFIELD_H;
     g.fillStyle = '#0b0d14';
@@ -727,13 +755,12 @@
     g.fillStyle = '#ffe9a0';
     g.fillText(pad(G.player ? G.player.score : 0, 7), 3, y + 7);
     g.fillStyle = '#8fd0ff';
-    g.fillText('HI ' + pad(G.hiScore, 7), 3, y + 14);
+    g.fillText('HI' + pad(G.hiScore, 7), 3, y + 14);
 
     /* power meter */
     var slots = NS.Player.SLOTS;
-    var x0 = 62, sw = 27;
     for (var i = 0; i < slots.length; i++) {
-      var sx = x0 + i * sw;
+      var sx = MET_X + i * MET_PITCH;
       var on = G.player && G.player.sel === i + 1;
       var owned = false;
       if (G.player) {
@@ -745,12 +772,18 @@
         else if (i === 5) owned = G.player.shield > 0;
       }
       g.fillStyle = on ? ((G.frame >> 2) % 2 ? '#ff5a5a' : '#ffa0a0') : (owned ? '#1c3a5c' : '#151a26');
-      g.fillRect(sx, y + 3, sw - 2, 10);
+      g.fillRect(sx, y + 3, MET_PITCH - 2, 10);
       g.strokeStyle = on ? '#ffd0d0' : '#2a3450';
       g.lineWidth = 1;
-      g.strokeRect(sx + 0.5, y + 3.5, sw - 3, 9);
+      g.strokeRect(sx + 0.5, y + 3.5, MET_PITCH - 3, 9);
+      /* the labels are set a size down: MISSILE is seven characters and does
+         not fit a 22px cell at 6px, so at 6px it bled across the divider */
+      g.font = '5px monospace';
+      g.textAlign = 'center';
       g.fillStyle = on ? '#ffffff' : (owned ? '#8fd0ff' : '#4b5673');
-      g.fillText(slots[i], sx + 2, y + 10);
+      g.fillText(slots[i], sx + (MET_PITCH - 2) / 2, y + 10);
+      g.textAlign = 'left';
+      g.font = '6px monospace';
     }
 
     /* option / speed detail + lives */
@@ -764,19 +797,32 @@
       g.fillText('SP' + G.player.speedLv + ' M' + G.player.missileLv +
                  ' OP' + G.player.options.length + tag, NS.W - 3, y + 7);
       g.fillStyle = '#ff9ec0';
+      /* a long extra-life run would otherwise grow the row of ships back
+         into the meter, so past four it becomes a count */
+      var lives = Math.max(0, G.player.lives);
       var l = '';
-      for (var k = 0; k < Math.max(0, G.player.lives); k++) l += '▲';
+      if (lives <= 4) { for (var k = 0; k < lives; k++) l += '▲'; }
+      else l = '▲x' + lives;
       g.fillText(l, NS.W - 3, y + 14);
     }
     g.textAlign = 'left';
 
-    /* boss life bar sits just above the HUD while the boss is alive */
-    if (G.boss && G.boss.state !== 'dying') {
+    /* boss life bar sits just above the HUD while the boss is alive, and
+       stays out of the way until the entrance cut has finished */
+    if (G.boss && G.boss.state !== 'dying' &&
+        !(NS.Intro && NS.Intro.active)) {
       var pct = NS.clamp(G.boss.hp / G.boss.maxHp, 0, 1);
+      var bw = 136, bx = (NS.W - bw) / 2;
       g.fillStyle = '#3a0d18';
-      g.fillRect(60, y - 6, 136, 4);
+      g.fillRect(bx, y - 7, bw, 5);
       g.fillStyle = pct > 0.45 ? '#ff5a7a' : '#ffca3a';
-      g.fillRect(61, y - 5, Math.round(134 * pct), 2);
+      g.fillRect(bx + 1, y - 6, Math.round((bw - 2) * pct), 3);
+      g.fillStyle = '#ffb0b0';
+      g.font = '5px monospace';
+      g.textAlign = 'right';
+      g.fillText(G.bossName || bossName(), bx - 3, y - 3);
+      g.textAlign = 'left';
+      g.font = '6px monospace';
     }
   }
 

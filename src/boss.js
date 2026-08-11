@@ -6,7 +6,7 @@
 
   function Boss(game) {
     this.game = game;
-    this.x = NS.W + 70;
+    this.x = ENTER_X;
     this.y = NS.PLAYFIELD_H / 2;
     this.targetX = NS.W - 74;
     this.hp = 70;
@@ -25,6 +25,14 @@
     this.tentacle = 0;
   }
   NS.Boss = Boss;
+
+  /* Entrance geometry. The mass starts well outside the chamber mouth,
+     hauls itself in past its own station to loom over the corridor, then
+     draws back onto that station as the name locks in. LUNGE is how far
+     past the station it comes. */
+  var ENTER_X = NS.W + 96;
+  var LUNGE = 28;
+  function ease(u) { return u < 0 ? 0 : (u > 1 ? 1 : u * u * (3 - 2 * u)); }
 
   Boss.prototype.coreRect = function () {
     return { x: this.x - 6, y: this.y - 6, w: 12, h: 12 };
@@ -64,8 +72,7 @@
 
     switch (this.state) {
       case 'enter':
-        this.x = NS.lerp(this.x, this.targetX, 0.05);
-        if (Math.abs(this.x - this.targetX) < 1.5) { this.x = this.targetX; this.setState('idle'); }
+        this.enter();
         break;
 
       case 'idle':
@@ -108,6 +115,59 @@
   };
 
   Boss.prototype.setState = function (s) { this.state = s; this.stateT = 0; };
+
+  /* ---- entrance --------------------------------------------------------
+     Timed off NS.Intro rather than off its own clock, so the shell settles
+     onto its station on exactly the frame the name plate locks in. When the
+     cut is not running (a debug warp straight into the fight, say) it falls
+     back to its own ramp and plays out the same shape in the same time. */
+  Boss.prototype.enter = function () {
+    var k = NS.Intro.active ? NS.Intro.k() : NS.clamp(this.stateT / 150, 0, 1);
+    var lungeX = this.targetX - LUNGE;
+
+    if (k < 0.58) this.x = NS.lerp(ENTER_X, lungeX, ease(k / 0.58));
+    else if (k < 0.80) this.x = lungeX;                 // hangs there, cracking open
+    else this.x = NS.lerp(lungeX, this.targetX, ease((k - 0.80) / 0.20));
+
+    /* the eye cracks open while it looms, then seals again as it withdraws —
+       a look at what you are fighting, and a promise you cannot hit it yet */
+    this.eyeOpen = k > 0.52 && k < 0.86
+      ? Math.sin((k - 0.52) / 0.34 * Math.PI) * 0.9
+      : 0;
+
+    /* debris shaken off the chamber seal as it forces its way through */
+    if (k < 0.62 && this.t % 9 === 0) {
+      NS.FX.spark(this.x - 18 + Math.random() * 44,
+                  this.y + (Math.random() - 0.5) * 78, 3, 'fire');
+    }
+    if (k > 0.52 && k < 0.86 && this.t % 13 === 0) NS.Audio.sfx.hit();
+
+    if (k >= 1) {
+      this.x = this.targetX;
+      this.eyeOpen = 0;
+      NS.FX.explode(this.x, this.y, 2.4, 'fire');
+      NS.Audio.sfx.explode();
+      this.setState('idle');
+    }
+  };
+
+  /* The wall tendrils, as sampled points along each strand. Both renderers
+     walk this, so the 2D curve and the voxel chain cannot drift apart. */
+  Boss.prototype.eachTendril = function (steps, fn) {
+    var cx = this.x, cy = this.y + this.bob;
+    for (var i = 0; i < 5; i++) {
+      var ty = cy - 34 + i * 17;
+      var x0 = cx + 24, y0 = ty;
+      var x1 = cx + 44 + Math.sin(this.tentacle + i) * 5;
+      var y1 = ty + Math.cos(this.tentacle * 1.3 + i) * 9;
+      var x2 = NS.W + 6, y2 = ty + Math.sin(this.tentacle + i * 2) * 6;
+      for (var s = 0; s <= steps; s++) {
+        var u = s / steps, v = 1 - u;
+        fn(v * v * x0 + 2 * v * u * x1 + u * u * x2,
+           v * v * y0 + 2 * v * u * y1 + u * u * y2, i, u);
+      }
+    }
+  };
 
   /* When the core is damageable, as a frame window measured from now.
      The shell cycle is fully deterministic, so this is exact — the assist
@@ -179,7 +239,9 @@
 
   /* returns true when the shot actually damaged the core */
   Boss.prototype.tryHit = function (rect, dmg, game) {
-    if (this.state === 'dying') return false;
+    /* nothing lands during the entrance cut — the eye is showing itself, not
+       exposed, and the fight has not started */
+    if (this.state === 'dying' || this.state === 'enter') return false;
 
     /* cells first */
     for (var i = 0; i < this.cells.length; i++) {
@@ -231,7 +293,9 @@
 
   /* solid parts that kill the player on contact */
   Boss.prototype.eachHazard = function (fn) {
-    if (this.state === 'dying') return;
+    /* the entrance cannot kill you either: the shell sweeps across ground the
+       player is standing on, and taking a life for that would be a cheat */
+    if (this.state === 'dying' || this.state === 'enter') return;
     var b = this.bodyRect();
     b.y += this.bob;
     fn(b.x, b.y, b.w, b.h);
@@ -248,17 +312,16 @@
     /* writhing tendrils anchored to the chamber wall behind the body */
     g.strokeStyle = '#7a2440';
     g.lineWidth = 2;
-    for (var i = 0; i < 5; i++) {
-      var ty = cy - 34 + i * 17;
-      g.beginPath();
-      g.moveTo(cx + 24, ty);
-      g.quadraticCurveTo(
-        cx + 44 + Math.sin(this.tentacle + i) * 5,
-        ty + Math.cos(this.tentacle * 1.3 + i) * 9,
-        NS.W + 6, ty + Math.sin(this.tentacle + i * 2) * 6
-      );
-      g.stroke();
-    }
+    var strand = -1;
+    this.eachTendril(10, function (tx, ty, index) {
+      if (index !== strand) {
+        if (strand >= 0) g.stroke();
+        strand = index;
+        g.beginPath();
+        g.moveTo(tx, ty);
+      } else g.lineTo(tx, ty);
+    });
+    if (strand >= 0) g.stroke();
 
     /* main mass: layered blobs */
     var flash = this.hitFlash > 0;
