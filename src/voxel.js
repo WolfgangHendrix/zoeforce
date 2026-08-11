@@ -38,6 +38,7 @@
   var failMsg = '';
 
   var renderer, scene, camera, canvasEl;
+  var keyLight = null, rimLight = null;
   var pools = {};           // sprite key -> InstancedMesh pool
   var terrainMesh = null, terrainDummy = null;
   var lightRig = null;
@@ -59,6 +60,95 @@
 
   /* voxel edge length in sim pixels — 1 keeps sprite pixels square */
   var VOX = 1;
+
+  /* ---- art direction ---------------------------------------------------
+     Two hues per stage, and a rule about which layer may use which.
+
+     `world` dresses the terrain and the backdrop. `accent` sits roughly 150
+     degrees away and is reserved for the interactive layer — the rim light,
+     the wet glints on the wall, and the halos on things you shoot. One hue
+     plus black reads as a colour filter over the whole game; two hues, used
+     with discipline about where each is allowed to appear, read as design.
+
+     `sky` is the backdrop gradient, top to bottom, and it is also the fog
+     colour, so the far end of the corridor dissolves into the backdrop
+     instead of clipping against a black void.
+
+     The stage 2 fortress and the mid-stage theme changes get their own
+     entries, because the room changing colour is the point of them. */
+  var PALETTE = {
+    1:  { world: '#8d2a4a', accent: '#4fe6a0', sky: ['#46183a', '#0d0610'] },
+    2:  { world: '#7d2e2a', accent: '#46c8ff', sky: ['#4a1c13', '#0e0708'] },
+    '2f': { world: '#354f6b', accent: '#ffb347', sky: ['#21405e', '#060c16'] },
+    3:  { world: '#9f2c12', accent: '#2fd4c4', sky: ['#551c0b', '#110605'] },
+    4:  { world: '#7b294f', accent: '#9ce85a', sky: ['#42193a', '#0d0610'] },
+    5:  { world: '#7b6a38', accent: '#6aa8ff', sky: ['#423a1e', '#0e0c0b'] },
+    6:  { world: '#344b62', accent: '#ff8a3d', sky: ['#1d3850', '#050a12'] }
+  };
+
+  /* How far each depth slice of the wall falls off, against a base value
+     already pulled well down from the flat art. The corridor is scenery: it
+     has to lose the contrast fight with everything that can kill you. */
+  var SLAB_FALLOFF = [1.0, 0.72, 0.50, 0.33];
+  var WORLD_VALUE = 0.78;      // terrain lightness, as a fraction of the hue's
+  var WORLD_SAT = 0.70;        // terrain saturation, likewise
+
+  var palKey = null;           // which PALETTE entry is currently applied
+  var pal = null;              // { slabs: [Color], accent: Color, ... }
+
+  /* Deterministic per-column grain for the near face of the wall. A surface
+     this large rendered at one flat value reads as painted scenery no matter
+     how good the colour is; a few percent of variation per column gives it
+     grain without touching the palette or costing a texture. */
+  function grain(w) {
+    var v = Math.sin(w * 12.9898) * 43758.5453;
+    return 0.88 + 0.20 * (v - Math.floor(v));
+  }
+
+  function gradeWorld(hex) {
+    var base = new THREE.Color(hex), hsl = {};
+    base.getHSL(hsl);
+    var slabs = [];
+    for (var i = 0; i < SLAB_FALLOFF.length; i++) {
+      var c = new THREE.Color();
+      c.setHSL(hsl.h, hsl.s * WORLD_SAT, hsl.l * WORLD_VALUE * SLAB_FALLOFF[i]);
+      slabs.push(c);
+    }
+    return slabs;
+  }
+
+  /* Which PALETTE entry a given frame wants. Stage 2 swaps to its fortress
+     palette when the fortress phase starts, which is the only mid-stage
+     change in the game. */
+  function paletteFor(G) {
+    if (G.stage === 2 && NS.Level2.phase === 'fortress') return '2f';
+    return PALETTE[G.stage] ? G.stage : 1;
+  }
+
+  function applyPalette(key) {
+    if (key === palKey) return;
+    palKey = key;
+    var entry = PALETTE[key] || PALETTE[1];
+    pal = {
+      slabs: gradeWorld(entry.world),
+      accent: new THREE.Color(entry.accent),
+      skyTop: new THREE.Color(entry.sky[0]),
+      skyBottom: new THREE.Color(entry.sky[1])
+    };
+    if (scene) {
+      /* The fog has to end on the colour the backdrop is actually painted
+         where the two meet — the horizon, not the darkest corner of it.
+         Fogging to the bottom tone turned the far corridor into a
+         silhouette against a lighter sky, which is the opposite of the
+         dissolve we want. */
+      pal.fog = pal.skyBottom.clone().lerp(pal.skyTop, 0.42);
+      scene.fog.color.copy(pal.fog);
+      scene.background.copy(pal.skyBottom);
+    }
+    if (rimLight) rimLight.color.copy(pal.accent);
+    if (keyLight) keyLight.color.setHex(0xfff2e6);
+    paintBackdrop();
+  }
 
   V.active = function () { return state === 'on'; };
   V.status = function () { return state; };
@@ -179,12 +269,19 @@
      instance carries its own colour. Several campaign bosses are drawn from
      the same stand-in sprite, so without this they all inherit that sprite's
      palette — which is why they were all purple. */
-  function pool(key, canvas, depth, cap, tint) {
+  function pool(key, canvas, depth, cap, tint, glow) {
     var p = pools[key];
     if (p) return p;
     var geo = buildSpriteGeometry(canvas, depth, ROUND.test(key), !!tint);
     if (!geo) { pools[key] = { mesh: null, used: 0, cap: 0 }; return pools[key]; }
-    var mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    /* GLOW marks the gameplay layer: shots, pickups, weak points. Those are
+       drawn unlit, so they keep their full painted brightness while the lit
+       world around them sits in shadow. After the ambient cut that one flag
+       is what makes the things that matter the brightest pixels on screen —
+       no post-processing, no bloom pass, no per-frame cost. */
+    var mat = glow
+      ? new THREE.MeshBasicMaterial({ vertexColors: true })
+      : new THREE.MeshLambertMaterial({ vertexColors: true });
     var n = cap || 96;
     var mesh = new THREE.InstancedMesh(geo, mat, n);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -215,7 +312,7 @@
   function place(key, canvas, x, y, layer, opt) {
     opt = opt || {};
     var L = LAYER[layer] || LAYER.enemy;
-    var p = pool(key, canvas, opt.depth || L.d, opt.cap, opt.tint);
+    var p = pool(key, canvas, opt.depth || L.d, opt.cap, opt.tint, opt.glow);
     if (!p.mesh || p.used >= p.cap) return;
 
     dummy.position.set(
@@ -261,7 +358,7 @@
      ====================================================================== */
   var primPools = {};
 
-  function primPool(key, build, cap) {
+  function primPool(key, build, cap, glow) {
     var p = primPools[key];
     if (p) return p;
     var geo = build();
@@ -269,7 +366,8 @@
     whiteColors(geo);
     var n = cap || 8;
     var mesh = new THREE.InstancedMesh(
-      geo, new THREE.MeshLambertMaterial({ vertexColors: true }), n);
+      geo, glow ? new THREE.MeshBasicMaterial({ vertexColors: true })
+                : new THREE.MeshLambertMaterial({ vertexColors: true }), n);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
     mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
@@ -298,24 +396,24 @@
   function vbox(key, x, y, z, w, h, d, tint, o) {
     putPrim(primPool('B:' + key,
       function () { return new THREE.BoxGeometry(w, h, d); },
-      o && o.cap), x, y, z, tint, o);
+      o && o.cap, o && o.glow), x, y, z, tint, o);
   }
 
   function vell(key, x, y, z, rx, ry, rz, tint, o) {
     putPrim(primPool('E:' + key,
       function () { return ellipsoidGeometry(rx, ry, rz, Math.max(1, Math.min(3, rx / 4))); },
-      o && o.cap), x, y, z, tint, o);
+      o && o.cap, o && o.glow), x, y, z, tint, o);
   }
 
   function vball(key, x, y, z, r, tint, o) { vell(key, x, y, z, r, r, r, tint, o); }
 
   /* A ring of cubes, which is how the flat renderer's stroked circles (boss
      shields, core halos) survive the trip into a world made of boxes. */
-  function vring(key, x, y, z, radius, cube, tint, seg, phase, cap) {
+  function vring(key, x, y, z, radius, cube, tint, seg, phase, cap, glow) {
     for (var i = 0; i < seg; i++) {
       var a = (i / seg) * Math.PI * 2 + phase;
       vbox(key, x + Math.cos(a) * radius, y + Math.sin(a) * radius, z,
-           cube, cube, cube, tint, { rz: -a, cap: cap || seg + 2 });
+           cube, cube, cube, tint, { rz: -a, cap: cap || seg + 2, glow: glow });
     }
   }
 
@@ -359,16 +457,6 @@
     terrainDummy = new THREE.Object3D();
   }
 
-  /* Wall colours by depth slice: the near face keeps the wet highlight of
-     the 2D art, and each slice further back goes darker, which is what
-     sells the corridor as having thickness. */
-  var SLAB_TINT = [
-    [0.84, 0.34, 0.50],
-    [0.58, 0.19, 0.35],
-    [0.37, 0.11, 0.24],
-    [0.20, 0.06, 0.14]
-  ];
-
   function updateTerrain(scrollX, time) {
     if (!terrainMesh) return;
     var n = 0;
@@ -387,7 +475,7 @@
         /* deeper slices pull back from the corridor mouth, so the tunnel
            visibly opens away from the camera instead of being a flat box */
         var inset = s * 1.6;
-        var t = SLAB_TINT[s];
+        var t = pal.slabs[s];
 
         // ceiling slab
         var ch = ty + inset;
@@ -396,9 +484,13 @@
           terrainDummy.scale.set(1.02, ch, slabD * 0.98);
           terrainDummy.updateMatrix();
           terrainMesh.setMatrixAt(n, terrainDummy.matrix);
-          col.setRGB(t[0], t[1], t[2]);
+          col.copy(t);
+          if (s < 2) col.multiplyScalar(grain(wx + s * 37));
+          /* the wet glints are where the stage's second hue touches the
+             world layer — sparse, on the near face only, and never bright
+             enough to be mistaken for something you can shoot */
           if (s === 0 && ((wx * 7) & 255) > 232) {
-            col.offsetHSL(0, 0, 0.10 + 0.10 * pulse);   // capillary glint
+            col.lerp(pal.accent, 0.16 + 0.13 * pulse);
           }
           terrainMesh.setColorAt(n, col);
           n++;
@@ -412,9 +504,10 @@
           terrainDummy.scale.set(1.02, fh, slabD * 0.98);
           terrainDummy.updateMatrix();
           terrainMesh.setMatrixAt(n, terrainDummy.matrix);
-          col.setRGB(t[0], t[1], t[2]);
+          col.copy(t);
+          if (s < 2) col.multiplyScalar(grain(wx * 1.7 + s * 91));
           if (s === 0 && ((wx * 13) & 255) > 236) {
-            col.offsetHSL(0, 0, 0.10 + 0.10 * pulse);
+            col.lerp(pal.accent, 0.16 + 0.13 * pulse);
           }
           terrainMesh.setColorAt(n, col);
           n++;
@@ -426,8 +519,16 @@
     if (terrainMesh.instanceColor) terrainMesh.instanceColor.needsUpdate = true;
   }
 
+  /* The ascent crosses from volcanic rock into the fortress, so it needs both
+     palettes on screen at once: the wall ahead has already changed colour
+     while the wall behind the ship has not. */
+  var rockSlabs = null, fortSlabs = null;
   function updateTerrain2(scrollY, time) {
     if (!terrainMesh) return;
+    if (!fortSlabs) {
+      rockSlabs = gradeWorld(PALETTE[2].world);
+      fortSlabs = gradeWorld(PALETTE['2f'].world);
+    }
     var n = 0, col = new THREE.Color();
     for (var sy = -TERRAIN_MARGIN; sy < NS.PLAYFIELD_H + TERRAIN_MARGIN; sy++) {
       var wy = scrollY + NS.PLAYFIELD_H - sy;
@@ -437,14 +538,12 @@
         var slabD = LAYER.terrain.d / TERRAIN_SLABS;
         var z = LAYER.terrain.z + slabD * (s + 0.5);
         var inset = s * 1.3;
-        var tint = fortress
-          ? [[0.34, 0.48, 0.62], [0.24, 0.36, 0.49], [0.16, 0.26, 0.37], [0.09, 0.15, 0.23]][s]
-          : SLAB_TINT[s];
+        col.copy((fortress ? fortSlabs : rockSlabs)[s]);
+        if (s < 2) col.multiplyScalar(grain(wy + s * 53));
         var lw = Math.max(1, edge.left + inset + TERRAIN_MARGIN);
         terrainDummy.position.set((edge.left + inset - TERRAIN_MARGIN) / 2, simY(sy + 0.5), z);
         terrainDummy.scale.set(lw, 1.03, slabD * 0.98); terrainDummy.updateMatrix();
         terrainMesh.setMatrixAt(n, terrainDummy.matrix);
-        col.setRGB(tint[0] + (fortress ? 0 : 0.08), tint[1] + 0.01, tint[2] - (fortress ? 0 : 0.04));
         terrainMesh.setColorAt(n++, col);
         var rw = Math.max(1, edge.right + inset + TERRAIN_MARGIN);
         terrainDummy.position.set(NS.W + (TERRAIN_MARGIN - edge.right - inset) / 2, simY(sy + 0.5), z);
@@ -458,14 +557,13 @@
 
   function updateCampaignTerrain(C) {
     if (!terrainMesh) return;
-    var n=0,col=new THREE.Color(),theme=C.spec.theme;
-    var rgb=theme==='fire'?[0.72,0.18,0.05]:theme==='cell'?[0.48,0.14,0.31]:theme==='temple'?[0.42,0.36,0.17]:[0.20,0.31,0.42];
+    var n=0,col=new THREE.Color(),slabs=pal.slabs;
     if(C.horizontal()){
       for(var sx=-TERRAIN_MARGIN;sx<NS.W+TERRAIN_MARGIN;sx++){
         var b=C.bounds(C.scroll+sx);
         for(var s=0;s<TERRAIN_SLABS;s++){
           var d=LAYER.terrain.d/TERRAIN_SLABS,z=LAYER.terrain.z+d*(s+.5),inset=s*1.2;
-          var th=b.a+inset;terrainDummy.position.set(sx+.5,simY(th/2),z);terrainDummy.scale.set(1.03,th,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);col.setRGB(rgb[0]/(1+s*.25),rgb[1]/(1+s*.25),rgb[2]/(1+s*.25));terrainMesh.setColorAt(n++,col);
+          var th=b.a+inset;terrainDummy.position.set(sx+.5,simY(th/2),z);terrainDummy.scale.set(1.03,th,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);col.copy(slabs[s]);if(s<2)col.multiplyScalar(grain(C.scroll+sx+s*53));terrainMesh.setColorAt(n++,col);
           var bh=NS.PLAYFIELD_H-b.z+inset;terrainDummy.position.set(sx+.5,simY(b.z+bh/2),z);terrainDummy.scale.set(1.03,bh,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);terrainMesh.setColorAt(n++,col);
         }
       }
@@ -474,7 +572,7 @@
         b=C.bounds(C.scroll+NS.PLAYFIELD_H-sy);
         for(s=0;s<TERRAIN_SLABS;s++){
           d=LAYER.terrain.d/TERRAIN_SLABS;z=LAYER.terrain.z+d*(s+.5);inset=s*1.2;
-          var lw=b.a+inset+TERRAIN_MARGIN;terrainDummy.position.set((b.a+inset-TERRAIN_MARGIN)/2,simY(sy+.5),z);terrainDummy.scale.set(lw,1.03,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);col.setRGB(rgb[0]/(1+s*.25),rgb[1]/(1+s*.25),rgb[2]/(1+s*.25));terrainMesh.setColorAt(n++,col);
+          var lw=b.a+inset+TERRAIN_MARGIN;terrainDummy.position.set((b.a+inset-TERRAIN_MARGIN)/2,simY(sy+.5),z);terrainDummy.scale.set(lw,1.03,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);col.copy(slabs[s]);if(s<2)col.multiplyScalar(grain(C.scroll+NS.PLAYFIELD_H-sy+s*53));terrainMesh.setColorAt(n++,col);
           var rw=NS.W-b.z+inset+TERRAIN_MARGIN;terrainDummy.position.set(NS.W+(TERRAIN_MARGIN-(NS.W-b.z)-inset)/2,simY(sy+.5),z);terrainDummy.scale.set(rw,1.03,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);terrainMesh.setColorAt(n++,col);
         }
       }
@@ -501,15 +599,33 @@
     camera.lookAt(NS.W * 0.5, NS.PLAYFIELD_H * 0.5, -10);
     frameCorridor();
 
+    /* ---- the light rig ------------------------------------------------
+       The old rig was a white key over an ambient of 1.5, and that ambient
+       was the whole problem: it filled in exactly the shadows that describe
+       a cube's form, so every model rendered as a flat silhouette in its own
+       colour. Voxel work lives or dies on the shading across faces.
+
+       So: ambient down to a quarter of what it was, a warm key doing the
+       modelling, and — the part that actually matters — a rim light behind
+       and below in the stage's accent hue. A rim draws a bright edge along
+       every cube silhouette facing away from the key, and that edge is the
+       difference between a blob and a sculpted object. It is also where the
+       stage's second hue enters the picture, on the geometry rather than on
+       a filter over it. */
     lightRig = new THREE.Group();
-    var key = new THREE.DirectionalLight(0xffe8f2, 2.0);
-    key.position.set(0.4, 0.9, 1.0);
-    lightRig.add(key);
-    var fill = new THREE.DirectionalLight(0x6fa0ff, 0.7);
-    fill.position.set(-0.8, -0.3, 0.5);
+    keyLight = new THREE.DirectionalLight(0xfff2e6, 2.4);
+    keyLight.position.set(0.45, 0.85, 0.9);
+    lightRig.add(keyLight);
+    var fill = new THREE.DirectionalLight(0x5f86c8, 0.40);
+    fill.position.set(-0.9, -0.2, 0.45);
     lightRig.add(fill);
+    rimLight = new THREE.DirectionalLight(0x4fe6a0, 1.75);
+    rimLight.position.set(-0.55, -0.75, -1.0);
+    lightRig.add(rimLight);
     scene.add(lightRig);
-    scene.add(new THREE.AmbientLight(0x404a66, 1.5));
+    /* a quarter of the old ambient: enough that an unlit face is still
+       readable, far too little to fill in the shading that describes it */
+    scene.add(new THREE.AmbientLight(0x33405e, 0.58));
 
     /* a warm point light riding with the ship, so the corridor lights up
        around you as you move through it */
@@ -529,12 +645,23 @@
   var MOTE_COUNT = 150;
 
   function buildBackdrop() {
-    backWall = new THREE.Mesh(
-      new THREE.PlaneGeometry(NS.W * 3.2, NS.PLAYFIELD_H * 3.2),
-      new THREE.MeshBasicMaterial({ color: 0x1d0c18 })
-    );
+    /* A flat dark plate here left the centre of every frame reading as pure
+       black — objects in a void rather than a place. A vertical gradient in
+       the stage palette costs one extra attribute and gives the corridor
+       something to sit in front of; the fog is set to the same bottom colour
+       so distant geometry dissolves into it instead of ending on an edge. */
+    var geo = new THREE.PlaneGeometry(NS.W * 3.2, NS.PLAYFIELD_H * 3.2, 1, 12);
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(
+      new Float32Array(geo.attributes.position.count * 3), 3));
+    /* fog:false is load-bearing. This plane sits ~450 units out, well past
+       the fog's far distance, so with fog on it was being washed entirely to
+       the fog colour and the gradient never appeared — the void stayed black
+       no matter what was painted into it. */
+    backWall = new THREE.Mesh(geo,
+      new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }));
     backWall.position.set(NS.W * 0.5, NS.PLAYFIELD_H * 0.5, LAYER.backdrop.z - 30);
     scene.add(backWall);
+    paintBackdrop();
 
     var rng = NS.makeRng(0xC0FFEE);
     motes.length = 0;
@@ -559,6 +686,27 @@
     moteMesh.frustumCulled = false;
     scene.add(moteMesh);
     moteDummy = new THREE.Object3D();
+  }
+
+  /* Repaint the gradient into the plane's vertex colours. Called once per
+     palette change, never per frame. */
+  function paintBackdrop() {
+    if (!backWall || !pal) return;
+    var pos = backWall.geometry.attributes.position;
+    var col = backWall.geometry.attributes.color;
+    var h = NS.PLAYFIELD_H * 3.2, mix = new THREE.Color();
+    for (var i = 0; i < pos.count; i++) {
+      /* The plane is 3.2x the playfield so it still covers the frame from
+         180 units back, which means only its middle ~55% is ever on screen.
+         Ramping across the whole plane therefore produced a near-constant
+         mid-tone — a flat wash, not a gradient. Compress the ramp into the
+         band that is actually visible and it reads as a lit space. */
+      var v = pos.getY(i) / h + 0.5;
+      var u = NS.clamp((v - 0.22) / 0.56, 0, 1);
+      mix.copy(pal.skyBottom).lerp(pal.skyTop, Math.pow(u, 1.35));
+      col.setXYZ(i, mix.r, mix.g, mix.b);
+    }
+    col.needsUpdate = true;
   }
 
   function updateBackdrop(scroll, vertical) {
@@ -586,7 +734,9 @@
       moteDummy.rotation.set(m.p * 0.3, m.p * 0.2, 0);
       moteDummy.updateMatrix();
       moteMesh.setMatrixAt(i, moteDummy.matrix);
-      col.setHex(m.c);
+      /* background dust is scenery: held well down so it cannot be confused
+         with a pickup or a bullet at a glance */
+      col.setHex(m.c).multiplyScalar(0.42);
       moteMesh.setColorAt(i, col);
     }
     moteMesh.count = motes.length;
@@ -612,7 +762,7 @@
       if (c.dead) continue;
       var cs = NS.S.capsule[(c.t >> 3) & 1];
       place('capsule' + ((c.t >> 3) & 1), cs, c.x, c.y, 'capsule',
-            { rz: Math.sin((c.t + i * 9) * 0.06) * 0.35, cap: 32 });
+            { rz: Math.sin((c.t + i * 9) * 0.06) * 0.35, cap: 32, glow: true });
     }
 
     /* Options released by a dead ship are real green voxel pickups too. */
@@ -621,7 +771,7 @@
       if (lo.dead) continue;
       var lf = (lo.t >> 3) & 1;
       place('looseOption' + lf, NS.S.looseOption[lf], lo.x - 2, lo.y - 2,
-            'capsule', { ry: lo.t * 0.055, cap: 16 });
+            'capsule', { ry: lo.t * 0.055, cap: 16, glow: true });
     }
 
     /* enemies — each kind maps to the same sprite the 2D renderer uses,
@@ -704,16 +854,17 @@
       var p = W.player[i];
       if (p.dead) continue;
       if (p.type === 'normal') {
-        place('shot', NS.S.shot, p.x, p.y, 'shot', { sx: 1, sz: 1.5, cap: 96 });
+        place('shot', NS.S.shot, p.x, p.y, 'shot', { sx: 1, sz: 1.5, cap: 96, glow: true });
       } else if (p.type === 'missile') {
         place('missile', NS.S.missile, p.x, p.y, 'shot',
-              { rx: p.anim * 0.3, cap: 32 });
+              { rx: p.anim * 0.3, cap: 32, glow: true });
       } else if (p.type === 'ripple') {
         place('ripple', NS.S.spore, p.x - p.r, p.y - p.r, 'shot',
-              { sx: p.r / 3, sy: p.r / 3, sz: 0.6, ry: p.x * 0.05, cap: 48 });
+              { sx: p.r / 3, sy: p.r / 3, sz: 0.6, ry: p.x * 0.05, cap: 48,
+                tint: '#7fe9ff', glow: true });
       } else if (p.type === 'laser') {
         place('laserSeg', NS.S.shot, p.x, p.y, 'shot',
-              { sx: p.w / 6, sy: 2, sz: 2, cap: 48 });
+              { sx: p.w / 6, sy: 2, sz: 2, cap: 48, glow: true });
       }
     }
     for (i = 0; i < W.enemy.length; i++) {
@@ -721,7 +872,7 @@
       if (es.dead) continue;
       place('eshot', NS.S.eshot, es.x, es.y, 'shot',
             { ry: es.t * 0.25, sx: es.big ? 1.5 : 1, sy: es.big ? 1.5 : 1,
-              sz: es.big ? 1.5 : 1, cap: 128 });
+              sz: es.big ? 1.5 : 1, cap: 128, glow: true });
     }
 
     /* the ship, its Options and its exhaust */
@@ -795,16 +946,16 @@
       for (i = 0; i < fort.cores.length; i++) {
         var fc = fort.cores[i]; if (fc.dead) continue;
         vball('v2fortCore', fc.x, fc.y, fz, 12, '#184b78', { cap: 4, ry: fort.t * 0.02 });
-        vball('v2fortPip', fc.x, fc.y, fz + 13, 5, '#ff7b4c', { cap: 4 });
+        vball('v2fortPip', fc.x, fc.y, fz + 13, 5, '#ff7b4c', { cap: 4, glow: true });
         if (fc.shield > 0) {
           vring('v2fortShield', fc.x, fc.y, fz + 4, 15, 2.6, '#8ee8ff',
-                14, fort.t * 0.03 + i, 48);
+                14, fort.t * 0.03 + i, 48, true);
         }
       }
       for (i = 0; i < fort.balls.length; i++) {
         var ball = fort.balls[i];
         vball('v2fortBall', ball.x, ball.y, LAYER.hazard.z + 6, 5, '#8fcaff',
-              { cap: 8, ry: ball.t * 0.12, rx: ball.t * 0.09 });
+              { cap: 8, ry: ball.t * 0.12, rx: ball.t * 0.09, glow: true });
       }
     }
 
@@ -820,11 +971,11 @@
     for (i = 0; i < L.pickups.length; i++) {
       var c = L.pickups[i]; if (c.dead) continue;
       var cp = c.kind === 'crash' ? NS.S.crashCapsule : NS.S.capsule;
-      place((c.kind === 'crash' ? 'crash' : 'capsule') + ((c.t >> 3) & 1), cp[(c.t >> 3) & 1], c.x - 3, c.y - 3, 'capsule', { ry: c.t * 0.06, cap: 32 });
+      place((c.kind === 'crash' ? 'crash' : 'capsule') + ((c.t >> 3) & 1), cp[(c.t >> 3) & 1], c.x - 3, c.y - 3, 'capsule', { ry: c.t * 0.06, cap: 32, glow: true });
     }
     for (i = 0; i < G.looseOptions.length; i++) {
       var o = G.looseOptions[i]; if (o.dead) continue;
-      place('looseOption' + ((o.t >> 3) & 1), NS.S.looseOption[(o.t >> 3) & 1], o.x - 2, o.y - 2, 'capsule', { ry: o.t * 0.05, cap: 16 });
+      place('looseOption' + ((o.t >> 3) & 1), NS.S.looseOption[(o.t >> 3) & 1], o.x - 2, o.y - 2, 'capsule', { ry: o.t * 0.05, cap: 16, glow: true });
     }
     for (i = 0; i < L.shots.length; i++) {
       var s = L.shots[i]; if (s.dead) continue;
@@ -833,14 +984,14 @@
            is running along */
         place('missile', NS.S.missile, s.x, s.y, 'shot',
               { rz: s.crawling ? Math.PI / 2 : (s.wall < 0 ? Math.PI * 0.75 : Math.PI * 0.25),
-                rx: s.anim * 0.3, cap: 48 });
+                rx: s.anim * 0.3, cap: 48, glow: true });
         continue;
       }
-      place('shot', NS.S.shot, s.x - 1, s.y, 'shot', { rz: Math.PI / 2, sy: s.type === 'laser' ? 3 : 1, cap: 128 });
+      place('shot', NS.S.shot, s.x - 1, s.y, 'shot', { rz: Math.PI / 2, sy: s.type === 'laser' ? 3 : 1, cap: 128, glow: true });
     }
     for (i = 0; i < L.enemyShots.length; i++) {
       var es = L.enemyShots[i]; if (es.dead) continue;
-      place('eshot', NS.S.eshot, es.x - 2, es.y - 2, 'shot', { ry: es.t * 0.2, cap: 128 });
+      place('eshot', NS.S.eshot, es.x - 2, es.y - 2, 'shot', { ry: es.t * 0.2, cap: 128, glow: true });
     }
 
     /* Cruiser Tetran, built from the same parts the flat renderer draws:
@@ -853,7 +1004,7 @@
       var bz = LAYER.boss.z, dep = b.deploy == null ? 1 : b.deploy;
       vball('v2hull', b.x, b.y, bz, 22, '#273d61', { cap: 2, sz: 0.85, ry: b.spin * 0.4 });
       vball('v2coreLamp', b.x, b.y, bz + 17, 8,
-            b.shield ? '#ff5964' : '#ffd0d0', { cap: 2 });
+            b.shield ? '#ff5964' : '#ffd0d0', { cap: 2, glow: true });
       for (var q = 0; q < 4; q++) {
         var a = q * Math.PI / 2 + b.spin;
         /* the arm spans radius 7..35 in 2D, so its centre is at 21 */
@@ -865,7 +1016,7 @@
       for (var ring = 0; ring < b.shield; ring++) {
         vring('v2shield', b.x, b.y, bz + 2, 26 + ring * 4, 2.4,
               ring === b.shield - 1 ? '#a9f4ff' : '#5fc8e0',
-              20, b.t * 0.012 * (ring + 1), 72);
+              20, b.t * 0.012 * (ring + 1), 72, true);
       }
     }
 
@@ -914,8 +1065,12 @@
          Wide open is the tell that it can be hurt. */
       vell('c3Body', b.x, b.y, bz, 28, 38, 26, '#9b3020', { cap: 2, ry: Math.sin(b.t * 0.01) * 0.2 });
       vell('c3Ridge', b.x + 6, b.y, bz + 16, 16, 30, 10, '#c4532f', { cap: 2 });
-      vbox('c3Maw', b.x - 18, b.y - 7 + (b.open ? 7 : 2), bz + 20, 14, 14, 12,
-           b.open ? '#ffe0a0' : '#5d1515', { sy: b.open ? 1 : 0.3, cap: 2 });
+      /* Open and shut are two pools, not one: a pool bakes its material when
+         it is first built, so a single key could not be lit in one state and
+         unlit in the other — it would keep whichever it was born with. */
+      vbox(b.open ? 'c3MawOpen' : 'c3MawShut', b.x - 18, b.y - 7 + (b.open ? 7 : 2),
+           bz + 20, 14, 14, 12, b.open ? '#ffe0a0' : '#5d1515',
+           { sy: b.open ? 1 : 0.3, cap: 2, glow: b.open });
       for (i = -1; i <= 1; i += 2) {
         vbox('c3Tusk', b.x - 24, b.y + i * 13, bz + 14, 8, 5, 8, '#e8c9a0', { cap: 4 });
       }
@@ -924,14 +1079,15 @@
       /* Giga: a pale sphere with a mouth on its underside and eyes that
          detach and hunt as it loses health. */
       vball('c4Body', b.x, b.y, bz, 25, '#d5d5c9', { cap: 2, ry: b.t * 0.012 });
-      vbox('c4Maw', b.x, b.y + 8 + (b.open ? 6 : 1.5), bz + 20, 18, 12, 12,
-           b.open ? '#ff704f' : '#342020', { sy: b.open ? 1 : 0.25, cap: 2 });
+      vbox(b.open ? 'c4MawOpen' : 'c4MawShut', b.x, b.y + 8 + (b.open ? 6 : 1.5),
+           bz + 20, 18, 12, 12, b.open ? '#ff704f' : '#342020',
+           { sy: b.open ? 1 : 0.25, cap: 2, glow: b.open });
       for (i = -1; i <= 1; i += 2) {
         vball('c4Socket', b.x + i * 13, b.y - 5, bz + 18, 7, '#9c9c92', { cap: 4 });
       }
       if (b.eyeList) for (i = 0; i < b.eyeList.length; i++) {
         var eye = b.eyeList[i];
-        vball('c4Eye', eye.x, eye.y, bz + 16, 5, '#ffef8b', { cap: 4, ry: eye.t * 0.08 });
+        vball('c4Eye', eye.x, eye.y, bz + 16, 5, '#ffef8b', { cap: 4, ry: eye.t * 0.08, glow: true });
       }
 
     } else if (C.stage === 5) {
@@ -941,11 +1097,11 @@
       vbox('c5Crown', b.x, b.y - 22, bz + 6, 40, 8, 32, '#8f6a18', { cap: 2 });
       vbox('c5Band', b.x, b.y + 6, bz + 15, 34, 5, 6, '#8f6a18', { cap: 4 });
       vbox('c5Chin', b.x, b.y + 20, bz + 12, 20, 10, 14, '#b98c22', { cap: 2 });
-      vbox('c5Eye', b.x - b.side * 13 + 4, b.y - 5, bz + 17, 8, 8, 8, '#62d8ff', { cap: 2 });
+      vbox('c5Eye', b.x - b.side * 13 + 4, b.y - 5, bz + 17, 8, 8, 8, '#62d8ff', { cap: 2, glow: true });
       for (i = 0; i < 8; i++) {
         var oa = i * Math.PI / 4 + b.t * 0.025;
         vball('c5Orb', b.x + Math.cos(oa) * 29 * dep, b.y + Math.sin(oa) * 29 * dep,
-              bz + Math.sin(oa) * 16, 4, '#ffd96b', { cap: 8, ry: b.t * 0.06 });
+              bz + Math.sin(oa) * 16, 4, '#ffd96b', { cap: 8, ry: b.t * 0.06, glow: true });
       }
 
     } else {
@@ -980,14 +1136,14 @@
                 { cap: NECK + 1 });
         }
         vball('c6Head', b.dragonX, b.dragonY, bz + 18, 8, '#baff88',
-              { cap: 2, ry: b.t * 0.04 });
+              { cap: 2, ry: b.t * 0.04, glow: true });
         for (i = -1; i <= 1; i += 2) {
-          vball('c6Eye', b.dragonX - 3, b.dragonY + i * 4, bz + 25, 2, '#ff5a5a', { cap: 4 });
+          vball('c6Eye', b.dragonX - 3, b.dragonY + i * 4, bz + 25, 2, '#ff5a5a', { cap: 4, glow: true });
         }
       } else {
-        vball('c6Heart', b.x, b.y, bz + 16, 12, '#ff8aa0', { cap: 2, ry: b.t * 0.05 });
+        vball('c6Heart', b.x, b.y, bz + 16, 12, '#ff8aa0', { cap: 2, ry: b.t * 0.05, glow: true });
         vring('c6Pulse', b.x, b.y, bz + 6, 20 + Math.sin(b.t * 0.08) * 3, 2.4,
-              '#ff5a7a', 16, b.t * 0.02, 48);
+              '#ff5a7a', 16, b.t * 0.02, 48, true);
       }
     }
   }
@@ -1007,16 +1163,16 @@
       place('camp'+e.kind+(e.bonus?'C':'')+((e.t>>3)&1),spr,e.x-spr.width/2,e.y-spr.height/2,'enemy',{rz:C.horizontal()?0:Math.PI/2,ry:e.t*.025,sx:e.kind==='dragon'?2:1,sy:e.kind==='dragon'?1.5:1,cap:128});
     }
     if(C.mini&&!C.mini.dead)for(i=0;i<C.mini.cores.length;i++){var mc=C.mini.cores[i];if(mc.hp>0){
-      vball('campMiniCore',mc.x,mc.y,LAYER.boss.z+10,10,'#72c6ff',{cap:4,ry:C.mini.t*.03});
-      vring('campMiniRing',mc.x,mc.y,LAYER.boss.z+4,13,2.2,'#bde8ff',12,C.mini.t*.04+i,40);}}
-    for(i=0;i<C.pickups.length;i++){var c=C.pickups[i];place('capsule'+((c.t>>3)&1),NS.S.capsule[(c.t>>3)&1],c.x-3,c.y-3,'capsule',{ry:c.t*.06,cap:32});}
-    for(i=0;i<G.looseOptions.length;i++){var o=G.looseOptions[i];place('looseOption'+((o.t>>3)&1),NS.S.looseOption[(o.t>>3)&1],o.x-2,o.y-2,'capsule',{ry:o.t*.05,cap:16});}
+      vball('campMiniCore',mc.x,mc.y,LAYER.boss.z+10,10,'#72c6ff',{cap:4,ry:C.mini.t*.03,glow:true});
+      vring('campMiniRing',mc.x,mc.y,LAYER.boss.z+4,13,2.2,'#bde8ff',12,C.mini.t*.04+i,40,true);}}
+    for(i=0;i<C.pickups.length;i++){var c=C.pickups[i];place('capsule'+((c.t>>3)&1),NS.S.capsule[(c.t>>3)&1],c.x-3,c.y-3,'capsule',{ry:c.t*.06,cap:32,glow:true});}
+    for(i=0;i<G.looseOptions.length;i++){var o=G.looseOptions[i];place('looseOption'+((o.t>>3)&1),NS.S.looseOption[(o.t>>3)&1],o.x-2,o.y-2,'capsule',{ry:o.t*.05,cap:16,glow:true});}
     for(i=0;i<C.shots.length;i++){var s=C.shots[i];
       if(s.type==='missile'){place('missile',NS.S.missile,s.x,s.y,'shot',
         {rz:C.horizontal()?(s.crawling?0:-s.wall*0.7):(s.crawling?Math.PI/2:(s.wall<0?Math.PI*0.75:Math.PI*0.25)),
-         rx:s.anim*0.3,cap:48});continue;}
-      place('shot',NS.S.shot,s.x,s.y,'shot',{rz:C.horizontal()?0:Math.PI/2,sx:s.type==='laser'?3:1,cap:128});}
-    for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];place('eshot',NS.S.eshot,q.x-2,q.y-2,'shot',{ry:q.t*.2,cap:128});}
+         rx:s.anim*0.3,cap:48,glow:true});continue;}
+      place('shot',NS.S.shot,s.x,s.y,'shot',{rz:C.horizontal()?0:Math.PI/2,sx:s.type==='laser'?3:1,cap:128,glow:true});}
+    for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];place('eshot',NS.S.eshot,q.x-2,q.y-2,'shot',{ry:q.t*.2,cap:128,glow:true});}
     var b=C.boss;if(b&&(!b.dead||(b.dying>>2)%2===0))drawCampaignBoss(C,b);
     if(C.ending)for(i=0;i<C.escapeBars.length;i++){var eb=C.escapeBars[i],bx=eb.side==='left'?0:NS.W-eb.w;place('campEscapeBar',NS.S.prom[0],bx,eb.y,'hazard',{sx:Math.max(2,eb.w/3),sy:2.4,sz:3,cap:16});}
     var p=G.player;if(p.alive&&!(p.invuln>14&&(p.anim>>1)%2===0)){
@@ -1063,13 +1219,18 @@
          that or it renders buried inside the mass */
       place('bossEye', spr, b.x - 6, cy - 6, 'boss',
             { z: LAYER.boss.z + 30, sy: Math.max(0.15, b.eyeOpen),
-              depth: 10, cap: 2 });
+              depth: 10, cap: 2, glow: true });
+      /* the halo is the stage accent doing its one job: marking the only
+         place on this thing that a shot does anything */
+      vring('golemEyeHalo', b.x, cy, LAYER.boss.z + 26,
+            9 + Math.sin(b.t * 0.14) * 1.5, 2.0, PALETTE[1].accent,
+            12, b.t * 0.05, 40, true);
     }
     for (var j = 0; j < b.cells.length; j++) {
       var c = b.cells[j];
       if (c.dead) continue;
       place('bossCell', NS.S.cell, c.x - 2, c.y - 2, 'enemy',
-            { ry: c.phase, cap: 48 });
+            { ry: c.phase, cap: 48, tint: PALETTE[1].accent, glow: true });
     }
   }
 
@@ -1311,6 +1472,7 @@
     if (state !== 'on') return;
     frame++;
 
+    applyPalette(paletteFor(G));
     beginFrame();
     if (!G.boss) hideBoss();
     drawWorld(G);
