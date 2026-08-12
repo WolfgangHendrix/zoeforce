@@ -327,6 +327,19 @@
     p.mesh.setMatrixAt(p.used++, dummy.matrix);
   }
 
+  /* Sprite pools bake their material on first use, so damage instances need
+     a distinct key. Clone the small options object and tint it red without
+     mutating the caller's normal rendering setup. */
+  function placeDamage(key, canvas, x, y, layer, target, opt) {
+    if (!NS.damageFlashing(target)) { place(key, canvas, x, y, layer, opt); return; }
+    var flashOpt = {}, k;
+    opt = opt || {};
+    for (k in opt) if (Object.prototype.hasOwnProperty.call(opt, k)) flashOpt[k] = opt[k];
+    flashOpt.tint = NS.DAMAGE_FLASH_COLOR;
+    flashOpt.glow = true;
+    place(key + 'Hit', canvas, x, y, layer, flashOpt);
+  }
+
   /* sim y is measured downward from the top of the screen */
   function simY(y) { return NS.PLAYFIELD_H - y; }
 
@@ -820,52 +833,52 @@
       switch (e.kind) {
         case 'flapper':
           var fs = e.bonus ? NS.S.carrier[f] : NS.S.flapper[f];
-          place((e.bonus ? 'carrier' : 'flapper') + f, fs, e.x, e.y, 'enemy',
+          placeDamage((e.bonus ? 'carrier' : 'flapper') + f, fs, e.x, e.y, 'enemy', e,
                 { ry: Math.sin(e.t * 0.08) * 0.5, cap: 128 });
           break;
         case 'rusher':
-          place('rusher' + ((e.t >> 2) & 1), NS.S.rusher[(e.t >> 2) & 1],
-                e.x, e.y, 'enemy', { rz: -0.25, cap: 96 });
+          placeDamage('rusher' + ((e.t >> 2) & 1), NS.S.rusher[(e.t >> 2) & 1],
+                e.x, e.y, 'enemy', e, { rz: -0.25, cap: 96 });
           break;
         case 'splitter':
           var ss = e.tier === 1 ? NS.S.splitterBig[f] : NS.S.splitterSmall[f];
-          place('split' + e.tier + f, ss, e.x, e.y, 'enemy',
+          placeDamage('split' + e.tier + f, ss, e.x, e.y, 'enemy', e,
                 { ry: e.t * 0.04, rz: Math.sin(e.t * 0.05) * 0.3, cap: 64 });
           break;
         case 'spore':
-          place('spore', NS.S.spore, e.x, e.y, 'enemy',
+          placeDamage('spore', NS.S.spore, e.x, e.y, 'enemy', e,
                 { ry: e.t * 0.03, rx: e.t * 0.02, cap: 48 });
           break;
         case 'ducker': {
           var dw = (e.walk | 0) & 1;
-          place('ducker' + dw + (e.carrier ? 'C' : ''),
+          placeDamage('ducker' + dw + (e.carrier ? 'C' : ''),
                 NS.Enemies.skin(e, NS.S.ducker[dw]),
-                e.x, e.y, 'enemy', { rz: e.onCeiling ? Math.PI : 0, cap: 48 });
+                e.x, e.y, 'enemy', e, { rz: e.onCeiling ? Math.PI : 0, cap: 48 });
           break;
         }
         case 'mouth':
           var ms = NS.Enemies.skin(e, e.open ? NS.S.mouthOpen : NS.S.mouthClosed);
-          place((e.open ? 'mouthO' : 'mouthC') + (e.carrier ? 'C' : ''),
+          placeDamage((e.open ? 'mouthO' : 'mouthC') + (e.carrier ? 'C' : ''),
                 ms, e.x, e.y, 'enemy',
-                { rz: e.onCeiling ? Math.PI : 0, depth: 14, cap: 32 });
+                e, { rz: e.onCeiling ? Math.PI : 0, depth: 14, cap: 32 });
           break;
         case 'hatch':
           var hs = NS.Enemies.skin(e, e.open ? NS.S.hatchOpen : NS.S.hatchClosed);
-          place((e.open ? 'hatchO' : 'hatchC') + (e.carrier ? 'C' : ''),
+          placeDamage((e.open ? 'hatchO' : 'hatchC') + (e.carrier ? 'C' : ''),
                 hs, e.x, e.y, 'enemy',
-                { rz: e.onCeiling ? Math.PI : 0, depth: 14, cap: 32 });
+                e, { rz: e.onCeiling ? Math.PI : 0, depth: 14, cap: 32 });
           break;
         case 'tentacle':
           for (var q = 0; q < e.joints.length; q++) {
             var jt = e.joints[q];
             var seg = jt.tip ? NS.S.tentacleTip : NS.S.tentacleSeg;
-            place(jt.tip ? 'tentTip' : 'tentSeg', seg,
+            placeDamage(jt.tip ? 'tentTip' : 'tentSeg', seg,
                   jt.x - seg.width / 2, jt.y - seg.height / 2, 'hazard',
-                  { ry: q * 0.4 + e.t * 0.03, cap: 128 });
+                  e, { ry: q * 0.4 + e.t * 0.03, cap: 128 });
           }
-          place('tentRoot' + f + (e.carrier ? 'C' : ''),
+          placeDamage('tentRoot' + f + (e.carrier ? 'C' : ''),
                 NS.Enemies.skin(e, NS.S.tentacleRoot[f]), e.x, e.y, 'enemy',
-                { rz: e.onCeiling ? Math.PI : 0, depth: 12, cap: 24 });
+                e, { rz: e.onCeiling ? Math.PI : 0, depth: 12, cap: 24 });
           break;
         case 'prominence':
           for (var j = 0; j < e.flames.length; j++) {
@@ -942,20 +955,20 @@
     }
     for (i = 0; i < L.volcanoes.length; i++) {
       var v = L.volcanoes[i]; if (v.dead || v.y < -35 || v.y > NS.PLAYFIELD_H + 35) continue;
-      place('v2volcano', NS.S.spore, v.x - NS.S.spore.width / 2, v.y - NS.S.spore.height / 2,
-            'hazard', { sx: 3.2, sy: 3.5, sz: 2.5, rx: -0.25, cap: 8 });
+      placeDamage('v2volcano', NS.S.spore, v.x - NS.S.spore.width / 2, v.y - NS.S.spore.height / 2,
+            'hazard', v, { sx: 3.2, sy: 3.5, sz: 2.5, rx: -0.25, cap: 8 });
     }
     for (i = 0; i < L.gates.length; i++) {
       var gate = L.gates[i]; if (gate.y < -25 || gate.y > NS.PLAYFIELD_H + 25) continue;
       for (var gc = 0; gc < gate.cells.length; gc++) {
         var cell = gate.cells[gc]; if (cell.dead) continue;
-        place('v2gate', NS.S.spore, cell.x, gate.y - 7, 'terrain',
+        placeDamage('v2gate', NS.S.spore, cell.x, gate.y - 7, 'terrain', cell,
               { sx: cell.w / NS.S.spore.width, sy: 2, sz: 1.8, depth: 20, cap: 40 });
       }
     }
     for (i = 0; i < L.rocks.length; i++) {
       var rock = L.rocks[i]; if (rock.dead) continue;
-      place('v2rock', NS.S.spore, rock.x - 3, rock.y - 3, 'hazard',
+      placeDamage('v2rock', NS.S.spore, rock.x - 3, rock.y - 3, 'hazard', rock,
             { sx: 0.9, sy: 0.9, sz: 1.2, ry: rock.t * 0.08, cap: 48 });
     }
     var fort = L.fortress;
@@ -968,8 +981,9 @@
            NS.W, 22, 44, '#263c58', { cap: 2 });
       for (i = 0; i < fort.cores.length; i++) {
         var fc = fort.cores[i]; if (fc.dead) continue;
-        vball('v2fortCore', fc.x, fc.y, fz, 12, '#184b78', { cap: 4, ry: fort.t * 0.02 });
-        vball('v2fortPip', fc.x, fc.y, fz + 13, 5, '#ff7b4c', { cap: 4, glow: true });
+        var fcFlash = NS.damageFlashing(fc);
+        vball('v2fortCore' + (fcFlash ? 'Hit' : ''), fc.x, fc.y, fz, 12, fcFlash ? NS.DAMAGE_FLASH_COLOR : '#184b78', { cap: 4, ry: fort.t * 0.02, glow: fcFlash });
+        vball('v2fortPip' + (fcFlash ? 'Hit' : ''), fc.x, fc.y, fz + 13, 5, fcFlash ? '#ff9ba0' : '#ff7b4c', { cap: 4, glow: true });
         if (fc.shield > 0) {
           vring('v2fortShield', fc.x, fc.y, fz + 4, 15, 2.6, '#8ee8ff',
                 14, fort.t * 0.03 + i, 48, true);
@@ -987,9 +1001,9 @@
       if (e.dead || !e.active || e.y < -30 || e.y > NS.PLAYFIELD_H + 30) continue;
       var squadCarrier = e.carrier || e.bonus;
       var spr = e.kind === 'turret' ? NS.S.spore : (squadCarrier ? NS.S.carrier[(e.t >> 3) & 1] : NS.S.flapper[(e.t >> 3) & 1]);
-      place('v2' + e.kind + (squadCarrier ? 'C' : '') + ((e.t >> 3) & 1), spr,
+      placeDamage('v2' + e.kind + (squadCarrier ? 'C' : '') + ((e.t >> 3) & 1), spr,
             e.x - spr.width / 2, e.y - spr.height / 2, 'enemy',
-            { rz: Math.PI / 2, ry: e.t * 0.025, depth: e.kind === 'turret' ? 13 : 8, cap: 160 });
+            e, { rz: Math.PI / 2, ry: e.t * 0.025, depth: e.kind === 'turret' ? 13 : 8, cap: 160 });
     }
     for (i = 0; i < L.pickups.length; i++) {
       var c = L.pickups[i]; if (c.dead) continue;
@@ -1016,16 +1030,17 @@
     var b = L.boss;
     if (b && (!b.dead || (b.dying >> 2) % 2 === 0)) {
       var bz = LAYER.boss.z, dep = b.deploy == null ? 1 : b.deploy;
-      vball('v2hull', b.x, b.y, bz, 22, '#273d61', { cap: 2, sz: 0.85, ry: b.spin * 0.4 });
-      vball('v2coreLamp', b.x, b.y, bz + 17, 8,
-            b.shield ? '#ff5964' : '#ffd0d0', { cap: 2, glow: true });
+      var bFlash = NS.damageFlashing(b), bSuffix = bFlash ? 'Hit' : '';
+      vball('v2hull' + bSuffix, b.x, b.y, bz, 22, bFlash ? NS.DAMAGE_FLASH_COLOR : '#273d61', { cap: 2, sz: 0.85, ry: b.spin * 0.4, glow: bFlash });
+      vball('v2coreLamp' + bSuffix, b.x, b.y, bz + 17, 8,
+            bFlash ? '#ff9ba0' : (b.shield ? '#ff5964' : '#ffd0d0'), { cap: 2, glow: true });
       for (var q = 0; q < 4; q++) {
         var a = q * Math.PI / 2 + b.spin;
         /* the arm spans radius 7..35 in 2D, so its centre is at 21 */
-        vbox('v2arm', b.x + Math.cos(a) * 21 * dep, b.y + Math.sin(a) * 21 * dep,
-             bz + 4, 28, 5, 8, '#7a9ab8', { rz: -a, sx: Math.max(0.05, dep), cap: 8 });
-        vball('v2pod', b.x + Math.cos(a) * 36 * dep, b.y + Math.sin(a) * 36 * dep,
-              bz + 6, 7, '#d8e7ef', { cap: 8, ry: b.spin * 2, rx: b.spin });
+        vbox('v2arm' + bSuffix, b.x + Math.cos(a) * 21 * dep, b.y + Math.sin(a) * 21 * dep,
+             bz + 4, 28, 5, 8, bFlash ? '#d9162c' : '#7a9ab8', { rz: -a, sx: Math.max(0.05, dep), cap: 8, glow: bFlash });
+        vball('v2pod' + bSuffix, b.x + Math.cos(a) * 36 * dep, b.y + Math.sin(a) * 36 * dep,
+              bz + 6, 7, bFlash ? '#ff5961' : '#d8e7ef', { cap: 8, ry: b.spin * 2, rx: b.spin, glow: bFlash });
       }
       for (var ring = 0; ring < b.shield; ring++) {
         vring('v2shield', b.x, b.y, bz + 2, 26 + ring * 4, 2.4,
@@ -1073,54 +1088,55 @@
   function drawCampaignBoss(C, b) {
     var bz = LAYER.boss.z, i;
     var dep = b.deploy == null ? 1 : b.deploy;
+    var flash = NS.damageFlashing(b), red = NS.DAMAGE_FLASH_COLOR, redHi = '#ff9ba0';
 
     if (C.stage === 3) {
       /* Intruder: an upright ovoid with a maw cut into its leading face.
          Wide open is the tell that it can be hurt. */
-      vell('c3Body', b.x, b.y, bz, 28, 38, 26, '#9b3020', { cap: 2, ry: Math.sin(b.t * 0.01) * 0.2 });
-      vell('c3Ridge', b.x + 6, b.y, bz + 16, 16, 30, 10, '#c4532f', { cap: 2 });
+      vell('c3Body', b.x, b.y, bz, 28, 38, 26, flash ? red : '#9b3020', { cap: 2, ry: Math.sin(b.t * 0.01) * 0.2 });
+      vell('c3Ridge', b.x + 6, b.y, bz + 16, 16, 30, 10, flash ? redHi : '#c4532f', { cap: 2 });
       /* Open and shut are two pools, not one: a pool bakes its material when
          it is first built, so a single key could not be lit in one state and
          unlit in the other — it would keep whichever it was born with. */
       vbox(b.open ? 'c3MawOpen' : 'c3MawShut', b.x - 18, b.y - 7 + (b.open ? 7 : 2),
-           bz + 20, 14, 14, 12, b.open ? '#ffe0a0' : '#5d1515',
+           bz + 20, 14, 14, 12, flash ? redHi : (b.open ? '#ffe0a0' : '#5d1515'),
            { sy: b.open ? 1 : 0.3, cap: 2, glow: b.open });
       for (i = -1; i <= 1; i += 2) {
-        vbox('c3Tusk', b.x - 24, b.y + i * 13, bz + 14, 8, 5, 8, '#e8c9a0', { cap: 4 });
+        vbox('c3Tusk', b.x - 24, b.y + i * 13, bz + 14, 8, 5, 8, flash ? redHi : '#e8c9a0', { cap: 4 });
       }
 
     } else if (C.stage === 4) {
       /* Giga: a pale sphere with a mouth on its underside and eyes that
          detach and hunt as it loses health. */
-      vball('c4Body', b.x, b.y, bz, 25, '#d5d5c9', { cap: 2, ry: b.t * 0.012 });
+      vball('c4Body', b.x, b.y, bz, 25, flash ? red : '#d5d5c9', { cap: 2, ry: b.t * 0.012 });
       vbox(b.open ? 'c4MawOpen' : 'c4MawShut', b.x, b.y + 8 + (b.open ? 6 : 1.5),
-           bz + 20, 18, 12, 12, b.open ? '#ff704f' : '#342020',
+           bz + 20, 18, 12, 12, flash ? redHi : (b.open ? '#ff704f' : '#342020'),
            { sy: b.open ? 1 : 0.25, cap: 2, glow: b.open });
       for (i = -1; i <= 1; i += 2) {
-        vball('c4Socket', b.x + i * 13, b.y - 5, bz + 18, 7, '#9c9c92', { cap: 4 });
+        vball('c4Socket', b.x + i * 13, b.y - 5, bz + 18, 7, flash ? redHi : '#9c9c92', { cap: 4 });
       }
       if (b.eyeList) for (i = 0; i < b.eyeList.length; i++) {
         var eye = b.eyeList[i];
-        vball('c4Eye', eye.x, eye.y, bz + 16, 5, '#ffef8b', { cap: 4, ry: eye.t * 0.08, glow: true });
+        vball('c4Eye', eye.x, eye.y, bz + 16, 5, flash ? redHi : '#ffef8b', { cap: 4, ry: eye.t * 0.08, glow: true });
       }
 
     } else if (C.stage === 5) {
       /* Tutanhamanattack: a rectangular gilt sarcophagus. 2D draws it with
          fillRect, so a rounded blob was simply the wrong object. */
-      vbox('c5Body', b.x, b.y, bz, 34, 50, 28, '#d1a336', { cap: 2 });
-      vbox('c5Crown', b.x, b.y - 22, bz + 6, 40, 8, 32, '#8f6a18', { cap: 2 });
-      vbox('c5Band', b.x, b.y + 6, bz + 15, 34, 5, 6, '#8f6a18', { cap: 4 });
-      vbox('c5Chin', b.x, b.y + 20, bz + 12, 20, 10, 14, '#b98c22', { cap: 2 });
-      vbox('c5Eye', b.x - b.side * 13 + 4, b.y - 5, bz + 17, 8, 8, 8, '#62d8ff', { cap: 2, glow: true });
+      vbox('c5Body', b.x, b.y, bz, 34, 50, 28, flash ? red : '#d1a336', { cap: 2 });
+      vbox('c5Crown', b.x, b.y - 22, bz + 6, 40, 8, 32, flash ? redHi : '#8f6a18', { cap: 2 });
+      vbox('c5Band', b.x, b.y + 6, bz + 15, 34, 5, 6, flash ? redHi : '#8f6a18', { cap: 4 });
+      vbox('c5Chin', b.x, b.y + 20, bz + 12, 20, 10, 14, flash ? redHi : '#b98c22', { cap: 2 });
+      vbox('c5Eye', b.x - b.side * 13 + 4, b.y - 5, bz + 17, 8, 8, 8, flash ? redHi : '#62d8ff', { cap: 2, glow: true });
       for (i = 0; i < 8; i++) {
         var oa = i * Math.PI / 4 + b.t * 0.025;
         vball('c5Orb', b.x + Math.cos(oa) * 29 * dep, b.y + Math.sin(oa) * 29 * dep,
-              bz + Math.sin(oa) * 16, 4, '#ffd96b', { cap: 8, ry: b.t * 0.06, glow: true });
+              bz + Math.sin(oa) * 16, 4, flash ? redHi : '#ffd96b', { cap: 8, ry: b.t * 0.06, glow: true });
       }
 
     } else {
       /* Zelos: the core, ringed by the serpent until the serpent dies. */
-      vball('c6Core', b.x, b.y, bz, 24, '#b81735', { cap: 2, ry: b.t * 0.015 });
+      vball('c6Core', b.x, b.y, bz, 24, flash ? red : '#b81735', { cap: 2, ry: b.t * 0.015 });
       if (b.form === 'dragon') {
         var near = null, nd = 1e9;
         for (i = 0; i <= DRAGON_SEGS; i++) {
@@ -1131,7 +1147,7 @@
           var szp = bz + weave * 15;
           /* nearer coils are lit brighter, which is what makes the weave
              legible instead of reading as a flat ring */
-          var t = DRAGON_TINT[Math.min(DRAGON_TINT.length - 1,
+          var t = flash ? red : DRAGON_TINT[Math.min(DRAGON_TINT.length - 1,
                     ((weave + 1) * 0.5 * DRAGON_TINT.length) | 0)];
           vball('c6Coil', sxp, syp, szp, 4 + Math.sin(a) * 0.8, t,
                 { cap: DRAGON_SEGS + 2, ry: a });
@@ -1146,18 +1162,18 @@
           vball('c6Neck',
                 NS.lerp(near[0], b.dragonX, k), NS.lerp(near[1], b.dragonY, k),
                 NS.lerp(near[2], bz + 18, k), 4,
-                DRAGON_TINT[Math.min(DRAGON_TINT.length - 1, (4 + k * 4) | 0)],
+                flash ? red : DRAGON_TINT[Math.min(DRAGON_TINT.length - 1, (4 + k * 4) | 0)],
                 { cap: NECK + 1 });
         }
-        vball('c6Head', b.dragonX, b.dragonY, bz + 18, 8, '#baff88',
+        vball('c6Head', b.dragonX, b.dragonY, bz + 18, 8, flash ? redHi : '#baff88',
               { cap: 2, ry: b.t * 0.04, glow: true });
         for (i = -1; i <= 1; i += 2) {
-          vball('c6Eye', b.dragonX - 3, b.dragonY + i * 4, bz + 25, 2, '#ff5a5a', { cap: 4, glow: true });
+          vball('c6Eye', b.dragonX - 3, b.dragonY + i * 4, bz + 25, 2, flash ? redHi : '#ff5a5a', { cap: 4, glow: true });
         }
       } else {
-        vball('c6Heart', b.x, b.y, bz + 16, 12, '#ff8aa0', { cap: 2, ry: b.t * 0.05, glow: true });
+        vball('c6Heart', b.x, b.y, bz + 16, 12, flash ? redHi : '#ff8aa0', { cap: 2, ry: b.t * 0.05, glow: true });
         vring('c6Pulse', b.x, b.y, bz + 6, 20 + Math.sin(b.t * 0.08) * 3, 2.4,
-              '#ff5a7a', 16, b.t * 0.02, 48, true);
+              flash ? red : '#ff5a7a', 16, b.t * 0.02, 48, true);
       }
     }
   }
@@ -1171,14 +1187,31 @@
       if(C.horizontal())place('campHaz',NS.S.prom[(h.t>>2)&1],m-3,h.side==='top'?0:NS.PLAYFIELD_H-ex,'hazard',{sx:2,sy:Math.max(1,ex/5),sz:2,cap:64});
       else place('campHaz',NS.S.prom[(h.t>>2)&1],h.side==='left'?0:NS.W-ex,m-3,'hazard',{sx:Math.max(1,ex/5),sy:2,sz:2,cap:64});
     }
+    /* Stage 5's shoot-through masonry uses actual box cells here instead of
+       borrowing an enemy sprite, preserving the wall silhouette and making
+       damage visible through the same darkening used by the 2D renderer. */
+    for(i=0;i<C.barriers.length;i++){
+      var wall=C.barriers[i],wx=C.barrierScreenX(wall);
+      if(wx>NS.W+25||wx+wall.w<-25)continue;
+      for(var bc=0;bc<wall.cells.length;bc++){
+        var cell=wall.cells[bc];if(cell.dead)continue;
+        var cellFlash=NS.damageFlashing(cell);
+        var tint=cellFlash?NS.DAMAGE_FLASH_COLOR:(cell.hp/cell.maxHp>.5?'#b39749':'#80652e');
+        vbox('campBarrier',wx+wall.w/2,cell.y+cell.h/2,LAYER.terrain.z+18,
+             wall.w,Math.max(2,cell.h-1),28,tint,{cap:48});
+        vbox('campBarrierRim',wx+wall.w/2,cell.y+2,LAYER.terrain.z+34,
+             wall.w-3,2,3,cellFlash?'#ff9ba0':'#d7bd66',{cap:48});
+      }
+    }
     for(i=0;i<C.enemies.length;i++){
       var e=C.enemies[i];if(e.dead||!e.active)continue;var spr=(e.bonus?NS.S.carrier:NS.S.flapper)[(e.t>>3)&1];
       if(e.kind==='moai'||e.kind==='rock'||e.kind==='lung')spr=NS.S.spore;
-      place('camp'+e.kind+(e.bonus?'C':'')+((e.t>>3)&1),spr,e.x-spr.width/2,e.y-spr.height/2,'enemy',{rz:C.horizontal()?0:Math.PI/2,ry:e.t*.025,sx:e.kind==='dragon'?2:1,sy:e.kind==='dragon'?1.5:1,cap:128});
+      placeDamage('camp'+e.kind+(e.bonus?'C':'')+((e.t>>3)&1),spr,e.x-spr.width/2,e.y-spr.height/2,'enemy',e,{rz:C.horizontal()?0:Math.PI/2,ry:e.t*.025,sx:e.kind==='dragon'?2:1,sy:e.kind==='dragon'?1.5:1,cap:128});
     }
     if(C.mini&&!C.mini.dead)for(i=0;i<C.mini.cores.length;i++){var mc=C.mini.cores[i];if(mc.hp>0){
-      vball('campMiniCore',mc.x,mc.y,LAYER.boss.z+10,10,'#72c6ff',{cap:4,ry:C.mini.t*.03,glow:true});
-      vring('campMiniRing',mc.x,mc.y,LAYER.boss.z+4,13,2.2,'#bde8ff',12,C.mini.t*.04+i,40,true);}}
+      var miniFlash=NS.damageFlashing(mc);
+      vball('campMiniCore',mc.x,mc.y,LAYER.boss.z+10,10,miniFlash?NS.DAMAGE_FLASH_COLOR:'#72c6ff',{cap:4,ry:C.mini.t*.03,glow:true});
+      vring('campMiniRing',mc.x,mc.y,LAYER.boss.z+4,13,2.2,miniFlash?'#ff9ba0':'#bde8ff',12,C.mini.t*.04+i,40,true);}}
     for(i=0;i<C.pickups.length;i++){var c=C.pickups[i];place('capsule'+((c.t>>3)&1),NS.S.capsule[(c.t>>3)&1],c.x-3,c.y-3,'capsule',{ry:c.t*.06,cap:32,glow:true});}
     for(i=0;i<G.looseOptions.length;i++){var o=G.looseOptions[i];place('looseOption'+((o.t>>3)&1),NS.S.looseOption[(o.t>>3)&1],o.x-2,o.y-2,'capsule',{ry:o.t*.05,cap:16,glow:true});}
     for(i=0;i<C.shots.length;i++)if(!C.shots[i].dead)placeShot(C.shots[i]);
@@ -1198,6 +1231,7 @@
 
   function drawBoss(b) {
     var cy = b.y + b.bob;
+    var flash = NS.damageFlashing(b);
     /* body: concentric slabs approximating the drawn blobs */
     var rings = [
       { rx: 30, ry: 41, z: -14, c: 0x8d2a4a },
@@ -1206,25 +1240,25 @@
     ];
     for (var i = 0; i < rings.length; i++) {
       var r = rings[i];
-      bossSlab(i, b.x + (i === 1 ? 4 : (i === 2 ? 2 : 0)), cy, r, b.hitFlash > 0 && !NS.reducedFlash());
+      bossSlab(i, b.x + (i === 1 ? 4 : (i === 2 ? 2 : 0)), cy, r, flash);
     }
     /* armour plates slide apart as the eye opens. 2D draws them as 26x8
        rects whose centres sit 12px off the core, not 20 — at 20 they hung
        clear of the mass with a gap the flat art does not have. */
     var sep = b.eyeOpen * 9;
-    bossPlate(0, b.x - 1, cy - 12 - sep, b.hitFlash > 0 && !NS.reducedFlash());
-    bossPlate(1, b.x - 1, cy + 12 + sep, b.hitFlash > 0 && !NS.reducedFlash());
+    bossPlate(0, b.x - 1, cy - 12 - sep, flash);
+    bossPlate(1, b.x - 1, cy + 12 + sep, flash);
 
     /* the tendrils rooting it to the chamber wall — the single loudest part
        of the 2D silhouette, and absent here entirely until now */
     var bz = LAYER.boss.z;
     b.eachTendril(7, function (tx, ty, strand, u) {
       vball('golemTendril', tx, ty, bz - 8 + Math.sin(strand * 2 + u * 5) * 7,
-            2.2, u > 0.75 ? '#5a1530' : '#7a2440', { cap: 48 });
+            2.2, flash ? NS.DAMAGE_FLASH_COLOR : (u > 0.75 ? '#5a1530' : '#7a2440'), { cap: 48 });
     });
 
     if (b.eyeOpen > 0.05) {
-      var spr = b.hitFlash > 0 && !NS.reducedFlash() ? NS.S.bossEyeHit : NS.S.bossEye;
+      var spr = flash ? NS.S.bossEyeHit : NS.S.bossEye;
       /* the innermost body blob reaches z+23, so the eye has to sit past
          that or it renders buried inside the mass */
       place('bossEye', spr, b.x - 6, cy - 6, 'boss',
@@ -1233,7 +1267,7 @@
       /* the halo is the stage accent doing its one job: marking the only
          place on this thing that a shot does anything */
       vring('golemEyeHalo', b.x, cy, LAYER.boss.z + 26,
-            9 + Math.sin(b.t * 0.14) * 1.5, 2.0, PALETTE[1].accent,
+            9 + Math.sin(b.t * 0.14) * 1.5, 2.0, flash ? '#ff9ba0' : PALETTE[1].accent,
             12, b.t * 0.05, 40, true);
     }
     for (var j = 0; j < b.cells.length; j++) {
@@ -1307,7 +1341,7 @@
     }
     m.visible = true;
     m.position.set(x, simY(y), LAYER.boss.z + r.z);
-    m.material.color.setHex(flash ? 0xffd4de : r.c);
+    m.material.color.setHex(flash ? 0xff3038 : r.c);
   }
   function bossPlate(i, x, y, flash) {
     var m = plateMeshes[i];
@@ -1321,7 +1355,7 @@
     }
     m.visible = true;
     m.position.set(x, simY(y), LAYER.boss.z + 16);
-    m.material.color.setHex(flash ? 0xfff0f4 : 0xe6a5bd);
+    m.material.color.setHex(flash ? 0xff3038 : 0xe6a5bd);
   }
   function hideBoss() {
     for (var i = 0; i < bossMeshes.length; i++) if (bossMeshes[i]) bossMeshes[i].visible = false;

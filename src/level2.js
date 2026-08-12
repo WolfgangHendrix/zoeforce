@@ -49,7 +49,7 @@
       wave: wave || 0, slot: slot || 0, t: 0, hp: kind === 'turret' ? 4 : 1,
       w: kind === 'turret' ? 11 : 9, h: kind === 'turret' ? 11 : 8,
       carrier: !!carrier, bonus: !!bonus, groupId: groupId || 0,
-      turn: turn || 1, dead: false, active: false, fired: 0
+      turn: turn || 1, dead: false, active: false, fired: 0, hitFlash: 0
     });
   }
 
@@ -77,13 +77,13 @@
     var edge = L.edgesAt(wy);
     L.volcanoes.push({ id: nextId++, side: side, wy: wy,
       x: side === 'left' ? edge.left + 9 : NS.W - edge.right - 9,
-      y: sy(wy), hp: 28, maxHp: 28, t: 0, dead: false, active: false });
+      y: sy(wy), hp: 28, maxHp: 28, t: 0, dead: false, active: false, hitFlash: 0 });
   }
 
   function addGate(wy) {
     var gate = { id: nextId++, wy: wy, y: sy(wy), cells: [] };
     for (var x = 24; x < NS.W - 24; x += 20) {
-      gate.cells.push({ id: nextId++, x: x, w: 19, hp: 8, dead: false });
+      gate.cells.push({ id: nextId++, x: x, w: 19, hp: 8, dead: false, hitFlash: 0 });
     }
     L.gates.push(gate);
   }
@@ -138,7 +138,7 @@
          speed, and the arms and their collision segments must follow the
          same angle the drawing does */
       spin: 0, deploy: 0, intro: true, introT: 0,
-      radius: 23, dead: false, dying: 0, state: 'active'
+      radius: 23, dead: false, dying: 0, state: 'active', hitFlash: 0
     };
     G.boss = L.boss;
     G.bossName = NS.THEME.boss2Name;
@@ -174,7 +174,7 @@
   function startFortress(G) {
     L.phase = 'fortress';
     var cores = [];
-    for (var i = 0; i < 3; i++) cores.push({ id: nextId++, x: 68 + i * 60, y: -14, restY: 43, shield: 34, hp: 38, dead: false, t: 0 });
+    for (var i = 0; i < 3; i++) cores.push({ id: nextId++, x: 68 + i * 60, y: -14, restY: 43, shield: 34, hp: 38, dead: false, t: 0, hitFlash: 0 });
     L.fortress = { cores: cores, balls: [], t: 0, hp: 216, maxHp: 216,
                    state: 'active', dead: false, clearT: 0, intro: true, drop: 0 };
     G.boss = L.fortress; G.bossName = 'VALIS FORTRESS';
@@ -218,7 +218,7 @@
       }
     }
     for (i = 0; i < L.volcanoes.length; i++) {
-      var v = L.volcanoes[i]; if (v.dead) continue;
+      var v = L.volcanoes[i]; NS.tickDamageFlash(v); if (v.dead) continue;
       var vy = sy(v.wy);
       if (Math.abs(p.x - v.x) < 12 + p.w / 2 && Math.abs(p.y - vy) < 10 + p.h / 2) return true;
     }
@@ -239,19 +239,22 @@
       if (v.y > -5 && v.y < 130 && v.t % 72 === 0) {
         var dir = v.side === 'left' ? 1 : -1;
         for (var r = 0; r < 3; r++) L.rocks.push({ id: nextId++, x: v.x, y: v.y,
-          vx: dir * (0.45 + r * 0.35), vy: -1.8 - r * 0.35, hp: 2, t: 0, dead: false });
+          vx: dir * (0.45 + r * 0.35), vy: -1.8 - r * 0.35, hp: 2, t: 0, dead: false, hitFlash: 0 });
       }
     }
-    for (i = 0; i < L.gates.length; i++) L.gates[i].y = sy(L.gates[i].wy);
+    for (i = 0; i < L.gates.length; i++) {
+      L.gates[i].y = sy(L.gates[i].wy);
+      for (var gc = 0; gc < L.gates[i].cells.length; gc++) NS.tickDamageFlash(L.gates[i].cells[gc]);
+    }
     /* NES-style gray-rock storm between the split-path volcanoes and the
        blast-through fortress approach. Its spawn order is deterministic. */
     if (L.scrollY > 5550 && L.scrollY < 5940 && L.t % 24 === 0) {
       var laneX = 18 + ((L.t * 47) % (NS.W - 36));
       L.rocks.push({ id: nextId++, x: laneX, y: -8, vx: Math.sin(L.t * 0.13) * 0.45,
-        vy: 1.35, hp: 2, t: 0, dead: false });
+        vy: 1.35, hp: 2, t: 0, dead: false, hitFlash: 0 });
     }
     for (i = 0; i < L.rocks.length; i++) {
-      var rock = L.rocks[i]; if (rock.dead) continue;
+      var rock = L.rocks[i]; NS.tickDamageFlash(rock); if (rock.dead) continue;
       rock.t++; rock.x += rock.vx; rock.y += rock.vy; rock.vy += 0.055;
       if (rock.x < 4 || rock.x > NS.W - 4) rock.vx *= -1;
       if (rock.y > NS.PLAYFIELD_H + 10 || rock.t > 360) rock.dead = true;
@@ -264,7 +267,7 @@
     if (f.intro) { enterFortress(f); return; }
     var alive = 0, totalHp = 0;
     for (var i = 0; i < f.cores.length; i++) {
-      var c = f.cores[i]; if (c.dead) continue;
+      var c = f.cores[i]; NS.tickDamageFlash(c); if (c.dead) continue;
       alive++; totalHp += c.hp + c.shield;
       if (f.t % 82 === i * 18 && f.balls.length < 4) {
         var a = Math.PI * (0.28 + i * 0.22) + Math.sin(f.t * 0.03 + i) * 0.24;
@@ -316,6 +319,7 @@
   }
 
   function updateEnemy(e, p, G) {
+    NS.tickDamageFlash(e);
     e.y = sy(e.wy);
     if (e.y < -100 || e.y > NS.PLAYFIELD_H + 100) return;
     e.active = true; e.t++;
@@ -342,6 +346,7 @@
     var b = L.boss;
     if (!b || b.dead) return;
     b.t++;
+    NS.tickDamageFlash(b);
     if (b.hitCd > 0) b.hitCd--;
     if (b.intro) { enterBoss(b); return; }
     b.spin += 0.025;
@@ -450,7 +455,7 @@
       for (j = 0; j < L.enemies.length; j++) {
         var e = L.enemies[j]; if (e.dead || !e.active || s.hit[e.id]) continue;
         if (NS.rectHit(sr, { x: e.x - e.w / 2, y: e.y - e.h / 2, w: e.w, h: e.h })) {
-          s.hit[e.id] = 1; e.hp -= s.dmg; if (e.hp <= 0) killEnemy(e, G);
+          s.hit[e.id] = 1; e.hp -= s.dmg; NS.flashDamage(e); if (e.hp <= 0) killEnemy(e, G);
           if (!s.pierce) { s.dead = true; break; }
         }
       }
@@ -459,7 +464,7 @@
       for (j = 0; !s.dead && j < L.volcanoes.length; j++) {
         var v = L.volcanoes[j]; if (v.dead || !v.active || s.hit[v.id]) continue;
         if (NS.rectHit(sr, { x: v.x - 11, y: v.y - 10, w: 22, h: 20 })) {
-          s.hit[v.id] = 1; v.hp -= s.dmg;
+          s.hit[v.id] = 1; v.hp -= s.dmg; NS.flashDamage(v);
           if (v.hp <= 0) { v.dead = true; G.addScore(1000, v.x, v.y); NS.FX.explode(v.x, v.y, 1.8, 'fire'); }
           if (!s.pierce) s.dead = true;
         }
@@ -467,7 +472,7 @@
       for (j = 0; !s.dead && j < L.rocks.length; j++) {
         var rock = L.rocks[j]; if (rock.dead || s.hit[rock.id]) continue;
         if (NS.rectHit(sr, { x: rock.x - 4, y: rock.y - 4, w: 8, h: 8 })) {
-          s.hit[rock.id] = 1; rock.hp -= s.dmg; if (rock.hp <= 0) { rock.dead = true; G.addScore(30); NS.FX.spark(rock.x, rock.y, 4, 'hit'); }
+          s.hit[rock.id] = 1; rock.hp -= s.dmg; NS.flashDamage(rock); if (rock.hp <= 0) { rock.dead = true; G.addScore(30); NS.FX.spark(rock.x, rock.y, 4, 'hit'); }
           if (!s.pierce) s.dead = true;
         }
       }
@@ -476,7 +481,7 @@
         for (var gc = 0; gc < gate.cells.length; gc++) {
           var cell = gate.cells[gc]; if (cell.dead || s.hit[cell.id]) continue;
           if (NS.rectHit(sr, { x: cell.x, y: gate.y - 7, w: cell.w, h: 14 })) {
-            s.hit[cell.id] = 1; cell.hp -= s.dmg;
+            s.hit[cell.id] = 1; cell.hp -= s.dmg; NS.flashDamage(cell);
             if (cell.hp <= 0) { cell.dead = true; G.addScore(100); NS.FX.explode(cell.x + cell.w / 2, gate.y, 0.7, 'fire'); }
             if (!s.pierce) s.dead = true;
             break;
@@ -491,6 +496,7 @@
           if (fdx * fdx + fdy * fdy < 13 * 13) {
             s.hit[fc.id] = 1;
             if (fc.shield > 0) fc.shield -= s.dmg; else fc.hp -= s.dmg;
+            NS.flashDamage(fc);
             if (fc.hp <= 0) { fc.dead = true; G.addScore(2500, fc.x, fc.y); NS.FX.explode(fc.x, fc.y, 1.8, 'fire'); }
             if (!s.pierce) s.dead = true;
             break;
@@ -506,6 +512,7 @@
             b.shields[b.shield - 1] -= s.dmg;
             if (b.shields[b.shield - 1] <= 0) b.shield--;
           } else b.hp -= s.dmg;
+          NS.flashDamage(b);
           NS.FX.spark(s.x, s.y, 3, b.shield ? 'hit' : 'fire');
           if (!s.pierce) s.dead = true;
           if (b.hp <= 0) {
@@ -635,20 +642,21 @@
   function drawBoss(g, b) {
     if (b.dead && (b.dying >> 2) % 2) return;
     var dep = b.deploy == null ? 1 : b.deploy;
+    var flash = NS.damageFlashing(b);
     g.save(); g.translate(b.x, b.y); g.rotate(b.spin);
     for (var q = 0; q < 4; q++) {
-      g.rotate(Math.PI / 2); g.fillStyle = '#7a9ab8';
+      g.rotate(Math.PI / 2); g.fillStyle = flash ? '#d9162c' : '#7a9ab8';
       g.fillRect(7 * dep, -2, Math.max(1, 28 * dep), 4);
-      g.fillStyle = '#d8e7ef'; g.beginPath(); g.arc(36 * dep, 0, 7, 0, Math.PI * 2); g.fill();
+      g.fillStyle = flash ? '#ff5961' : '#d8e7ef'; g.beginPath(); g.arc(36 * dep, 0, 7, 0, Math.PI * 2); g.fill();
     }
     g.restore();
-    g.fillStyle = '#273d61'; g.beginPath(); g.arc(b.x, b.y, 22, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = b.shield ? '#a9f4ff' : '#ef6272'; g.lineWidth = b.shield ? 4 : 2; g.stroke();
+    g.fillStyle = flash ? '#ff3038' : '#273d61'; g.beginPath(); g.arc(b.x, b.y, 22, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = flash ? '#ff8b91' : (b.shield ? '#a9f4ff' : '#ef6272'); g.lineWidth = b.shield ? 4 : 2; g.stroke();
     for (var ring = 0; ring < b.shield; ring++) {
       g.strokeStyle = 'rgba(130,235,255,' + (0.35 + ring * 0.18) + ')'; g.lineWidth = 1;
       g.beginPath(); g.arc(b.x, b.y, 26 + ring * 4, 0, Math.PI * 2); g.stroke();
     }
-    g.fillStyle = '#ff5964'; g.beginPath(); g.arc(b.x, b.y, 8, 0, Math.PI * 2); g.fill();
+    g.fillStyle = flash ? '#ffb1b5' : '#ff5964'; g.beginPath(); g.arc(b.x, b.y, 8, 0, Math.PI * 2); g.fill();
   }
 
   function drawStructures(g) {
@@ -661,21 +669,24 @@
     }
     for (i = 0; i < L.volcanoes.length; i++) {
       var v = L.volcanoes[i]; if (v.dead || v.y < -30 || v.y > NS.PLAYFIELD_H + 30) continue;
-      g.fillStyle = '#6f3027'; g.beginPath(); g.moveTo(v.x - 13, v.y + 10); g.lineTo(v.x - 5, v.y - 9); g.lineTo(v.x + 5, v.y - 9); g.lineTo(v.x + 13, v.y + 10); g.closePath(); g.fill();
-      g.fillStyle = '#ff9a35'; g.fillRect(v.x - 5, v.y - 10, 10, 4);
+      var vf = NS.damageFlashing(v);
+      g.fillStyle = vf ? '#ff3038' : '#6f3027'; g.beginPath(); g.moveTo(v.x - 13, v.y + 10); g.lineTo(v.x - 5, v.y - 9); g.lineTo(v.x + 5, v.y - 9); g.lineTo(v.x + 13, v.y + 10); g.closePath(); g.fill();
+      g.fillStyle = vf ? '#ff8b91' : '#ff9a35'; g.fillRect(v.x - 5, v.y - 10, 10, 4);
     }
     for (i = 0; i < L.gates.length; i++) {
       var gate = L.gates[i]; if (gate.y < -20 || gate.y > NS.PLAYFIELD_H + 20) continue;
       for (j = 0; j < gate.cells.length; j++) {
         var cell = gate.cells[j]; if (cell.dead) continue;
-        g.fillStyle = '#7b3b43'; g.fillRect(cell.x, gate.y - 7, cell.w, 14);
-        g.fillStyle = '#d66a58'; g.fillRect(cell.x + 2, gate.y - 5, cell.w - 4, 3);
+        var cf = NS.damageFlashing(cell);
+        g.fillStyle = cf ? '#ff3038' : '#7b3b43'; g.fillRect(cell.x, gate.y - 7, cell.w, 14);
+        g.fillStyle = cf ? '#ff8b91' : '#d66a58'; g.fillRect(cell.x + 2, gate.y - 5, cell.w - 4, 3);
       }
     }
     for (i = 0; i < L.rocks.length; i++) {
       var r = L.rocks[i]; if (r.dead) continue;
-      g.fillStyle = '#b8b2aa'; g.beginPath(); g.arc(r.x, r.y, 4, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#eee3d0'; g.fillRect(r.x - 1, r.y - 2, 2, 2);
+      var rf = NS.damageFlashing(r);
+      g.fillStyle = rf ? '#ff3038' : '#b8b2aa'; g.beginPath(); g.arc(r.x, r.y, 4, 0, Math.PI * 2); g.fill();
+      g.fillStyle = rf ? '#ff9ba0' : '#eee3d0'; g.fillRect(r.x - 1, r.y - 2, 2, 2);
     }
     var f = L.fortress;
     if (f && L.phase === 'fortress') {
@@ -686,9 +697,10 @@
       g.fillStyle = '#58789b'; for (i = 0; i < 8; i++) g.fillRect(i * 34, py - 5, 25, 6);
       for (i = 0; i < f.cores.length; i++) {
         var c = f.cores[i]; if (c.dead) continue;
-        g.fillStyle = '#184b78'; g.beginPath(); g.arc(c.x, c.y, 12, 0, Math.PI * 2); g.fill();
-        g.strokeStyle = c.shield > 0 ? '#8ee8ff' : '#ffb154'; g.lineWidth = c.shield > 0 ? 4 : 2; g.stroke();
-        g.fillStyle = '#ff7b4c'; g.beginPath(); g.arc(c.x, c.y, 5, 0, Math.PI * 2); g.fill();
+        var ff = NS.damageFlashing(c);
+        g.fillStyle = ff ? '#ff3038' : '#184b78'; g.beginPath(); g.arc(c.x, c.y, 12, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = ff ? '#ff9ba0' : (c.shield > 0 ? '#8ee8ff' : '#ffb154'); g.lineWidth = c.shield > 0 ? 4 : 2; g.stroke();
+        g.fillStyle = ff ? '#ffc1c4' : '#ff7b4c'; g.beginPath(); g.arc(c.x, c.y, 5, 0, Math.PI * 2); g.fill();
       }
       for (i = 0; i < f.balls.length; i++) { var ball = f.balls[i]; g.fillStyle = '#8fcaff'; g.beginPath(); g.arc(ball.x, ball.y, 5, 0, Math.PI * 2); g.fill(); }
     }
@@ -700,8 +712,9 @@
     for (var i = 0; i < L.enemies.length; i++) {
       var e = L.enemies[i]; if (e.dead || !e.active || e.y < -20 || e.y > NS.PLAYFIELD_H + 20) continue;
       g.save(); g.translate(e.x, e.y);
-      if (e.kind === 'turret') { g.fillStyle = '#b76038'; g.fillRect(-6, -6, 12, 12); g.fillStyle = '#ffe070'; g.fillRect(-2, -4, 4, 7); }
-      else { g.fillStyle = (e.carrier || e.bonus) ? '#e44848' : '#93c9d8'; g.beginPath(); g.moveTo(0, 6); g.lineTo(-6, -4); g.lineTo(0, -1); g.lineTo(6, -4); g.closePath(); g.fill(); }
+      var ef = NS.damageFlashing(e);
+      if (e.kind === 'turret') { g.fillStyle = ef ? '#ff3038' : '#b76038'; g.fillRect(-6, -6, 12, 12); g.fillStyle = ef ? '#ff9ba0' : '#ffe070'; g.fillRect(-2, -4, 4, 7); }
+      else { g.fillStyle = ef ? '#ff3038' : ((e.carrier || e.bonus) ? '#e44848' : '#93c9d8'); g.beginPath(); g.moveTo(0, 6); g.lineTo(-6, -4); g.lineTo(0, -1); g.lineTo(6, -4); g.closePath(); g.fill(); }
       g.restore();
     }
     for (i = 0; i < L.pickups.length; i++) { var c = L.pickups[i]; var pickupSprite = c.kind === 'crash' ? NS.S.crashCapsule : NS.S.capsule; g.drawImage(pickupSprite[(c.t >> 3) & 1], c.x - 3, c.y - 3); }

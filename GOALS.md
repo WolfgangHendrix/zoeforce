@@ -57,14 +57,18 @@ _Progress: not started._
 
 ## 4. Content depth for Stages 3–6
 
-_Progress: targeted Stage 4 playability repair complete; full authoring pass not started._
+_Progress: Stage 4 repair and an environmental pacing pass are complete; full authoring remains._
 
 - [x] **Repair Stage 4's opening combat.** Corrected seven outward-mirrored
       cell rows and softened the capillary scroll spike from 1.55× to 1.35×.
+- [x] **Environmental pacing pass.** Filled quiet transitions in Stages 3–6;
+      Stage 5 now follows its checkpoint with shoot-through masonry seals,
+      breached route walls, pillars and embedded defenses.
 - [ ] **Author the stages instead of generating them.** `src/campaign.js` is
-      362 lines of `for` loops with modulo variation covering four stages,
-      against 327 authored lines for Stage 1 and 739 for Stage 2. Move toward
-      per-stage wave tables and a terrain description like `KEYFRAMES`.
+      roughly 470 lines and still mixes authored phrases with generated loops
+      across four stages, against the dedicated systems for Stages 1 and 2.
+      Move toward per-stage wave tables and a terrain description like
+      `KEYFRAMES`.
 - [ ] **Pacing pass per stage** once the content is authored.
 
 ## 5. Verification

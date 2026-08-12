@@ -49,7 +49,7 @@
 
     this.t++;
     this.stateT++;
-    if (this.hitFlash > 0) this.hitFlash--;
+    NS.tickDamageFlash(this);
     this.bob = Math.sin(this.t * 0.028) * 12;
     this.tentacle += 0.05;
 
@@ -274,7 +274,7 @@
 
     if (inChannel && NS.rectHit(rect, core)) {
       this.hp -= dmg;
-      this.hitFlash = 3;
+      NS.flashDamage(this);
       NS.FX.spark(core.x + 6, core.y + 6, 4, 'hit');
       NS.Audio.sfx.hit();
       if (this.hp <= 0) {
@@ -308,9 +308,10 @@
   /* ---- draw ----------------------------------------------------------- */
   Boss.prototype.draw = function (g) {
     var cx = this.x, cy = this.y + this.bob;
+    var flash = NS.damageFlashing(this);
 
     /* writhing tendrils anchored to the chamber wall behind the body */
-    g.strokeStyle = '#7a2440';
+    g.strokeStyle = flash ? '#ff3038' : '#7a2440';
     g.lineWidth = 2;
     var strand = -1;
     this.eachTendril(10, function (tx, ty, index) {
@@ -324,17 +325,16 @@
     if (strand >= 0) g.stroke();
 
     /* main mass: layered blobs */
-    var flash = this.hitFlash > 0 && !NS.reducedFlash();
-    drawBlob(g, cx, cy, 30, 41, flash ? '#ffb9c8' : '#8d2a4a', '#5a1530');
-    drawBlob(g, cx + 4, cy, 24, 33, flash ? '#ffd4de' : '#b23d61', '#7c2244');
-    drawBlob(g, cx + 2, cy, 16, 22, '#d2618a', '#94304f');
+    drawBlob(g, cx, cy, 30, 41, flash ? '#ff3038' : '#8d2a4a', flash ? '#b40f22' : '#5a1530');
+    drawBlob(g, cx + 4, cy, 24, 33, flash ? '#ff5961' : '#b23d61', flash ? '#d8182e' : '#7c2244');
+    drawBlob(g, cx + 2, cy, 16, 22, flash ? '#ff777d' : '#d2618a', flash ? '#de2034' : '#94304f');
 
     /* armour plates that slide apart as the eye opens */
     var sep = this.eyeOpen * 9;
-    g.fillStyle = flash ? '#fff0f4' : '#e6a5bd';
+    g.fillStyle = flash ? '#ff3038' : '#e6a5bd';
     g.fillRect((cx - 14) | 0, (cy - 16 - sep) | 0, 26, 8);
     g.fillRect((cx - 14) | 0, (cy + 8 + sep) | 0, 26, 8);
-    g.fillStyle = '#7c2244';
+    g.fillStyle = flash ? '#b40f22' : '#7c2244';
     g.fillRect((cx - 14) | 0, (cy - 16 - sep) | 0, 26, 2);
     g.fillRect((cx - 14) | 0, (cy + 14 + sep) | 0, 26, 2);
 

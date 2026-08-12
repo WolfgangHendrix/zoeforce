@@ -480,14 +480,21 @@
     }
 
     if (I.hit('pause')) {
-      if (G.state === 'paused') resumeFromPause();
+      if (G.state === 'paused') {
+        resumeFromPause();
+        return;
+      }
       else {
         G.prevState = G.state;
         G.state = 'paused';
         pause.index = 0;
         pause.confirm = null;
         pause.submenu = null;
+        pause.inputArmed = false;
         NS.Audio.stopMusic();
+        /* Xbox Start raises both `pause` and `start`. Do not let the same
+           physical edge open the pause screen and select its first row. */
+        return;
       }
     }
     if (G.state === 'paused') { updatePause(I); return; }
@@ -633,7 +640,7 @@
      fires on a single press: each opens a confirmation whose default answer
      is the harmless one. A player reaching for pause on a stray input can
      press through nothing here and lose their ship. */
-  var pause = { index: 0, confirm: null, submenu: null };
+  var pause = { index: 0, confirm: null, submenu: null, inputArmed: false };
   var title = { screen: 'main', index: 0, stageIndex: 0, optionIndex: 0 };
   /* exposed so the debug console — and the automated menu tests — can see
      which entry is selected without inferring it from pixels */
@@ -820,6 +827,19 @@
   }
 
   function updatePause(I) {
+    /* Gameplay inputs often remain held as pause opens (especially Start on
+       a controller, which is also the menu-select button). Wait for buttons
+       and movement to return to neutral before accepting menu navigation. */
+    if (!pause.inputArmed) {
+      var openingAxis = I.axis();
+      if (!I.held('pause') && !I.held('start') && !I.held('fire') &&
+          Math.abs(openingAxis.x) < 0.5 && Math.abs(openingAxis.y) < 0.5) {
+        pause.inputArmed = true;
+        stickLatched = false;
+        horizontalLatched = false;
+      }
+      return;
+    }
     if (pause.submenu === 'options') { updateOptions(I, 'pause'); return; }
     var list = pause.confirm ? 2 : PAUSE_ITEMS.length;
     var step = menuStep(I);

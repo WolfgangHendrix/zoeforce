@@ -61,6 +61,20 @@ NS.reducedFlash = function () {
   return !!(NS.Game && NS.Game.settings && NS.Game.settings.reducedFlash);
 };
 
+/* One damage-feedback contract shared by every stage. Gameplay owns the
+   short timer; renderers decide how to display it and honor Reduced Flash. */
+NS.DAMAGE_FLASH_FRAMES = 5;
+NS.DAMAGE_FLASH_COLOR = '#ff3038';
+NS.flashDamage = function (target) {
+  if (target) target.hitFlash = NS.DAMAGE_FLASH_FRAMES;
+};
+NS.tickDamageFlash = function (target) {
+  if (target && target.hitFlash > 0) target.hitFlash--;
+};
+NS.damageFlashing = function (target) {
+  return !!(target && target.hitFlash > 0 && !NS.reducedFlash());
+};
+
 /* ---- math ------------------------------------------------------------- */
 NS.clamp = function (v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); };
 NS.lerp = function (a, b, t) { return a + (b - a) * t; };

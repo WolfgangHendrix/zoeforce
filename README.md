@@ -202,6 +202,10 @@ at 10,000 points and another is awarded every 30,000 points afterward (40k,
 70k, 100k, and so on). Crossing multiple thresholds with one large boss bonus
 awards every life earned rather than skipping an extend.
 
+**Damage feedback** — enemies and other multi-hit targets flash red whenever
+health or shielding is actually removed. Armored and invulnerable impacts do
+not flash, and the Options menu's Reduced Flash setting suppresses the effect.
+
 Stage 1 runs about 3:45 including the boss, aligned to the NES reference's
 roughly 3:48 transition into Stage 2.
 
@@ -225,18 +229,22 @@ the vertical stage.
 NES campaign structure:
 
 - Prominence Inferno has six tight five-Phoenix power formations, alternating
-  lava eruptions, continuous flame sections, red dragons, and Intruder's
-  mouth weak point.
+  lava eruptions, short counter-jets filling the space between major flames,
+  red dragons, and Intruder's mouth weak point.
 - Cellular Current accelerates through capillaries into lung sacs that release
   bouncing cells, rib hazards, and Giga's open-mouth fight with detachable
   homing eyes. Its opening cell rows bend inward across the firing lane, and
-  the fast capillary section runs at 1.35× normal scroll speed.
+  the fast capillary section runs at 1.35× normal scroll speed. A final
+  web/rib squeeze carries the environmental pressure into the boss approach.
 - Latis Temple opens with ten paired three-ship power waves, then hatches,
-  rocks, moving pillars, destructible blocks, a three-core capsule-paying
-  miniboss, and Tutanhamanattack's orbiting shield and eye weak point.
+  rocks and a three-core capsule-paying miniboss. Beyond it is an authored
+  interior gauntlet of full masonry seals that must be shot open, pre-breached
+  high/low walls, moving pillars, hatch guns and destructible blocks, followed
+  by Tutanhamanattack's orbiting shield and eye weak point.
 - Mechanical City combines blue/gold formations, crystal bombs, cannons,
-  crossing barriers and mouth-gated Moai. Zelos Force requires destroying the
-  circling dragon before the heart, followed by a high-speed barrier escape.
+  crossing shutters and mouth-gated Moai without empty transitions between
+  its major sections. Zelos Force requires destroying the circling dragon
+  before the heart, followed by a high-speed barrier escape.
 
 The campaign reference and source reconciliation are recorded in
 `docs/life-force-reference.md`.

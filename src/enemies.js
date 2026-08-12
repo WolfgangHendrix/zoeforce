@@ -230,7 +230,7 @@
       e = E.list[i];
       if (e.dead) continue;
       e.t++;
-      if (e.hitFlash > 0) e.hitFlash--;
+      NS.tickDamageFlash(e);
 
       /* Remember last frame's position. The AI-assist gunner leads its shots
          off the measured per-frame velocity, which is exact for every
@@ -535,7 +535,7 @@
   E.damage = function (e, dmg, game) {
     if (e.invincible) { NS.FX.spark(e.x + e.w / 2, e.y + e.h / 2, 2, 'fire'); return false; }
     e.hp -= dmg;
-    e.hitFlash = 3;
+    NS.flashDamage(e);
     if (e.hp > 0) {
       NS.Audio.sfx.hit();
       NS.FX.spark(e.x + e.w / 2, e.y + e.h / 2, 3, 'hit');
@@ -609,7 +609,7 @@
       var e = E.list[i];
       if (e.dead || e.spawnDelay > 0) continue;
       var f = (e.t >> 3) & 1;
-      var hitFlash = e.hitFlash && !NS.reducedFlash();
+      var hitFlash = NS.damageFlashing(e);
 
       switch (e.kind) {
         case 'flapper':
@@ -708,11 +708,11 @@
   function skin(e, spr) { return e.carrier ? NS.carrierTint(spr) : spr; }
   E.skin = skin;
 
-  /* memoised white-flash versions so we don't rebuild canvases every frame */
+  /* Memoised damage-red versions so recoloring never lands in the frame loop. */
   var flashCache = new Map();
   NS.tintCache = function (spr) {
     var c = flashCache.get(spr);
-    if (!c) { c = NS.tint(spr, 255, 255, 255, 0.8); flashCache.set(spr, c); }
+    if (!c) { c = NS.tint(spr, 255, 48, 56, 0.86); flashCache.set(spr, c); }
     return c;
   };
 

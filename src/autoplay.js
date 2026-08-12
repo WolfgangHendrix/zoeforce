@@ -107,6 +107,33 @@
     return best ? { x: best.x, y: 172 } : { x: p.x, y: 172 };
   }
 
+  function campaignBarrierTarget(C, p) {
+    if (!C.horizontal() || !C.barriers || !C.barriers.length) return null;
+    var nearest = null, nearestX = Infinity;
+    for (var i = 0; i < C.barriers.length; i++) {
+      var wall = C.barriers[i], wx = C.barrierScreenX(wall);
+      if (wx < p.x + 8 || wx > NS.W + 50 || wx >= nearestX) continue;
+      nearest = wall; nearestX = wx;
+    }
+    if (!nearest) return null;
+
+    /* Prefer an existing breach. A full seal has none, so hold the current
+       firing lane and bore through its nearest cell; once that cell breaks,
+       the same calculation naturally turns it into the route. */
+    var chosen = null, best = Infinity;
+    for (i = 0; i < nearest.cells.length; i++) {
+      var cell = nearest.cells[i];
+      if (!cell.dead) continue;
+      var cy = cell.y + cell.h / 2, d = Math.abs(cy - p.y);
+      if (d < best) { chosen = cell; best = d; }
+    }
+    if (!chosen) for (i = 0; i < nearest.cells.length; i++) {
+      cell = nearest.cells[i]; cy = cell.y + cell.h / 2; d = Math.abs(cy - p.y);
+      if (d < best) { chosen = cell; best = d; }
+    }
+    return chosen ? { x: 48, y: chosen.y + chosen.h / 2 } : null;
+  }
+
   function campaignTarget(G) {
     var C = NS.Campaign, p = G.player, side = C.horizontal();
     if (C.mini && !C.mini.dead) {
@@ -124,6 +151,8 @@
       var bx = C.stage === 6 && C.boss.form === 'dragon' ? C.boss.dragonX : C.boss.x;
       return { x: bx == null ? NS.W / 2 : bx, y: 172 };
     }
+    var barrier = campaignBarrierTarget(C, p);
+    if (barrier) return barrier;
     var best = null, distance = Infinity;
     for (i = 0; i < C.enemies.length; i++) {
       var e = C.enemies[i];

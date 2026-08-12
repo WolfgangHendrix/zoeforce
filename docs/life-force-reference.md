@@ -26,6 +26,21 @@ Campaign rules retained throughout:
 - Zelos requires both the circling dragon/soul and the heart to be destroyed,
   followed by a high-speed barrier escape and ending.
 
+## Environmental pacing reconciliation
+
+The later-stage pass treats an enemy-free interval as an environmental beat,
+not empty travel. Prominence now alternates its large eruptions with short
+counter-jets; Cellular Current keeps web and rib pressure through the Giga
+approach; and Mechanical City uses shutters at both major section changes.
+
+The largest reconciliation is the Temple interior after the three-core
+checkpoint. It now alternates four complete masonry seals—each requiring the
+player to shoot out a ship-sized route—with six pre-breached high/low walls.
+Moving pillars, hatch guns and destructible blocks occupy the spaces between
+those walls. This implements the guide's “temple pillars and destructible
+block maze” as a sustained post-miniboss sequence rather than isolated small
+enemies spread across otherwise empty scrolling.
+
 Sources:
 
 - US instruction manual: https://www.thegameisafootarcade.com/wp-content/uploads/2017/02/Life-Force-Salamander-Game-Manual.pdf
