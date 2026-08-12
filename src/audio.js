@@ -6,20 +6,35 @@
 
   var ctx = null, master = null, musicGain = null, sfxGain = null;
   var enabled = true;
+  var volumes = { master: 1, music: 1, sfx: 1 };
+  var BASE_MASTER = 0.35, BASE_MUSIC = 0.30, BASE_SFX = 0.55;
 
   function init() {
     if (ctx) return;
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) { enabled = false; return; }
     ctx = new AC();
-    master = ctx.createGain(); master.gain.value = 0.35; master.connect(ctx.destination);
-    musicGain = ctx.createGain(); musicGain.gain.value = 0.30; musicGain.connect(master);
-    sfxGain = ctx.createGain(); sfxGain.gain.value = 0.55; sfxGain.connect(master);
+    master = ctx.createGain(); master.gain.value = BASE_MASTER * volumes.master; master.connect(ctx.destination);
+    musicGain = ctx.createGain(); musicGain.gain.value = BASE_MUSIC * volumes.music; musicGain.connect(master);
+    sfxGain = ctx.createGain(); sfxGain.gain.value = BASE_SFX * volumes.sfx; sfxGain.connect(master);
   }
 
   function resume() {
     init();
     if (ctx && ctx.state === 'suspended') ctx.resume();
+  }
+
+  /* Values are normalised so the menu can present useful percentages while
+     preserving the deliberately conservative mix levels above. This does not
+     create an AudioContext during boot; it only updates live nodes if the
+     browser has already unlocked them. */
+  function setVolumes(next) {
+    if (next.master != null) volumes.master = NS.clamp(next.master, 0, 1);
+    if (next.music != null) volumes.music = NS.clamp(next.music, 0, 1);
+    if (next.sfx != null) volumes.sfx = NS.clamp(next.sfx, 0, 1);
+    if (master) master.gain.value = BASE_MASTER * volumes.master;
+    if (musicGain) musicGain.gain.value = BASE_MUSIC * volumes.music;
+    if (sfxGain) sfxGain.gain.value = BASE_SFX * volumes.sfx;
   }
 
   /* one-shot tone */
@@ -480,6 +495,8 @@
     startMusic: startMusic,
     stopMusic: stopMusic,
     setTrack: setTrack,
+    setVolumes: setVolumes,
+    volumes: function () { return { master: volumes.master, music: volumes.music, sfx: volumes.sfx }; },
     /* restart the arrangement from the top, intro included */
     rewind: function () { step = 0; },
     setMusicRate: function (r) { BPM = 148 * r; SPB = 60 / BPM / 4; },

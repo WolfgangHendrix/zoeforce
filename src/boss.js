@@ -324,7 +324,7 @@
     if (strand >= 0) g.stroke();
 
     /* main mass: layered blobs */
-    var flash = this.hitFlash > 0;
+    var flash = this.hitFlash > 0 && !NS.reducedFlash();
     drawBlob(g, cx, cy, 30, 41, flash ? '#ffb9c8' : '#8d2a4a', '#5a1530');
     drawBlob(g, cx + 4, cy, 24, 33, flash ? '#ffd4de' : '#b23d61', '#7c2244');
     drawBlob(g, cx + 2, cy, 16, 22, '#d2618a', '#94304f');

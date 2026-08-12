@@ -1206,14 +1206,14 @@
     ];
     for (var i = 0; i < rings.length; i++) {
       var r = rings[i];
-      bossSlab(i, b.x + (i === 1 ? 4 : (i === 2 ? 2 : 0)), cy, r, b.hitFlash > 0);
+      bossSlab(i, b.x + (i === 1 ? 4 : (i === 2 ? 2 : 0)), cy, r, b.hitFlash > 0 && !NS.reducedFlash());
     }
     /* armour plates slide apart as the eye opens. 2D draws them as 26x8
        rects whose centres sit 12px off the core, not 20 — at 20 they hung
        clear of the mass with a gap the flat art does not have. */
     var sep = b.eyeOpen * 9;
-    bossPlate(0, b.x - 1, cy - 12 - sep, b.hitFlash > 0);
-    bossPlate(1, b.x - 1, cy + 12 + sep, b.hitFlash > 0);
+    bossPlate(0, b.x - 1, cy - 12 - sep, b.hitFlash > 0 && !NS.reducedFlash());
+    bossPlate(1, b.x - 1, cy + 12 + sep, b.hitFlash > 0 && !NS.reducedFlash());
 
     /* the tendrils rooting it to the chamber wall — the single loudest part
        of the 2D silhouette, and absent here entirely until now */
@@ -1224,7 +1224,7 @@
     });
 
     if (b.eyeOpen > 0.05) {
-      var spr = b.hitFlash > 0 ? NS.S.bossEyeHit : NS.S.bossEye;
+      var spr = b.hitFlash > 0 && !NS.reducedFlash() ? NS.S.bossEyeHit : NS.S.bossEye;
       /* the innermost body blob reaches z+23, so the eye has to sit past
          that or it renders buried inside the mass */
       place('bossEye', spr, b.x - 6, cy - 6, 'boss',

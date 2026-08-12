@@ -33,6 +33,13 @@ python -m http.server 8791
 | P | Pause |
 | F | Fullscreen |
 
+The title screen includes a stage select that unlocks each stage when you
+reach it. Options are available from both the title and pause menus, with a
+persisted starting-lives count (1–9), lethal or nonlethal wall contact,
+master/music/SFX volume, and a reduced-flash setting. With wall damage off,
+the ship stops against scenery and keeps sliding along the open axis; enemies,
+shots, eruptions, and other active hazards remain dangerous.
+
 ### Xbox 360 controller
 
 | Control | Action |
@@ -55,8 +62,9 @@ is multi-touch and analog, and feeds the same `NS.Input` the keyboard does.
 
 **Power meter** — the Gradius/Life Force capsule system, six slots:
 `SPEED · MISSILE · RIPPLE · LASER · OPTION · FORCE`. Each capsule advances the
-highlight; `X` spends it. Speed has 5 NES-style levels, Options cap at 2 and trail the
-ship along its own flight path, Ripple and Laser are mutually exclusive, Force
+highlight; `X` spends it. Speed has five incremental levels tuned for normalized
+keyboard and analog-stick movement. Options cap at 2 and trail the ship along
+its own flight path, Ripple and Laser are mutually exclusive, Force
 Field absorbs 4 hits.
 
 **Capsule drops** — rows, exactly as Life Force does it. Wipe a **complete
@@ -182,7 +190,12 @@ into it. Still synthesised at schedule time — no audio assets.
 **Death and recovery** — the stage keeps scrolling while the next life flies
 in instead of rewinding to a Gradius checkpoint. Power is wiped, but equipped
 Options turn green, drift slowly toward the left edge, and can be reclaimed by
-touching them. 3 lives, score + persisted hi-score, chiptune WebAudio SFX.
+touching them. The default is 3 lives (configurable from 1–9), plus score,
+persisted hi-score, and chiptune WebAudio SFX.
+After the last ship, a ten-second arcade continue screen offers two additional
+credits per run. A continue restarts the current stage with the configured
+starting-life count, zero score and no power-ups; unlocked stage progress
+remains saved.
 
 **Score extends** — matching NES *Life Force*, the first extra life is awarded
 at 10,000 points and another is awarded every 30,000 points afterward (40k,
@@ -216,7 +229,8 @@ NES campaign structure:
   mouth weak point.
 - Cellular Current accelerates through capillaries into lung sacs that release
   bouncing cells, rib hazards, and Giga's open-mouth fight with detachable
-  homing eyes.
+  homing eyes. Its opening cell rows bend inward across the firing lane, and
+  the fast capillary section runs at 1.35× normal scroll speed.
 - Latis Temple opens with ten paired three-ship power waves, then hatches,
   rocks, moving pillars, destructible blocks, a three-core capsule-paying
   miniboss, and Tutanhamanattack's orbiting shield and eye weak point.
@@ -284,6 +298,7 @@ src/level2.js    vertical terrain, formations, weapons, collision + Tetran
 src/campaign.js  deterministic Stages 3–6, bosses, miniboss and final escape
 src/touch.js     on-screen thumbstick and buttons
 src/voxel.js     the three.js voxel view layer
+src/autoplay.js  watermark-free CPU showcase pilot for full-run capture
 src/game.js      director: states, scroll, collision, HUD, presentation
 ```
 
@@ -324,6 +339,13 @@ miniboss, invincibility, full loadout and recovery controls, frame stepping,
 enemy/bullet cleanup, boss damage controls, pickup spawning, live telemetry,
 hitbox overlays, fullscreen, and 2D/voxel switching.
 
+**CPU Showcase** in that console starts a fresh Stage 1 run, closes the panel,
+and pilots continuously through the Stage 6 ending. It flies, dodges, fires,
+collects and spends power-ups, handles multi-core encounters and bosses, and
+stops on the final clear screen. The pilot has no drawing path, so recordings
+contain only the normal game—no CPU badge, debug telemetry, watermark or
+capture overlay. Reopen the console with tilde to pause or disable it.
+
 `NS.Game.step(n)` advances the simulation `n` frames and renders once — used
 for automated smoke tests (browsers throttle `requestAnimationFrame` in hidden
 tabs). `NS.Game.scrollX` can be set directly to jump around the stage; follow
@@ -333,8 +355,7 @@ spawns as it advances — that is what you want per frame, not for a jump.)
 
 ## Notes / next steps
 
-- Two-player co-op, rank/difficulty scaling, and the arcade continue flow
-  are not implemented.
+- Two-player co-op and rank/difficulty scaling are not implemented.
 - AI ASSIST runs the guns only. It does not fly the ship or spend the power
   meter — dodging and build order stay yours.
 - The voxel view is a fixed side-on camera with a slow drift. A free/

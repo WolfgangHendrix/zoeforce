@@ -81,6 +81,9 @@
       button('Clear Enemies', 'clearenemies'), button('Clear Bullets', 'clearbullets'),
       button('Damage Boss', 'damageboss'), button('Kill Encounter', 'killboss')
     ]));
+    cols.appendChild(section('SHOWCASE / CAPTURE', [
+      button('CPU Showcase: OFF', 'autoplay')
+    ]));
     cols.appendChild(section('VIEW / INSPECTION', [
       button('Hitboxes: OFF', 'hitboxes'), button('Toggle 2D / Voxel', 'voxel'),
       button('Fullscreen', 'fullscreen'), button('Spawn Pickup', 'spawnpickup')
@@ -156,6 +159,10 @@
       case 'step1': step(1); break;
       case 'step60': step(60); break;
       case 'step600': step(600); break;
+      case 'autoplay':
+        if (NS.Autoplay.active()) NS.Autoplay.stop();
+        else { NS.Autoplay.start(G); toggle(false); return; }
+        break;
       case 'clearenemies':
         if (G.stage >= 3) for(i=0;i<NS.Campaign.enemies.length;i++) NS.Campaign.enemies[i].dead=true;
         else if (G.stage === 2) for(i=0;i<NS.Level2.enemies.length;i++) NS.Level2.enemies[i].dead=true;
@@ -211,6 +218,11 @@
       var a=buttons[i].dataset.action;
       if(a==='invincible'){buttons[i].textContent='Invincible: '+(D.invincible?'ON':'OFF');buttons[i].classList.toggle('on',D.invincible);}
       if(a==='hitboxes'){buttons[i].textContent='Hitboxes: '+(D.hitboxes?'ON':'OFF');buttons[i].classList.toggle('on',D.hitboxes);}
+      if(a==='autoplay'){
+        var cpu=NS.Autoplay&&NS.Autoplay.active();
+        buttons[i].textContent='CPU Showcase: '+(cpu?'ON':'OFF');
+        buttons[i].classList.toggle('on',cpu);
+      }
     }
   }
 

@@ -110,7 +110,7 @@
                                    ease((u - CLOSE) / (HOLD - CLOSE)));
     else k = NS.lerp(zoomMin, 1, ease((u - HOLD) / (1 - HOLD)));
     /* a small shake on the slam, in world units so it reads at any zoom */
-    var shake = flash > 0 ? flash * 0.22 : 0;
+    var shake = flash > 0 && !NS.reducedFlash() ? flash * 0.22 : 0;
     return {
       x: fx + (shake ? (Math.random() - 0.5) * shake * 3 : 0),
       y: fy + (shake ? (Math.random() - 0.5) * shake * 3 : 0),
@@ -195,7 +195,7 @@
       }
     }
 
-    if (flash > 0) {
+    if (flash > 0 && !NS.reducedFlash()) {
       g.fillStyle = 'rgba(255,255,255,' + (flash / 16 * 0.55).toFixed(3) + ')';
       g.fillRect(0, 0, NS.W, H);
     }

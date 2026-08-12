@@ -609,17 +609,18 @@
       var e = E.list[i];
       if (e.dead || e.spawnDelay > 0) continue;
       var f = (e.t >> 3) & 1;
+      var hitFlash = e.hitFlash && !NS.reducedFlash();
 
       switch (e.kind) {
         case 'flapper':
-          drawSpr(g, e.bonus ? NS.S.carrier[f] : NS.S.flapper[f], e.x, e.y, e.hitFlash);
+          drawSpr(g, e.bonus ? NS.S.carrier[f] : NS.S.flapper[f], e.x, e.y, hitFlash);
           break;
         case 'rusher':
-          drawSpr(g, NS.S.rusher[(e.t >> 2) & 1], e.x, e.y, e.hitFlash);
+          drawSpr(g, NS.S.rusher[(e.t >> 2) & 1], e.x, e.y, hitFlash);
           break;
         case 'splitter':
           drawSpr(g, e.tier === 1 ? NS.S.splitterBig[f] : NS.S.splitterSmall[f],
-                  e.x, e.y, e.hitFlash);
+                  e.x, e.y, hitFlash);
           break;
         case 'hatch': {
           var hs = skin(e, e.open ? NS.S.hatchOpen : NS.S.hatchClosed);
@@ -627,10 +628,10 @@
             g.save();
             g.translate((e.x | 0), (e.y | 0) + e.h);
             g.scale(1, -1);
-            g.drawImage(e.hitFlash ? NS.tintCache(hs) : hs, 0, 0);
+            g.drawImage(hitFlash ? NS.tintCache(hs) : hs, 0, 0);
             g.restore();
           } else {
-            drawSpr(g, hs, e.x, e.y, e.hitFlash);
+            drawSpr(g, hs, e.x, e.y, hitFlash);
           }
           break;
         }
@@ -646,15 +647,15 @@
             g.save();
             g.translate((e.x | 0), (e.y | 0) + e.h);
             g.scale(1, -1);
-            g.drawImage(e.hitFlash ? NS.tintCache(rs) : rs, 0, 0);
+            g.drawImage(hitFlash ? NS.tintCache(rs) : rs, 0, 0);
             g.restore();
           } else {
-            drawSpr(g, rs, e.x, e.y, e.hitFlash);
+            drawSpr(g, rs, e.x, e.y, hitFlash);
           }
           break;
         }
         case 'spore':
-          drawSpr(g, NS.S.spore, e.x, e.y, e.hitFlash);
+          drawSpr(g, NS.S.spore, e.x, e.y, hitFlash);
           break;
         case 'ducker': {
           var s = skin(e, NS.S.ducker[(e.walk | 0) & 1]);
@@ -662,10 +663,10 @@
             g.save();
             g.translate((e.x | 0), (e.y | 0) + e.h);
             g.scale(1, -1);
-            g.drawImage(e.hitFlash ? NS.tintCache(s) : s, 0, 0);
+            g.drawImage(hitFlash ? NS.tintCache(s) : s, 0, 0);
             g.restore();
           } else {
-            drawSpr(g, s, e.x, e.y, e.hitFlash);
+            drawSpr(g, s, e.x, e.y, hitFlash);
           }
           break;
         }
@@ -675,10 +676,10 @@
             g.save();
             g.translate((e.x | 0), (e.y | 0) + e.h);
             g.scale(1, -1);
-            g.drawImage(e.hitFlash ? NS.tintCache(m) : m, 0, 0);
+            g.drawImage(hitFlash ? NS.tintCache(m) : m, 0, 0);
             g.restore();
           } else {
-            drawSpr(g, m, e.x, e.y, e.hitFlash);
+            drawSpr(g, m, e.x, e.y, hitFlash);
           }
           break;
         }

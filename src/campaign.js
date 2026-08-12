@@ -44,7 +44,10 @@
     }
   }
   function build4(){
-    for(var w=0;w<7;w++)groupWave(340+w*285,w%2?58:188,5,w<6?'capsule':'',w%2?-1:1,'cell');
+    /* Low-entry rows bend right and high-entry rows bend left. These signs
+       were reversed, so all 35 opening cells completed their turn outside
+       the playfield before becoming visible. */
+    for(var w=0;w<7;w++)groupWave(340+w*285,w%2?58:188,5,w<6?'capsule':'',w%2?1:-1,'cell');
     /* Capillary rush: two more authored rows are compressed by the faster
        scroll instead of being independently steered scatter enemies. */
     groupWave(2670,62,5,'capsule',1,'cell');
@@ -95,16 +98,23 @@
   }
   C.bounds=bounds;
 
-  C.hitsPlayer=function(p){
+  /* Keep permanent corridor walls separate from animated hazards so the
+     player's optional nonlethal-wall mode can slide along scenery without
+     also making eruptions or the Stage 6 escape bars harmless. */
+  C.hitsWall=function(p){
+    if(C.phase==='boss'||C.phase==='ending')return false;
+    var progress=C.scroll+(horizontal()?p.x:NS.PLAYFIELD_H-p.y),b=bounds(progress);
+    if(horizontal())return p.y-p.h/2<b.a||p.y+p.h/2>b.z;
+    return p.x-p.w/2<b.a||p.x+p.w/2>b.z;
+  };
+
+  C.hitsHazard=function(p){
     if(C.phase==='boss')return false;
     if(C.phase==='ending'){
       for(var eb=0;eb<C.escapeBars.length;eb++){var bar=C.escapeBars[eb];
         if(p.y+p.h/2>bar.y&&p.y-p.h/2<bar.y+12&&(bar.side==='left'?p.x-p.w/2<bar.w:p.x+p.w/2>NS.W-bar.w))return true;}
       return false;
     }
-    var progress=C.scroll+(horizontal()?p.x:NS.PLAYFIELD_H-p.y),b=bounds(progress);
-    if(horizontal()){if(p.y-p.h/2<b.a||p.y+p.h/2>b.z)return true;}
-    else if(p.x-p.w/2<b.a||p.x+p.w/2>b.z)return true;
     for(var i=0;i<C.hazards.length;i++){
       var h=C.hazards[i],m=mainScreen(h.world);if(m<-30||m>(horizontal()?NS.W:NS.PLAYFIELD_H)+30)continue;
       var extent=hazardExtent(h);
@@ -114,6 +124,7 @@
     }
     return false;
   };
+  C.hitsPlayer=function(p){return C.hitsWall(p)||C.hitsHazard(p);};
   function hazardExtent(h){var q=(h.t%h.period)/h.period;var pulse=Math.sin(q*Math.PI);return Math.max(0,pulse)*h.span;}
 
   C.firePlayer=function(p){
@@ -314,7 +325,7 @@
   C.update=function(G){C.t++;
     if(C.phase==='flight'&&(G.state==='play'||G.state==='dying')){
       var scrollRate=NS.SCROLL_SPEED;
-      if(C.stage===4&&C.scroll>2200&&C.scroll<3650)scrollRate*=1.55;
+      if(C.stage===4&&C.scroll>2200&&C.scroll<3650)scrollRate*=1.35;
       if(C.stage===6&&C.scroll>6900)scrollRate*=1.3;
       C.scroll=Math.min(C.spec.length,C.scroll+scrollRate);
       if(C.stage===5&&!C.spec.miniDone&&C.scroll>=C.spec.miniAt){C.scroll=C.spec.miniAt;startMini(G);}
@@ -354,7 +365,7 @@
     for(i=0;i<C.shots.length;i++)NS.Weapons.drawShot(g,C.shots[i]);
     for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];g.drawImage(NS.S.eshot,q.x-2,q.y-2);}
     if(C.boss)drawBoss(g,C.boss);
-    if(C.ending){g.fillStyle='rgba(255,80,80,.18)';g.fillRect(0,0,NS.W,NS.PLAYFIELD_H);
+    if(C.ending){if(!NS.reducedFlash()){g.fillStyle='rgba(255,80,80,.18)';g.fillRect(0,0,NS.W,NS.PLAYFIELD_H);}
       for(i=0;i<C.escapeBars.length;i++){var eb=C.escapeBars[i];g.fillStyle='#6f8294';if(eb.side==='left')g.fillRect(0,eb.y,eb.w,12);else g.fillRect(NS.W-eb.w,eb.y,eb.w,12);g.fillStyle='#d75050';if(eb.side==='left')g.fillRect(eb.w-3,eb.y,3,12);else g.fillRect(NS.W-eb.w,eb.y,3,12);}}
   };
 

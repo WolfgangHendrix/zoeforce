@@ -1,7 +1,7 @@
 /* save.js — persistence, and the small piece of UI that admits it happened.
 
-   Everything the game keeps between runs is a localStorage write: the high
-   score and the fire mode. Those writes are instant, so nothing here is
+   Everything the game keeps between runs is a localStorage write: records,
+   campaign progress and settings. Those writes are instant, so nothing here is
    waiting on I/O — but a save the player never sees is a save the player does
    not trust, and "did that record?" is a bad question to leave unanswered.
    So each write raises a throbber in the corner for a moment.

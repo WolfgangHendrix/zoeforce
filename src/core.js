@@ -54,6 +54,13 @@ NS.THEME = {
   boss6Name: 'ZELOS FORCE'
 };
 
+/* Accessibility is owned by the director, but renderers load before it and
+   need one stable question to ask. Keeping the fallback false also makes the
+   individual modules safe during the boot queue. */
+NS.reducedFlash = function () {
+  return !!(NS.Game && NS.Game.settings && NS.Game.settings.reducedFlash);
+};
+
 /* ---- math ------------------------------------------------------------- */
 NS.clamp = function (v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); };
 NS.lerp = function (a, b, t) { return a + (b - a) * t; };

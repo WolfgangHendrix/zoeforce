@@ -9,11 +9,10 @@
   'use strict';
 
   var SLOTS = ['SPEED', 'MISSILE', 'LASER', 'OPTION', 'FORCE'];
-  /* NES movement is digital and has no inertial ramp: pressing a direction
-     immediately applies the current speed and releasing it stops movement.
-     Life Force stores ship speed on a 0..10 scale; these are the equivalent
-     whole-pixel steps at our native 256x224 simulation resolution. */
-  var SPEEDS = [1, 2, 3, 4, 5];
+  /* Preserve the reference game's immediate response without its enormous
+     whole-pixel jumps. The old 1,2,3,4,5 curve doubled speed on the first
+     upgrade and crossed the playfield in under a second at maximum. */
+  var SPEEDS = [1.1, 1.45, 1.8, 2.15, 2.5];
   var MAX_OPTIONS = 2;               // North American NES shared limit
   var TRAIL_GAP = 14;               // frames of delay between each Option
   var INVULN_FRAMES = 110;
@@ -37,7 +36,7 @@
     this.bank = 0;
 
     if (full) {
-      this.lives = 3;
+      this.lives = NS.Game && NS.Game.settings ? NS.Game.settings.startingLives : 3;
       this.score = 0;
       /* NES Life Force grants its first score extend at 10,000, then one
          every 30,000 points: 10k, 40k, 70k, 100k, ... */
@@ -164,11 +163,14 @@
 
     var sp = this.speed();
     var ax = input.axis();
-    /* A gamepad still gets a dead zone in Input, but outside it behaves as
-       the NES D-pad did. Diagonal input applies the same step on both axes. */
-    var dx = ax.x < 0 ? -1 : (ax.x > 0 ? 1 : 0);
-    var dy = ax.y < 0 ? -1 : (ax.y > 0 ? 1 : 0);
+    /* Input already normalises digital diagonals and applies the controller
+       dead zone. Retaining its magnitude makes a stick genuinely analog and
+       prevents diagonal movement from becoming sqrt(2) times faster. */
+    var dx = ax.x;
+    var dy = ax.y;
 
+    var oldX = this.x;
+    var oldY = this.y;
     this.x += dx * sp;
     this.y += dy * sp;
 
@@ -186,13 +188,17 @@
     this.y = NS.clamp(this.y, this.sh * 0.5,
                       NS.PLAYFIELD_H - this.sh * 0.5 - exhaustPad);
 
-    /* flesh collision is instant death (no shield save, as in the original) */
-    var terrainHit = NS.Game.stage >= 3
-      ? NS.Campaign.hitsPlayer(this)
-      : (this.orientation === 'vertical'
-        ? NS.Level2.hitsPlayer(this)
-        : NS.Terrain.hitsRect(scrollX, this.x - this.w / 2, this.y - this.h / 2, this.w, this.h));
-    if (terrainHit) {
+    /* Animated hazards stay lethal in both modes. When wall damage is off,
+       resolve each movement axis independently: the blocked component stops
+       while the component parallel to the surface survives as a slide. */
+    if (hitsWall(this, scrollX)) {
+      if (!NS.Game.settings || NS.Game.settings.wallDamage !== false) {
+        this.kill(true);
+        return;
+      }
+      resolveWallSlide(this, scrollX, oldX, oldY);
+    }
+    if (hitsHazard(this)) {
       this.kill(true);
       return;
     }
@@ -224,6 +230,53 @@
       this.fire();
     }
   };
+
+  function hitsWall(p, scrollX) {
+    if (NS.Game.stage >= 3) return NS.Campaign.hitsWall(p);
+    if (p.orientation === 'vertical') return NS.Level2.hitsWall(p);
+    return NS.Terrain.hitsRect(scrollX,
+      p.x - p.w / 2, p.y - p.h / 2, p.w, p.h);
+  }
+
+  function hitsHazard(p) {
+    return NS.Game.stage >= 3 && NS.Campaign.hitsHazard(p);
+  }
+
+  function resolveWallSlide(p, scrollX, oldX, oldY) {
+    var movedX = p.x;
+    var movedY = p.y;
+    /* Side-scrolling corridors usually block vertical movement; vertical
+       stages usually block horizontal movement. Trying the parallel axis
+       first also makes diagonal contact feel stable at shallow angles. */
+    var candidates = p.orientation === 'vertical'
+      ? [{ x: oldX, y: movedY }, { x: movedX, y: oldY }]
+      : [{ x: movedX, y: oldY }, { x: oldX, y: movedY }];
+    candidates.push({ x: oldX, y: oldY });
+    for (var i = 0; i < candidates.length; i++) {
+      p.x = candidates[i].x;
+      p.y = candidates[i].y;
+      if (!hitsWall(p, scrollX)) return;
+    }
+    /* Scrolling geometry can advance into a stationary ship between frames.
+       Seek the nearest free pixel so safe walls remain solid rather than
+       leaving the hull embedded until the player moves away. */
+    var maxNudge = Math.ceil(Math.max(p.w, p.h)) + 4;
+    for (var d = 1; d <= maxNudge; d++) {
+      var nudges = p.orientation === 'vertical'
+        ? [{ x: oldX + d, y: oldY }, { x: oldX - d, y: oldY },
+           { x: oldX, y: oldY + d }, { x: oldX, y: oldY - d }]
+        : [{ x: oldX, y: oldY + d }, { x: oldX, y: oldY - d },
+           { x: oldX + d, y: oldY }, { x: oldX - d, y: oldY }];
+      for (var j = 0; j < nudges.length; j++) {
+        p.x = NS.clamp(nudges[j].x, p.sw * 0.5, NS.W - p.sw * 0.5);
+        p.y = NS.clamp(nudges[j].y, p.sh * 0.5,
+          NS.PLAYFIELD_H - p.sh * 0.5 - (p.orientation === 'vertical' ? NS.S.flameTop.height - 1 : 0));
+        if (!hitsWall(p, scrollX)) return;
+      }
+    }
+    p.x = oldX;
+    p.y = oldY;
+  }
 
   function pointBehind(trail, distance) {
     if (!trail.length) return { x: 0, y: 0 };
@@ -307,8 +360,15 @@
 
   /* returns true if the hit was absorbed */
   Player.prototype.hit = function () {
-    if (NS.Debug && NS.Debug.invincible) return true;
     if (!this.alive || this.invuln > 0) return true;
+    if (NS.Autoplay && NS.Autoplay.active()) {
+      NS.Autoplay.noteHit();
+      this.invuln = 12;                 // hit feedback without death-blinking
+      NS.Audio.sfx.hit();
+      NS.FX.spark(this.x, this.y, 5, 'hit');
+      return true;
+    }
+    if (NS.Debug && NS.Debug.invincible) return true;
     if (this.shield > 0) {
       this.shield--;
       NS.Audio.sfx.hit();
@@ -321,6 +381,7 @@
   };
 
   Player.prototype.kill = function () {
+    if (NS.Autoplay && NS.Autoplay.active()) { NS.Autoplay.noteTerrain(); return; }
     if (NS.Debug && NS.Debug.invincible) return;
     if (!this.alive) return;
     this.alive = false;

@@ -224,6 +224,10 @@
     }
     return false;
   };
+  /* Stage 2's environmental collision is entirely solid scenery. Rocks and
+     enemy projectiles are resolved separately, so this alias is safe for
+     the player's nonlethal wall-slide mode. */
+  L.hitsWall = L.hitsPlayer;
 
   function updateStructures(G) {
     var p = G.player, i;
