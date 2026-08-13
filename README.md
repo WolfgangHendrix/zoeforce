@@ -34,11 +34,18 @@ python -m http.server 8791
 | F | Fullscreen |
 
 The title screen includes a stage select that unlocks each stage when you
-reach it. Options are available from both the title and pause menus, with a
+reach it. Four local pilot profiles independently preserve campaign progress,
+high score, shooting style, career statistics and achievements; Profile 1
+automatically imports the previous single-player save. Records are available
+from both the title and pause menus. CPU showcase and attract-mode play never
+contribute to player records.
+
+Options are available from both the title and pause menus, with a
 persisted starting-lives count (1–9), lethal or nonlethal wall contact,
 master/music/SFX volume, screen-shake and rumble strength, reduced flash,
 reduced motion, high-contrast projectiles, attract mode, and complete primary
-keyboard/controller remapping. Rebinding a control that is already assigned
+keyboard/controller remapping. Shooting Style selects Manual, Auto, or AI
+Assist directly; `M` remains the quick in-game cycle key. Rebinding a control that is already assigned
 swaps the two bindings instead of silently creating a conflict. With wall
 damage off, the ship stops against scenery and keeps sliding along the open
 axis; enemies, shots, eruptions, and other active hazards remain dangerous.
@@ -233,7 +240,8 @@ origins followed by four mirrored pairs. Their members sample one squad path
 at fixed 16px spacing rather than steering independently. Clearing all five
 ships pays ten regular power capsules across the opening; the second-to-last
 squad pays a blue Crash capsule that clears active enemies, shots and rocks.
-Later fortress-approach squads add four more complete-row capsule rewards. Split-path
+Later fortress-approach squads add four more complete-row capsule rewards. A
+crossing patrol and lighter crust gate bridge the opening rows into split-path
 islands, destructible volcano peaks, rock storms and blast-through dirt gates
 lead to Valis Fortress, where three shielded generators release no more than
 four ricocheting energy marbles. Destroying all generators opens a scrolling
@@ -260,8 +268,22 @@ NES campaign structure:
   by Tutanhamanattack's orbiting shield and eye weak point.
 - Mechanical City combines blue/gold formations, crystal bombs, cannons,
   crossing shutters and mouth-gated Moai without empty transitions between
-  its major sections. Zelos Force requires destroying the circling dragon
-  before the heart, followed by a high-speed barrier escape.
+  its major sections. Six visibly marked gold formations provide complete-set
+  capsule rewards while most blue squads remain score-only. Zelos Force
+  requires destroying the circling dragon before the heart, followed by a
+  barrier escape that accelerates, closes both side walls and drives a crush
+  wall upward behind the ship.
+
+Each campaign family has shared 2D/voxel source art: firebirds and slag,
+cellular enemies, gold temple craft and masonry, plus crystals, cannons and
+Moai machinery. Voxel scenery uses stage-coloured procedural geometry for
+islands, volcanoes, rocks, gates and extending hazards rather than stretched
+enemy-sprite stand-ins.
+
+Stage openings use short silent-serial intertitles to carry the story: a
+future that is late, a galaxy with a heart condition, and one pilot keeping a
+very serious appointment. The ending resolves the cosmic emergency without
+claiming to have solved Monday.
 
 The campaign reference and source reconciliation are recorded in
 `docs/life-force-reference.md`.
@@ -311,6 +333,8 @@ vendor/three.module.js   three.js r160, vendored (voxel view only)
 src/core.js      constants, math, input (keyboard+touch+analog), THEME
 src/sprites.js   pixel art as character grids — also the voxel model source
 src/audio.js     WebAudio SFX + the multi-section stage & boss arrangements
+src/save.js      localStorage wrapper and visible save throbber
+src/profile.js   four pilot slots, career records, achievements + migration
 src/fx.js        explosions, sparks, score pops, parallax background
 src/feedback.js  shake, haptics, hit-stop, recoil, telegraphs + phase cues
 src/terrain.js   corridor heightmap: authoring, collision, rendering

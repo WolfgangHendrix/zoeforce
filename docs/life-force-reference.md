@@ -24,7 +24,10 @@ Campaign rules retained throughout:
 - Pre-stage squadrons are deterministic complete-set power-up opportunities.
 - Bosses have specific weak points rather than generic full-body damage.
 - Zelos requires both the circling dragon/soul and the heart to be destroyed,
-  followed by a high-speed barrier escape and ending.
+  followed by a high-speed barrier escape and ending. The implemented escape
+  accelerates from 3.8 to 9.5 pixels per frame, narrows both side walls and
+  raises a rear crush wall, forcing the ship upward while alternating barriers
+  leave a telegraphed lane.
 
 ## Environmental pacing reconciliation
 
@@ -40,6 +43,10 @@ Moving pillars, hatch guns and destructible blocks occupy the spaces between
 those walls. This implements the guide's “temple pillars and destructible
 block maze” as a sustained post-miniboss sequence rather than isolated small
 enemies spread across otherwise empty scrolling.
+
+Designated later-stage formations remain complete-set power opportunities.
+Stages 3–5 are deliberately generous recovery stages; Stage 6 keeps most blue
+squads score-only and marks six gold formations as its capsule-bearing sets.
 
 Sources:
 

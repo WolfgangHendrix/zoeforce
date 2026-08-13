@@ -40,6 +40,8 @@
   G.continueT = 0;
   G.continueIndex = 0;
   G.attractT = 0;
+  G.achievementMsg = '';
+  G.achievementMsgT = 0;
   G.settings = {
     startingLives: 3,
     wallDamage: true,
@@ -82,8 +84,10 @@
       { label: 'CARVING THE CORRIDOR', run: function () { NS.Terrain.build(); } },
       { label: 'SEEDING THE DEEP FIELD', run: function () { NS.FX.initBackground(); } },
       { label: 'READING PILOT RECORDS', run: function () {
-          G.hiScore = parseInt(NS.Save.read('ns_hiscore', '0'), 10) || 0;
-          G.furthestStage = savedInt('ns_furthest_stage', 1, 1, 6);
+          NS.Profile.init();
+          var profile = NS.Profile.current();
+          G.hiScore = profile.highScore;
+          G.furthestStage = profile.furthestStage;
           G.settings.startingLives = savedInt('ns_starting_lives', 3, 1, 9);
           G.settings.wallDamage = NS.Save.read('ns_wall_damage', '1') !== '0';
           G.settings.master = savedInt('ns_master_volume', 100, 0, 100);
@@ -252,6 +256,7 @@
      deliberately keep the current ships, score and loadout. */
   G.startRun = function (stage) {
     stage = NS.clamp(stage || 1, 1, G.furthestStage);
+    G.record('runsStarted');
     G.player.reset(true);
     G.continues = CONTINUES_PER_RUN;
     if (stage === 1) startStageOne();
@@ -301,7 +306,8 @@
     stage = NS.clamp(stage, 1, 6);
     if (stage <= G.furthestStage) return;
     G.furthestStage = stage;
-    NS.Save.write('ns_furthest_stage', stage, 'STAGE ' + stage + ' UNLOCKED');
+    announceUnlocks(NS.Profile.unlockStage(stage));
+    NS.Profile.flush('STAGE ' + stage + ' UNLOCKED');
   }
 
   function startNextStage() {
@@ -324,6 +330,7 @@
 
   function acceptContinue() {
     var stage = G.stage;
+    G.record('continuesUsed');
     G.continues--;
     G.player.reset(true);       // score, ships and loadout begin a new credit
     if (stage === 1) startStageOne();
@@ -336,16 +343,34 @@
   }
 
   /* ---- scoring / pickups ---------------------------------------------- */
+  function announceUnlocks(list) {
+    if (!list || !list.length) return;
+    G.achievementMsg = list[list.length - 1]; G.achievementMsgT = 180;
+    NS.Audio.sfx.power();
+  }
+  G.record = function (name, amount) {
+    announceUnlocks(NS.Profile.record(name, amount));
+  };
+
+  G.loadProfile = function () {
+    var profile = NS.Profile.current();
+    G.hiScore = profile.highScore; G.furthestStage = profile.furthestStage;
+    hiScoreDirty = false;
+    NS.Gunner.load(); G.modeMsg = 0; G.achievementMsgT = 0;
+  };
+
   G.addScore = function (n, x, y) {
     G.player.score += n;
+    G.record('totalScore', n);
     while (G.player.score >= G.player.nextLifeScore) {
       G.player.lives++;
       G.player.nextLifeScore += 30000;
       NS.Audio.sfx.extraLife();
       NS.FX.popText(G.player.x - 8, G.player.y - 14, '1UP', '#9dffb0');
     }
-    if (G.player.score > G.hiScore) {
+    if (NS.Profile.recording() && G.player.score > G.hiScore) {
       G.hiScore = G.player.score;
+      announceUnlocks(NS.Profile.setHighScore(G.hiScore));
       /* The high score changes on almost every kill, so writing on each one
          would leave the throbber permanently lit and stop meaning anything.
          Persist on a settled cadence instead; the run-end write below is the
@@ -408,6 +433,7 @@
     /* the save throbber is UI, not simulation: it keeps counting down in
        every state, including while paused or on the title */
     NS.Save.update();
+    NS.Profile.tick();
     if (NS.Feedback) NS.Feedback.update(G);
 
     if (G.state === 'loading') { G.frame++; advanceBoot(); return; }
@@ -439,6 +465,7 @@
       G.modeMsg = 90;
     }
     if (G.modeMsg > 0) G.modeMsg--;
+    if (G.achievementMsgT > 0) G.achievementMsgT--;
 
     if (NS.Debug && NS.Debug.paused && !NS.Debug.stepping) return;
 
@@ -497,6 +524,7 @@
       NS.FX.update();
       NS.FX.updateBackground();
       if (G.clearT === 1) flushHiScore();
+      if (G.clearT === 1) NS.Profile.flush('RUN RECORD');
       if (G.clearT > 90 && (I.hit('start') || I.hit('fire'))) {
         G.state = 'title';
         title.screen = 'main'; title.index = 0;
@@ -510,7 +538,7 @@
         (G.state === 'paused' || G.state === 'play' || G.state === 'dying' || G.state === 'departing')) {
       if (G.state === 'paused') {
         if (pause.submenu === 'controls' && !I.capturing()) {
-          pause.submenu = 'options'; pause.optionIndex = 11; NS.Audio.sfx.hit();
+          pause.submenu = 'options'; pause.optionIndex = 12; NS.Audio.sfx.hit();
           return;
         }
         resumeFromPause();
@@ -525,6 +553,7 @@
         pause.inputArmed = false;
         pause.auto = false;
         NS.Audio.stopMusic();
+        NS.Profile.flush('RUN RECORD');
         /* Xbox Start raises both `pause` and `start`. Do not let the same
            physical edge open the pause screen and select its first row. */
         return;
@@ -539,6 +568,7 @@
     var playerI = NS.Autoplay ? NS.Autoplay.input(I, G) : I;
 
     G.frame++;
+    if (G.state === 'play' || G.state === 'dying' || G.state === 'departing') G.record('playFrames');
     if (G.stageMsg > 0) G.stageMsg--;
     /* the boss entrance cut runs above every stage's own update, so each of
        them can read Intro.holding() without owning a copy of the timing */
@@ -621,6 +651,7 @@
 
     /* ---- boss defeated ---- */
     if (G.boss && G.boss.dead) {
+      G.record('bossesDestroyed'); G.record('stagesCleared');
       G.boss = null;
       G.state = 'departing';
       G.nextStage = 2;
@@ -651,6 +682,7 @@
       }
     }
     if (NS.Level2.complete && G.state !== 'continue' && G.state !== 'gameover') {
+      G.record('stagesCleared');
       G.state = 'departing'; G.nextStage = 3; G.departV = 0; G.clearT = 0; G.boss = null;
     }
   }
@@ -665,8 +697,9 @@
       else{beginContinue();}
     }
     if(NS.Campaign.complete&&G.state!=='continue'&&G.state!=='gameover'){G.boss=null;G.clearT=0;
+      G.record('stagesCleared');
       if(G.stage<6){G.state='departing';G.nextStage=G.stage+1;G.departV=0;}
-      else{G.state='clear';}
+      else{G.record('campaignClears');NS.Profile.flush('CAMPAIGN RECORD');G.state='clear';}
     }
   }
 
@@ -676,7 +709,8 @@
      is the harmless one. A player reaching for pause on a stray input can
      press through nothing here and lose their ship. */
   var pause = { index: 0, confirm: null, submenu: null, inputArmed: false, auto: false };
-  var title = { screen: 'main', index: 0, stageIndex: 0, optionIndex: 0, idle: 0 };
+  var title = { screen: 'main', index: 0, stageIndex: 0, optionIndex: 0,
+    profileIndex: 0, profileConfirm: 0, recordsPage: 0, idle: 0 };
   /* exposed so the debug console — and the automated menu tests — can see
      which entry is selected without inferring it from pixels */
   G.pause = pause;
@@ -685,6 +719,7 @@
   var PAUSE_ITEMS = [
     { label: 'RESUME', act: resumeFromPause },
     { label: 'OPTIONS', act: function () { pause.submenu = 'options'; pause.optionIndex = 0; } },
+    { label: 'RECORDS', act: function () { pause.submenu = 'records'; pause.recordsPage = 0; } },
     { label: 'RESTART STAGE',
       confirm: ['RESTART STAGE ' + '%S' + '?',
                 'POWER-UPS AND STAGE PROGRESS ARE LOST.',
@@ -728,6 +763,7 @@
     pause.confirm = null;
     pause.submenu = null;
     flushHiScore();
+    NS.Profile.flush('RUN RECORD');
     NS.Intro.stop();
     G.resetStage(true);
     G.state = 'title';
@@ -771,17 +807,17 @@
     'STARTING LIVES', 'WALL DAMAGE',
     'MASTER', 'MUSIC', 'SFX', 'SCREEN SHAKE', 'RUMBLE',
     'REDUCED FLASH', 'REDUCED MOTION', 'PROJECTILE CLARITY',
-    'ATTRACT MODE', 'CONTROLS', 'BACK'
+    'ATTRACT MODE', 'SHOOTING STYLE', 'CONTROLS', 'BACK'
   ];
 
   function leaveOptions(context) {
-    if (context === 'title') { title.screen = 'main'; title.index = 2; }
+    if (context === 'title') { title.screen = 'main'; title.index = 4; }
     else { pause.submenu = null; pause.index = 1; }
   }
 
   function adjustOption(index, direction, context) {
-    if (index === 12) { leaveOptions(context); NS.Audio.sfx.hit(); return; }
-    if (index === 11) {
+    if (index === 13) { leaveOptions(context); NS.Audio.sfx.hit(); return; }
+    if (index === 12) {
       var owner = context === 'title' ? title : pause;
       if (context === 'title') title.screen = 'controls'; else pause.submenu = 'controls';
       owner.controlIndex = 0; owner.controlDevice = 'keyboard';
@@ -809,6 +845,9 @@
     } else if (index === 10) {
       G.settings.attractMode = !G.settings.attractMode;
       saveSetting('attractMode');
+    } else if (index === 11) {
+      var modes = NS.Gunner.MODES, modeAt = modes.indexOf(NS.Gunner.mode);
+      NS.Gunner.set(modes[(modeAt + modes.length + direction) % modes.length]); G.modeMsg = 90;
     } else {
       var key = index === 2 ? 'master' : (index === 3 ? 'music' : 'sfx');
       G.settings[key] = NS.clamp(G.settings[key] + direction * 10, 0, 100);
@@ -856,7 +895,7 @@
       NS.Audio.sfx.pickup();
     }
     var adjust = menuHorizontalStep(I);
-    if (adjust && owner.optionIndex < 11) {
+    if (adjust && owner.optionIndex < 12) {
       adjustOption(owner.optionIndex, adjust, context);
     }
     if (I.hit('fire') || I.hit('start')) adjustOption(owner.optionIndex, 1, context);
@@ -869,8 +908,8 @@
 
   function leaveControls(context) {
     var owner = context === 'title' ? title : pause;
-    if (context === 'title') { title.screen = 'options'; title.optionIndex = 11; }
-    else { pause.submenu = 'options'; pause.optionIndex = 11; }
+    if (context === 'title') { title.screen = 'options'; title.optionIndex = 12; }
+    else { pause.submenu = 'options'; pause.optionIndex = 12; }
     owner.controlIndex = 0;
   }
 
@@ -898,6 +937,44 @@
     });
   }
 
+  function leaveRecords(context) {
+    if (context === 'title') { title.screen = 'main'; title.index = 2; }
+    else { pause.submenu = null; pause.index = 2; }
+    NS.Audio.sfx.hit();
+  }
+
+  function updateRecords(I, context) {
+    var owner = context === 'title' ? title : pause;
+    var side = menuHorizontalStep(I);
+    if (side) { owner.recordsPage = owner.recordsPage ? 0 : 1; NS.Audio.sfx.pickup(); }
+    if (I.hit('fire') || I.hit('start') || I.hit('power')) leaveRecords(context);
+  }
+
+  function updateProfiles(I) {
+    if (title.profileConfirm) {
+      var confirmStep = menuStep(I);
+      if (confirmStep) { title.profileConfirm = title.profileConfirm === 1 ? 2 : 1; NS.Audio.sfx.pickup(); }
+      if (I.hit('power')) { title.profileConfirm = 0; NS.Audio.sfx.hit(); return; }
+      if (I.hit('fire') || I.hit('start')) {
+        if (title.profileConfirm === 2) {
+          NS.Profile.erase(title.profileIndex + 1); G.loadProfile(); G.resetStage(true);
+          title.profileIndex = NS.Profile.activeSlot() - 1; NS.Audio.sfx.power();
+        } else NS.Audio.sfx.hit();
+        title.profileConfirm = 0;
+      }
+      return;
+    }
+    var step = menuStep(I);
+    if (step) { title.profileIndex = (title.profileIndex + 5 + step) % 5; NS.Audio.sfx.pickup(); }
+    if (I.hit('power') && title.profileIndex < 4 && NS.Profile.slot(title.profileIndex + 1)) {
+      title.profileConfirm = 1; NS.Audio.sfx.alarm(); return;
+    }
+    if (!(I.hit('fire') || I.hit('start'))) return;
+    if (title.profileIndex === 4) { title.screen = 'main'; title.index = 3; NS.Audio.sfx.hit(); return; }
+    NS.Profile.activate(title.profileIndex + 1); G.loadProfile(); G.resetStage(true);
+    title.screen = 'main'; title.index = 3; NS.Audio.sfx.power();
+  }
+
   function updateTitle(I) {
     if (I.activeNow()) title.idle = 0; else title.idle++;
     if (title.screen === 'main' && title.idle > 1200 && G.settings.attractMode &&
@@ -907,6 +984,8 @@
     var select = I.hit('start') || I.hit('fire');
     if (title.screen === 'options') { updateOptions(I, 'title'); return; }
     if (title.screen === 'controls') { updateControls(I, 'title'); return; }
+    if (title.screen === 'records') { updateRecords(I, 'title'); return; }
+    if (title.screen === 'profiles') { updateProfiles(I); return; }
     if (title.screen === 'stages') {
       var stageStep = menuStep(I);
       if (stageStep) {
@@ -923,12 +1002,14 @@
 
     var step = menuStep(I);
     if (step) {
-      title.index = (title.index + 3 + step) % 3;
+      title.index = (title.index + 5 + step) % 5;
       NS.Audio.sfx.pickup();
     }
     if (!select) return;
     if (title.index === 0) G.startRun(1);
     else if (title.index === 1) { title.screen = 'stages'; title.stageIndex = 0; NS.Audio.sfx.power(); }
+    else if (title.index === 2) { title.screen = 'records'; title.recordsPage = 0; NS.Audio.sfx.power(); }
+    else if (title.index === 3) { title.screen = 'profiles'; title.profileIndex = NS.Profile.activeSlot() - 1; title.profileConfirm = 0; NS.Audio.sfx.power(); }
     else { title.screen = 'options'; title.optionIndex = 0; NS.Audio.sfx.power(); }
   }
 
@@ -948,6 +1029,7 @@
     }
     if (pause.submenu === 'options') { updateOptions(I, 'pause'); return; }
     if (pause.submenu === 'controls') { updateControls(I, 'pause'); return; }
+    if (pause.submenu === 'records') { updateRecords(I, 'pause'); return; }
     var list = pause.confirm ? 2 : PAUSE_ITEMS.length;
     var step = menuStep(I);
     if (step) {
@@ -982,7 +1064,8 @@
   function flushHiScore() {
     if (!hiScoreDirty) return;
     hiScoreDirty = false;
-    NS.Save.write('ns_hiscore', G.hiScore, 'HIGH SCORE');
+    NS.Profile.setHighScore(G.hiScore);
+    NS.Profile.flush('HIGH SCORE');
   }
 
   function updateCapsules() {
@@ -1138,6 +1221,25 @@
     var key = G.stage === 1 ? 'bossName' : 'boss' + G.stage + 'Name';
     return NS.THEME[key] || 'BOSS';
   }
+  function stageStory() {
+    var stories = NS.THEME.stageStories || [];
+    return stories[G.stage] || null;
+  }
+  function drawEscapeCue() {
+    if (G.stage !== 6 || !NS.Campaign.ending) return;
+    var bars = NS.Campaign.escapeBars, next = null;
+    for (var i = 0; i < bars.length; i++) {
+      var bar = bars[i];
+      if (bar.dead || bar.y >= 2 || bar.y < -110) continue;
+      if (!next || bar.y > next.y) next = bar;
+    }
+    if (!next || (NS.Campaign.escapeT >> 2) % 2) return;
+    var inset = NS.Campaign.escapeInset || 8;
+    var x = next.side === 'left' ? NS.W - inset - 18 : inset + 18;
+    g.fillStyle = '#ffcf67'; g.beginPath();
+    g.moveTo(x, 7); g.lineTo(x - 6, 16); g.lineTo(x + 6, 16); g.closePath(); g.fill();
+    centerText('OPEN LANE', 24, '#ffcf67', '5px');
+  }
 
   function drawFrame(overlayOnly) {
     /* All existing drawing code keeps using simulation coordinates. Canvas
@@ -1191,10 +1293,17 @@
        name plate replace the stage banner and the blinking warning */
     NS.Intro.draw(g);
     if (NS.Feedback) NS.Feedback.drawOverlay(g, G);
+    drawEscapeCue();
 
     if (G.stageMsg > 0 && G.stageMsg % 30 < 20 && !NS.Intro.active) {
-      centerText(stageName(), 74, '#ffd7e6');
-      centerText('STAGE ' + G.stage, 60, '#8fd0ff');
+      var story = stageStory();
+      if (story) { g.fillStyle = 'rgba(3,5,9,.78)'; g.fillRect(30, 46, NS.W - 60, 57); }
+      centerText('— STAGE ' + G.stage + ' —', 58, '#8fd0ff', '6px');
+      centerText(stageName(), 71, '#ffd7e6', '8px');
+      if (story) {
+        centerText(story[0], 87, '#d7d9d2', '5px');
+        centerText(story[1], 96, '#ffffff', '5px');
+      }
     }
     if (G.bossWarn > 0 && !NS.Intro.active && (G.bossWarn >> 3) % 2 === 0) {
       centerText('!! WARNING !!', 40, '#ff7676');
@@ -1202,6 +1311,12 @@
     }
     if (G.modeMsg > 0) {
       centerText('FIRE: ' + NS.Gunner.label(), 30, '#9fe8ff');
+    }
+    if (G.achievementMsgT > 0 &&
+        (G.state === 'play' || G.state === 'dying' || G.state === 'departing')) {
+      g.fillStyle = 'rgba(5,12,18,0.82)'; g.fillRect(58, 14, NS.W - 116, 20);
+      centerText('ACHIEVEMENT UNLOCKED', 22, '#9dffb0', '5px');
+      centerText(G.achievementMsg, 31, '#ffffff', '7px');
     }
     if (G.voxelMsgT > 0) {
       centerText(G.voxelMsg, 20,
@@ -1228,10 +1343,15 @@
     if (G.state === 'clear') {
       g.fillStyle = 'rgba(0,0,0,' + Math.min(0.6, G.clearT / 200) + ')';
       g.fillRect(0, 0, NS.W, NS.PLAYFIELD_H);
-      centerText(G.stage === 6 ? 'ZELOS DESTROYED' : 'STAGE ' + G.stage + ' CLEAR', 84, '#a8ffc0');
-      if (G.stage === 6 && G.clearT > 45) centerText('THE SIX TERROR ZONES ARE SILENT', 100, '#d6e9ff');
-      centerText('SCORE ' + pad(G.player.score, 7), G.stage === 6 ? 116 : 100, '#ffe9a0');
-      if (G.clearT > 90) centerText('PRESS ENTER', G.stage === 6 ? 138 : 120, '#c8d2e8');
+      centerText(G.stage === 6 ? 'ZELOS DESTROYED' : 'STAGE ' + G.stage + ' CLEAR', G.stage === 6 ? 70 : 84, '#a8ffc0');
+      if (G.stage === 6) {
+        var epilogue = NS.THEME.epilogue || ['THE SIX TERROR ZONES ARE SILENT', ''];
+        if (G.clearT > 30) centerText('THE SIX TERROR ZONES ARE SILENT', 86, '#d6e9ff', '6px');
+        if (G.clearT > 55) centerText(epilogue[0], 99, '#ffffff', '6px');
+        if (G.clearT > 80) centerText(epilogue[1], 110, '#ffd7e6', '6px');
+      }
+      centerText('SCORE ' + pad(G.player.score, 7), G.stage === 6 ? 126 : 100, '#ffe9a0');
+      if (G.clearT > 90) centerText('PRESS ENTER', G.stage === 6 ? 146 : 120, '#c8d2e8');
     }
 
     g.restore();
@@ -1283,6 +1403,10 @@
       drawControls('pause');
       return;
     }
+    if (pause.submenu === 'records') {
+      drawRecords('pause');
+      return;
+    }
 
     if (pause.confirm) {
       centerText('ARE YOU SURE?', 52, '#ff7676');
@@ -1332,6 +1456,7 @@
     if (index === 8) return G.settings.reducedMotion ? 'ON' : 'OFF';
     if (index === 9) return G.settings.projectileContrast ? 'HIGH' : 'NORMAL';
     if (index === 10) return G.settings.attractMode ? 'ON' : 'OFF';
+    if (index === 11) return NS.Gunner.label();
     return '';
   }
 
@@ -1341,7 +1466,7 @@
     for (var i = 0; i < OPTION_NAMES.length; i++) {
       var y = top + 16 + i * pitch;
       var label = OPTION_NAMES[i];
-      if (i < 11) label += '  < ' + optionValue(i) + ' >';
+      if (i < 12) label += '  < ' + optionValue(i) + ' >';
       var on = selected === i;
       if (on) {
         g.fillStyle = 'rgba(80,120,200,0.30)';
@@ -1373,6 +1498,70 @@
     centerText('LEFT/RIGHT DEVICE   FIRE REBIND   ESC CANCEL', 198, '#5f6c86', '5px');
   }
 
+  function formatPlayTime(frames) {
+    var seconds = Math.floor(frames / NS.FPS), hours = Math.floor(seconds / 3600);
+    var minutes = Math.floor((seconds % 3600) / 60), secs = seconds % 60;
+    return (hours ? hours + ':' + (minutes < 10 ? '0' : '') : '') + minutes + ':' + (secs < 10 ? '0' : '') + secs;
+  }
+
+  function drawRecords(context) {
+    var owner = context === 'title' ? title : pause;
+    var p = NS.Profile.current(), s = p.stats;
+    centerText('RECORDS — ' + p.name, 28, '#ffffff', '9px');
+    centerText(owner.recordsPage ? '◀ ACHIEVEMENTS ▶' : '◀ CAREER STATS ▶', 42, '#8fd0ff', '7px');
+    if (!owner.recordsPage) {
+      var rows = [
+        ['HIGH SCORE', pad(p.highScore, 7)], ['FURTHEST STAGE', String(p.furthestStage)],
+        ['TOTAL SCORE', pad(s.totalScore, 7)], ['PLAY TIME', formatPlayTime(s.playFrames)],
+        ['RUNS STARTED', String(s.runsStarted)], ['ENEMIES DESTROYED', String(s.enemiesDestroyed)],
+        ['BOSSES DESTROYED', String(s.bossesDestroyed)], ['CAPSULES COLLECTED', String(s.capsulesCollected)],
+        ['SHIPS LOST', String(s.deaths)], ['CONTINUES USED', String(s.continuesUsed)],
+        ['STAGES CLEARED', String(s.stagesCleared)], ['CAMPAIGNS CLEARED', String(s.campaignClears)]
+      ];
+      for (var i = 0; i < rows.length; i++) {
+        var y = 55 + i * 11;
+        g.font = '6px monospace'; g.textAlign = 'left'; g.fillStyle = '#6f7d99'; g.fillText(rows[i][0], 50, y);
+        g.textAlign = 'right'; g.fillStyle = '#eaf6ff'; g.fillText(rows[i][1], 206, y);
+      }
+      g.textAlign = 'left';
+    } else {
+      var achievements = NS.Profile.achievements();
+      for (var a = 0; a < achievements.length; a++) {
+        var item = achievements[a], unlocked = !!p.achievements[item.id], ay = 55 + a * 15;
+        centerText((unlocked ? '◆ ' : '◇ ') + (unlocked ? item.name : 'LOCKED'), ay,
+                   unlocked ? '#9dffb0' : '#566071', '6px');
+        centerText(item.desc, ay + 6, unlocked ? '#8fa4c8' : '#414958', '5px');
+      }
+    }
+    centerText('LEFT/RIGHT PAGE    FIRE BACK', 198, '#5f6c86', '5px');
+  }
+
+  function drawProfiles() {
+    centerText('PILOT PROFILES', 32, '#ffffff', '10px');
+    centerText('ACTIVE — PILOT ' + NS.Profile.activeSlot(), 47, '#8fd0ff', '6px');
+    if (title.profileConfirm) {
+      centerText('ERASE PROFILE ' + (title.profileIndex + 1) + '?', 73, '#ff7676', '9px');
+      centerText('PROGRESS AND RECORDS WILL BE LOST.', 91, '#c8d2e8', '6px');
+      drawMenu(['CANCEL', 'ERASE'], 119, ['#8fd0ff', '#ff8080'], title.profileConfirm - 1);
+      centerText('FIRE SELECT    POWER CANCEL', 164, '#5f6c86', '5px');
+      return;
+    }
+    for (var i = 0; i < 4; i++) {
+      var p = NS.Profile.slot(i + 1), on = title.profileIndex === i, active = NS.Profile.activeSlot() === i + 1;
+      var label = 'SLOT ' + (i + 1) + '  ' + (p ? p.name + '  ST' + p.furthestStage : 'EMPTY');
+      if (active) label += '  ACTIVE';
+      var y = 68 + i * 24;
+      if (on) { g.fillStyle = 'rgba(80,120,200,0.30)'; g.fillRect(38, y - 10, NS.W - 76, 15); }
+      centerText((on ? '▶ ' : '') + label + (on ? ' ◀' : ''), y,
+                 on ? '#ffffff' : (active ? '#9dffb0' : '#6f7d99'), '7px');
+      if (p) centerText('HI ' + pad(p.highScore, 7), y + 8, '#566681', '5px');
+    }
+    var backOn = title.profileIndex === 4;
+    centerText((backOn ? '▶ ' : '') + 'BACK' + (backOn ? ' ◀' : ''), 172,
+               backOn ? '#ffffff' : '#6f7d99', '8px');
+    centerText('FIRE SELECT/CREATE    POWER ERASE', 198, '#5f6c86', '5px');
+  }
+
   function drawCapsules() {
     for (var i = 0; i < G.capsules.length; i++) {
       var c = G.capsules[i];
@@ -1397,7 +1586,8 @@
       g.globalAlpha = 1;
     }
 
-    var fullMenu = title.screen === 'options' || title.screen === 'controls';
+    var fullMenu = title.screen === 'options' || title.screen === 'controls' ||
+                   title.screen === 'records' || title.screen === 'profiles';
     g.fillStyle = 'rgba(0,0,0,0.66)';
     g.fillRect(0, fullMenu ? 18 : 34, NS.W, fullMenu ? 184 : 168);
 
@@ -1411,6 +1601,10 @@
       centerText('ARROWS ADJUST    Z SELECT', 198, '#5f6c86', '5px');
     } else if (title.screen === 'controls') {
       drawControls('title');
+    } else if (title.screen === 'records') {
+      drawRecords('title');
+    } else if (title.screen === 'profiles') {
+      drawProfiles();
     } else if (title.screen === 'stages') {
       centerText('STAGE SELECT  —  FURTHEST ' + G.furthestStage, 84, '#8fd0ff');
       for (var i = 0; i < 6; i++) {
@@ -1429,12 +1623,13 @@
       centerText((backOn ? '▶ ' : '') + 'BACK' + (backOn ? ' ◀' : ''), 184,
                  backOn ? '#ffffff' : '#6f7d99', '8px');
     } else {
-      centerText('A LIFE FORCE STYLE CAMPAIGN', 82, '#6f7f9c');
-      drawMenu(['START GAME', 'STAGE SELECT', 'OPTIONS'], 108, null, title.index);
-      centerText('Z FIRE    X POWER-UP    ARROWS MOVE', 158, '#5f6c86');
-      centerText('M  —  FIRE MODE: ' + NS.Gunner.label(), 172,
+      centerText(NS.THEME.prologue || 'A SERIAL IN SIX CALAMITIES', 82, '#6f7f9c', '6px');
+      centerText(NS.Profile.current().name, 94, '#8fd0ff', '6px');
+      drawMenu(['START GAME', 'STAGE SELECT', 'RECORDS', 'PROFILES', 'OPTIONS'], 106, null, title.index);
+      centerText('Z FIRE    X POWER-UP    ARROWS MOVE', 174, '#5f6c86', '5px');
+      centerText('M  —  FIRE MODE: ' + NS.Gunner.label(), 186,
                  NS.Gunner.mode === 'manual' ? '#5f6c86' : '#9fe8ff');
-      centerText('HI ' + pad(G.hiScore, 7), 188, '#ffe9a0');
+      centerText('HI ' + pad(G.hiScore, 7), 198, '#ffe9a0');
     }
 
     if (!overlayOnly && title.screen === 'main') {
@@ -1580,6 +1775,7 @@
     pause.index = 0; pause.confirm = null; pause.submenu = null;
     pause.inputArmed = false; pause.auto = true;
     NS.Audio.stopMusic();
+    NS.Profile.flush('RUN RECORD');
   }
   G.autoPause = autoPause;
 

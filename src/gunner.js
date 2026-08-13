@@ -37,14 +37,16 @@
   Gun.label = function () { return LABEL[Gun.mode]; };
 
   Gun.load = function () {
-    var m = NS.Save.read('ns_firemode', '');
+    var profile = NS.Profile && NS.Profile.current ? NS.Profile.current() : null;
+    var m = profile ? profile.fireMode : NS.Save.read('ns_firemode', '');
     if (m && MODES.indexOf(m) >= 0) Gun.mode = m;
   };
 
   Gun.set = function (m) {
     if (MODES.indexOf(m) < 0) return;
     Gun.mode = m;
-    NS.Save.write('ns_firemode', m, 'FIRE MODE');
+    if (NS.Profile && NS.Profile.setFireMode) NS.Profile.setFireMode(m);
+    else NS.Save.write('ns_firemode', m, 'FIRE MODE');
   };
 
   Gun.cycle = function () {

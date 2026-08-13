@@ -620,21 +620,22 @@
   function updateCampaignTerrain(C) {
     if (!terrainMesh) return;
     var n=0,col=new THREE.Color(),slabs=pal.slabs;
+    var visualScroll=C.scroll+(C.ending?C.escapeScroll:0);
     if(C.horizontal()){
       for(var sx=-TERRAIN_MARGIN;sx<NS.W+TERRAIN_MARGIN;sx++){
-        var b=C.bounds(C.scroll+sx);
+        var b=C.bounds(visualScroll+sx);
         for(var s=0;s<TERRAIN_SLABS;s++){
           var d=LAYER.terrain.d/TERRAIN_SLABS,z=LAYER.terrain.z+d*(s+.5),inset=s*1.2;
-          var th=b.a+inset;terrainDummy.position.set(sx+.5,simY(th/2),z);terrainDummy.scale.set(1.03,th,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);col.copy(slabs[s]);if(s<2)col.multiplyScalar(grain(C.scroll+sx+s*53));terrainMesh.setColorAt(n++,col);
+          var th=b.a+inset;terrainDummy.position.set(sx+.5,simY(th/2),z);terrainDummy.scale.set(1.03,th,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);col.copy(slabs[s]);if(s<2)col.multiplyScalar(grain(visualScroll+sx+s*53));terrainMesh.setColorAt(n++,col);
           var bh=NS.PLAYFIELD_H-b.z+inset;terrainDummy.position.set(sx+.5,simY(b.z+bh/2),z);terrainDummy.scale.set(1.03,bh,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);terrainMesh.setColorAt(n++,col);
         }
       }
     }else{
       for(var sy=-TERRAIN_MARGIN;sy<NS.PLAYFIELD_H+TERRAIN_MARGIN;sy++){
-        b=C.bounds(C.scroll+NS.PLAYFIELD_H-sy);
+        b=C.bounds(visualScroll+NS.PLAYFIELD_H-sy);
         for(s=0;s<TERRAIN_SLABS;s++){
           d=LAYER.terrain.d/TERRAIN_SLABS;z=LAYER.terrain.z+d*(s+.5);inset=s*1.2;
-          var lw=b.a+inset+TERRAIN_MARGIN;terrainDummy.position.set((b.a+inset-TERRAIN_MARGIN)/2,simY(sy+.5),z);terrainDummy.scale.set(lw,1.03,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);col.copy(slabs[s]);if(s<2)col.multiplyScalar(grain(C.scroll+NS.PLAYFIELD_H-sy+s*53));terrainMesh.setColorAt(n++,col);
+          var lw=b.a+inset+TERRAIN_MARGIN;terrainDummy.position.set((b.a+inset-TERRAIN_MARGIN)/2,simY(sy+.5),z);terrainDummy.scale.set(lw,1.03,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);col.copy(slabs[s]);if(s<2)col.multiplyScalar(grain(visualScroll+NS.PLAYFIELD_H-sy+s*53));terrainMesh.setColorAt(n++,col);
           var rw=NS.W-b.z+inset+TERRAIN_MARGIN;terrainDummy.position.set(NS.W+(TERRAIN_MARGIN-(NS.W-b.z)-inset)/2,simY(sy+.5),z);terrainDummy.scale.set(rw,1.03,d*.98);terrainDummy.updateMatrix();terrainMesh.setMatrixAt(n,terrainDummy.matrix);terrainMesh.setColorAt(n++,col);
         }
       }
@@ -967,30 +968,43 @@
     updateTerrain2(L.scrollY, G.frame);
 
     /* Central volcanic islands and destructible defenses share the same
-       deep voxel terrain layer as the side banks. */
+       deep voxel terrain layer as the side banks. They are primitives rather
+       than stretched purple enemy sprites, so their material and depth now
+       agree with the volcanic corridor around them. */
     for (i = 0; i < L.islands.length; i++) {
       var a = L.islands[i], ay = L.screenY(a.wy);
       if (ay < -a.ry - 20 || ay > NS.PLAYFIELD_H + a.ry + 20) continue;
-      place('v2island', NS.S.spore, a.x - NS.S.spore.width / 2, ay - NS.S.spore.height / 2,
-            'terrain', { sx: a.rx / 3.5, sy: a.ry / 3.5, sz: 1.5, depth: 38, ry: 0.25, cap: 12 });
+      vell('v2IslandBody',a.x,ay,LAYER.terrain.z+12,8,8,7,'#542323',
+           {sx:a.rx/8,sy:a.ry/8,sz:2.4,ry:.18,cap:12});
+      vell('v2IslandFace',a.x-3,ay-5,LAYER.terrain.z+34,8,8,4,'#8d3b31',
+           {sx:a.rx*.68/8,sy:a.ry*.74/8,cap:12});
     }
     for (i = 0; i < L.volcanoes.length; i++) {
       var v = L.volcanoes[i]; if (v.dead || v.y < -35 || v.y > NS.PLAYFIELD_H + 35) continue;
-      placeDamage('v2volcano', NS.S.spore, v.x - NS.S.spore.width / 2, v.y - NS.S.spore.height / 2,
-            'hazard', v, { sx: 3.2, sy: 3.5, sz: 2.5, rx: -0.25, cap: 8 });
+      var vk=NS.hitOffset(v),vf=NS.damageFlashing(v),vc=vf?NS.DAMAGE_FLASH_COLOR:'#6f3027';
+      vell('v2Volcano',v.x+vk.x,v.y+vk.y,LAYER.hazard.z,7,7,6,vc,
+           {sx:1.9,sy:1.55,sz:1.8,rx:-.22,cap:8,glow:vf});
+      vbox('v2VolcanoMouth',v.x+vk.x,v.y-8+vk.y,LAYER.hazard.z+12,10,4,10,
+           vf?'#ff9ba0':'#ff9a35',{cap:8,glow:true});
     }
     for (i = 0; i < L.gates.length; i++) {
       var gate = L.gates[i]; if (gate.y < -25 || gate.y > NS.PLAYFIELD_H + 25) continue;
       for (var gc = 0; gc < gate.cells.length; gc++) {
         var cell = gate.cells[gc]; if (cell.dead) continue;
-        placeDamage('v2gate', NS.S.spore, cell.x, gate.y - 7, 'terrain', cell,
-              { sx: cell.w / NS.S.spore.width, sy: 2, sz: 1.8, depth: 20, cap: 40 });
+        var gk=NS.hitOffset(cell),gf=NS.damageFlashing(cell),health=cell.hp/cell.maxHp;
+        vbox('v2GateCell',cell.x+cell.w/2+gk.x,gate.y+gk.y,LAYER.terrain.z+24,
+             19,14,30,gf?NS.DAMAGE_FLASH_COLOR:(health>.5?'#8e4650':'#613139'),
+             {cap:48,glow:gf});
+        vbox('v2GateRim',cell.x+cell.w/2+gk.x,gate.y-5+gk.y,LAYER.terrain.z+42,
+             15,3,4,gf?'#ff9ba0':'#e47961',{cap:48,glow:gf});
       }
     }
     for (i = 0; i < L.rocks.length; i++) {
       var rock = L.rocks[i]; if (rock.dead) continue;
-      placeDamage('v2rock', NS.S.spore, rock.x - 3, rock.y - 3, 'hazard', rock,
-            { sx: 0.9, sy: 0.9, sz: 1.2, ry: rock.t * 0.08, cap: 48 });
+      var rk=NS.hitOffset(rock),rf=NS.damageFlashing(rock);
+      vball('v2Rock',rock.x+rk.x,rock.y+rk.y,LAYER.hazard.z+3,4,
+            rf?NS.DAMAGE_FLASH_COLOR:'#b8b2aa',
+            {sx:1.15,sy:.9,sz:1.1,ry:rock.t*.08,rx:rock.t*.05,cap:64,glow:rf});
     }
     var fort = L.fortress;
     if (fort && L.phase === 'fortress') {
@@ -1022,10 +1036,13 @@
       var e = L.enemies[i];
       if (e.dead || !e.active || e.y < -30 || e.y > NS.PLAYFIELD_H + 30) continue;
       var squadCarrier = e.carrier || e.bonus;
-      var spr = e.kind === 'turret' ? NS.S.spore : (squadCarrier ? NS.S.carrier[(e.t >> 3) & 1] : NS.S.flapper[(e.t >> 3) & 1]);
+      var spr = NS.campaignSprite(e.kind === 'turret' ? 'cannon' : 'blue',
+                                  (e.t >> 3) & 1,squadCarrier,false);
       placeDamage('v2' + e.kind + (squadCarrier ? 'C' : '') + ((e.t >> 3) & 1), spr,
             e.x - spr.width / 2, e.y - spr.height / 2, 'enemy',
-            e, { rz: Math.PI / 2, ry: e.t * 0.025, depth: e.kind === 'turret' ? 13 : 8, cap: 160 });
+            e, { rz: Math.PI / 2, ry: e.kind==='turret'?0:Math.sin(e.t*.04)*.18,
+                 depth: e.kind === 'turret' ? 14 : 8,
+                 glow:squadCarrier,cap:160 });
     }
     for (i = 0; i < L.pickups.length; i++) {
       var c = L.pickups[i]; if (c.dead) continue;
@@ -1207,15 +1224,33 @@
 
   function drawCampaignWorld(G) {
     var C=NS.Campaign,i;
-    updateBackdrop(C.scroll,!C.horizontal());updateCampaignTerrain(C);
+    updateBackdrop(C.scroll+(C.ending?C.escapeScroll:0),!C.horizontal());updateCampaignTerrain(C);
     for(i=0;i<C.hazards.length;i++){
       var h=C.hazards[i],m=C.horizontal()?h.world-C.scroll:NS.PLAYFIELD_H-(h.world-C.scroll);
       var ex=Math.max(0,Math.sin(((h.t%h.period)/h.period)*Math.PI))*h.span;
-      if(C.horizontal())place('campHaz',NS.S.prom[(h.t>>2)&1],m-3,h.side==='top'?0:NS.PLAYFIELD_H-ex,'hazard',{sx:2,sy:Math.max(1,ex/5),sz:2,cap:64});
-      else place('campHaz',NS.S.prom[(h.t>>2)&1],h.side==='left'?0:NS.W-ex,m-3,'hazard',{sx:Math.max(1,ex/5),sy:2,sz:2,cap:64});
+      var fiery=C.stage===3,mechanical=C.stage===6;
+      var hzTint=fiery?'#ff6a18':(mechanical?'#7fa8c8':'#c9d2df');
+      var hzHot=fiery?'#fff09a':(mechanical?'#ff9b52':'#f2e6bd');
+      if(ex>1){
+        if(C.horizontal()){
+          var hy=h.side==='top'?ex/2:NS.PLAYFIELD_H-ex/2;
+          vbox('campHazBody'+C.stage,m,hy,LAYER.hazard.z,10,1,10,hzTint,
+               {cap:80,sy:ex,sz:1.15,glow:fiery});
+          vbox('campHazTip'+C.stage,m,h.side==='top'?ex:NS.PLAYFIELD_H-ex,LAYER.hazard.z+8,
+               14,4,7,hzHot,{cap:80,glow:true});
+        }else{
+          var hx=h.side==='left'?ex/2:NS.W-ex/2;
+          vbox('campHazBodyV'+C.stage,hx,m,LAYER.hazard.z,1,10,10,hzTint,
+               {cap:80,sx:ex,sz:1.15,glow:fiery});
+          vbox('campHazTipV'+C.stage,h.side==='left'?ex:NS.W-ex,m,LAYER.hazard.z+8,
+               4,14,7,hzHot,{cap:80,glow:true});
+        }
+      }
       if(NS.Feedback.hazardCharge(h)>0){
-        if(C.horizontal())place('campHazCharge',NS.S.prom[0],m-5,h.side==='top'?0:NS.PLAYFIELD_H-3,'hazard',{sx:3,sy:.8,sz:2,cap:32,glow:true,tint:'#fff3a0'});
-        else place('campHazCharge',NS.S.prom[0],h.side==='left'?0:NS.W-3,m-5,'hazard',{sx:.8,sy:3,sz:2,cap:32,glow:true,tint:'#fff3a0'});
+        if(C.horizontal())vbox('campHazCharge',m,h.side==='top'?2:NS.PLAYFIELD_H-2,LAYER.hazard.z+10,
+                               16,4,8,hzHot,{cap:32,glow:true});
+        else vbox('campHazChargeV',h.side==='left'?2:NS.W-2,m,LAYER.hazard.z+10,
+                  4,16,8,hzHot,{cap:32,glow:true});
       }
     }
     /* Stage 5's shoot-through masonry uses actual box cells here instead of
@@ -1229,15 +1264,20 @@
         var cellFlash=NS.damageFlashing(cell),ck=NS.hitOffset(cell);
         var tint=cellFlash?NS.DAMAGE_FLASH_COLOR:(cell.hp/cell.maxHp>.5?'#b39749':'#80652e');
         vbox('campBarrier',wx+wall.w/2+ck.x,cell.y+cell.h/2+ck.y,LAYER.terrain.z+18,
-             wall.w,Math.max(2,cell.h-1),28,tint,{cap:48});
+             wall.w,1,28,tint,{cap:48,sy:Math.max(2,cell.h-1)});
         vbox('campBarrierRim',wx+wall.w/2+ck.x,cell.y+2+ck.y,LAYER.terrain.z+34,
              wall.w-3,2,3,cellFlash?'#ff9ba0':'#d7bd66',{cap:48});
       }
     }
     for(i=0;i<C.enemies.length;i++){
-      var e=C.enemies[i];if(e.dead||!e.active)continue;var spr=(e.bonus?NS.S.carrier:NS.S.flapper)[(e.t>>3)&1];
-      if(e.kind==='moai'||e.kind==='rock'||e.kind==='lung')spr=NS.S.spore;
-      placeDamage('camp'+e.kind+(e.bonus?'C':'')+((e.t>>3)&1),spr,e.x-spr.width/2,e.y-spr.height/2,'enemy',e,{rz:C.horizontal()?0:Math.PI/2,ry:e.t*.025,sx:e.kind==='dragon'?2:1,sy:e.kind==='dragon'?1.5:1,cap:128});
+      var e=C.enemies[i];if(e.dead||!e.active)continue;
+      var enemyFrame=e.kind==='moai'?(e.open?1:0):((e.t>>3)&1);
+      var spr=NS.campaignSprite(e.kind,enemyFrame,e.bonus,false);
+      var anchored=e.kind==='hatch'||e.kind==='block'||e.kind==='cannon'||e.kind==='moai';
+      placeDamage('camp'+e.kind+(e.bonus?'C':'')+enemyFrame,spr,e.x-spr.width/2,e.y-spr.height/2,'enemy',e,
+        {rz:C.horizontal()?0:Math.PI/2,ry:anchored?0:(e.kind==='rock'?e.t*.045:Math.sin(e.t*.04)*.18),
+         sx:e.kind==='dragon'?1.7:1,sy:e.kind==='dragon'?1.35:1,
+         depth:anchored?14:8,glow:e.bonus||e.kind==='crystal',cap:128});
     }
     if(C.mini&&!C.mini.dead)for(i=0;i<C.mini.cores.length;i++){var mc=C.mini.cores[i];if(mc.hp>0){
       var miniFlash=NS.damageFlashing(mc),mck=NS.hitOffset(mc);primOffsetX=mck.x;primOffsetY=mck.y;
@@ -1248,7 +1288,20 @@
     for(i=0;i<C.shots.length;i++)if(!C.shots[i].dead)placeShot(C.shots[i]);
     for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];if(NS.projectileContrast())place('eshotHalo',NS.S.eshot,q.x-2,q.y-2,'shot',{ry:q.t*.2,sx:1.7,sy:1.7,sz:1.7,cap:128,glow:true,tint:'#ffffff',z:LAYER.shot.z-1});place('eshot',NS.S.eshot,q.x-2,q.y-2,'shot',{ry:q.t*.2,cap:128,glow:true});}
     var b=C.boss;if(b&&(!b.dead||(b.dying>>2)%2===0))drawCampaignBoss(C,b);
-    if(C.ending)for(i=0;i<C.escapeBars.length;i++){var eb=C.escapeBars[i],bx=eb.side==='left'?0:NS.W-eb.w;place('campEscapeBar',NS.S.prom[0],bx,eb.y,'hazard',{sx:Math.max(2,eb.w/3),sy:2.4,sz:3,cap:16});}
+    if(C.ending){
+      vbox('escapeSideL',C.escapeInset/2,NS.PLAYFIELD_H/2,LAYER.hazard.z+2,
+           1,NS.PLAYFIELD_H,30,'#263c58',{cap:2,sx:C.escapeInset});
+      vbox('escapeSideR',NS.W-C.escapeInset/2,NS.PLAYFIELD_H/2,LAYER.hazard.z+2,
+           1,NS.PLAYFIELD_H,30,'#263c58',{cap:2,sx:C.escapeInset});
+      vbox('escapeFloor',NS.W/2,C.escapeFloor+(NS.PLAYFIELD_H-C.escapeFloor)/2,LAYER.hazard.z+2,
+           NS.W,1,30,'#263c58',{cap:2,sy:Math.max(1,NS.PLAYFIELD_H-C.escapeFloor)});
+      vbox('escapeEdgeL',C.escapeInset,NS.PLAYFIELD_H/2,LAYER.hazard.z+20,3,NS.PLAYFIELD_H,5,'#ff6b52',{cap:2,glow:true});
+      vbox('escapeEdgeR',NS.W-C.escapeInset,NS.PLAYFIELD_H/2,LAYER.hazard.z+20,3,NS.PLAYFIELD_H,5,'#ff6b52',{cap:2,glow:true});
+      vbox('escapeFloorEdge',NS.W/2,C.escapeFloor,LAYER.hazard.z+20,NS.W,3,5,'#ff6b52',{cap:2,glow:true});
+      for(i=0;i<C.escapeBars.length;i++){var eb=C.escapeBars[i],eh=eb.h||12,bcx=eb.side==='left'?eb.w/2:NS.W-eb.w/2;
+        vbox('escapeBarrier',bcx,eb.y+eh/2,LAYER.hazard.z+8,1,eh,20,'#6f8294',{cap:24,sx:eb.w});
+        vbox('escapeBarrierEdge',eb.side==='left'?eb.w-2:NS.W-eb.w+2,eb.y+eh/2,LAYER.hazard.z+21,4,eh,5,'#d75050',{cap:24,glow:true});}
+    }
     var p=G.player;if(p.alive&&!(p.invuln>14&&(p.anim>>1)%2===0)){
       var ps=p.orientation==='vertical'?NS.S.shipTop:NS.S.ship;
       place(p.orientation==='vertical'?'shipTop':'ship',ps,p.x-ps.cx,p.y-ps.cy,'player',{rz:p.bank*-.1,cap:4});

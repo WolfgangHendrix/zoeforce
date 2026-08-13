@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Zoe Force stage visual smoke</title>
+<style>html,body,iframe{margin:0;width:100%;height:100%;border:0;background:#000;overflow:hidden}</style>
+<iframe id="game" src="../index.html"></iframe>
+<script>
+(function () {
+  var frame = document.getElementById('game');
+  var query = new URLSearchParams(location.search);
+  var stage = Math.max(1, Math.min(6, parseInt(query.get('stage') || '1', 10)));
+  var progress = Math.max(0, parseInt(query.get('progress') || '50', 10)) / 100;
+
+  function ready(attempt) {
+    var w = frame.contentWindow, NS = w && w.NS, G = NS && NS.Game;
+    if (G && G.state === 'loading' && G.step) G.step(1);
+    if (!G || G.state !== 'title') {
+      if (attempt < 800) setTimeout(function () { ready(attempt + 1); }, 25);
+      return;
+    }
+    G.settings.attractMode = false;
+    NS.Profile.unlockStage(6); G.furthestStage = 6;
+    G.startRun(stage);
+    NS.Debug.paused = true; NS.Debug.stepping = true;
+    if (stage === 1) {
+      G.scrollX = NS.Terrain.BOSS_X * progress;
+      NS.Level1.seek(G.scrollX);
+    } else if (stage === 2) {
+      NS.Level2.scrollY = NS.Level2.FORTRESS_Y * progress;
+    } else {
+      if (stage === 5 && progress > 0.55) NS.Campaign.spec.miniDone = true;
+      NS.Campaign.scroll = NS.Campaign.spec.length * progress;
+    }
+    G.stageMsg = query.has('story') ? 150 : 0; G.achievementMsgT = 0;
+    if (query.has('ending')) {
+      NS.Campaign.reset(6, G); G.stage = 6; G.player.setOrientation('vertical');
+      G.player.x = NS.W / 2; G.player.y = 42; NS.Debug.invincible = true;
+      NS.Campaign.phase = 'ending'; NS.Campaign.ending = true;
+      var endingFrame = Math.max(1, Math.min(479, parseInt(query.get('ending') || '360', 10)));
+      G.step(endingFrame);
+    }
+    if (query.has('2d')) NS.Voxel.disable();
+    G.step(3);
+  }
+  frame.addEventListener('load', function () { ready(0); });
+}());
+</script>

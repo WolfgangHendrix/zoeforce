@@ -51,7 +51,18 @@ NS.THEME = {
   stage5Name: 'LATIS TEMPLE',
   boss5Name: 'TUTANHAMANATTACK',
   stage6Name: 'MECHANICAL CITY',
-  boss6Name: 'ZELOS FORCE'
+  boss6Name: 'ZELOS FORCE',
+  prologue: 'THE YEAR IS ALWAYS NOW.  THE FUTURE IS LATE.',
+  stageStories: [
+    null,
+    ['THE GALAXY HAS A HEART CONDITION.', 'ZOE HAS AN APPOINTMENT.'],
+    ['THE PLANET BOILS.', 'MANAGEMENT CALLS IT GROWTH.'],
+    ['THE SUN IS ON STRIKE.', 'THE FLAMES ARE NOT.'],
+    ['PROGRESS RUSHES THROUGH EVERY VEIN.', 'NOBODY ASKED WHERE.'],
+    ['THE OLD GODS HAVE REBRANDED.', 'THE RENT REMAINS DUE.'],
+    ['THE MACHINE PROMISED TOMORROW.', 'IT DELIVERED MORE MACHINE.']
+  ],
+  epilogue: ['THE UNIVERSE IS SAVED.', 'MONDAY REMAINS.']
 };
 
 /* Accessibility is owned by the director, but renderers load before it and

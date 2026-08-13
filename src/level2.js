@@ -80,10 +80,11 @@
       y: sy(wy), hp: 28, maxHp: 28, t: 0, dead: false, active: false, hitFlash: 0 });
   }
 
-  function addGate(wy) {
+  function addGate(wy, hp) {
     var gate = { id: nextId++, wy: wy, y: sy(wy), cells: [] };
     for (var x = 24; x < NS.W - 24; x += 20) {
-      gate.cells.push({ id: nextId++, x: x, w: 19, hp: 8, dead: false, hitFlash: 0 });
+      gate.cells.push({ id: nextId++, x: x, w: 19, hp: hp || 8,
+                        maxHp: hp || 8, dead: false, hitFlash: 0 });
     }
     L.gates.push(gate);
   }
@@ -107,6 +108,11 @@
       formation(pairY, 'zeta', squad, squad === 9 ? 'crash' : 'capsule', 64, 1); squad++;
       formation(pairY + 34, 'zeta', squad, squad === 9 ? 'crash' : 'capsule', 192, -1); squad++;
     }
+    /* The opening formations used to end almost a full screen before the
+       first volcanic structure. A crossing patrol and an easy crust gate
+       now turn that dead climb into a clear shoot-then-route transition. */
+    formation(3180, 'zeta', 12, '', 66, 1);
+    addGate(3490, 5);
     for (var wy = 3850, n = 0; wy < 6900; wy += 245, n++) {
       var e = L.edgesAt(wy);
       addEnemy('turret', e.left + 7, wy, n, 0, n % 4 === 0);
@@ -300,6 +306,7 @@
 
   function killEnemy(e, G) {
     if (e.dead) return;
+    if (G.record) G.record('enemiesDestroyed');
     e.dead = true; G.addScore(e.kind === 'turret' ? 400 : 100, e.x, e.y);
     NS.FX.explode(e.x, e.y, e.kind === 'turret' ? 1.2 : 0.7, 'fire');
     NS.Feedback.destroy(e.x, e.y, { dx: 0, dy: 1, material: 'armor', count: e.kind === 'turret' ? 12 : 7, major: e.kind === 'turret' });
@@ -529,6 +536,7 @@
           NS.FX.spark(s.x, s.y, 3, b.shield ? 'hit' : 'fire');
           if (!s.pierce) s.dead = true;
           if (b.hp <= 0) {
+            if (G.record) G.record('bossesDestroyed');
             b.dead = true; b.dying = 150; G.addScore(30000, b.x, b.y);
             for (var z = 0; z < 8; z++) NS.FX.explode(b.x + Math.sin(z) * 20, b.y + Math.cos(z) * 20, 1.8, 'fire');
             NS.Feedback.destroy(b.x, b.y, { boss: true, major: true, material: 'armor', count: 28 });
@@ -730,10 +738,10 @@
     for (var i = 0; i < L.enemies.length; i++) {
       var e = L.enemies[i]; if (e.dead || !e.active || e.y < -20 || e.y > NS.PLAYFIELD_H + 20) continue;
       var ek = NS.hitOffset(e);
-      g.save(); g.translate(e.x + ek.x, e.y + ek.y);
-      var ef = NS.damageFlashing(e);
-      if (e.kind === 'turret') { g.fillStyle = ef ? '#ff3038' : '#b76038'; g.fillRect(-6, -6, 12, 12); g.fillStyle = ef ? '#ff9ba0' : '#ffe070'; g.fillRect(-2, -4, 4, 7); }
-      else { g.fillStyle = ef ? '#ff3038' : ((e.carrier || e.bonus) ? '#e44848' : '#93c9d8'); g.beginPath(); g.moveTo(0, 6); g.lineTo(-6, -4); g.lineTo(0, -1); g.lineTo(6, -4); g.closePath(); g.fill(); }
+      var ef = NS.damageFlashing(e), kind = e.kind === 'turret' ? 'cannon' : 'blue';
+      var enemySprite = NS.campaignSprite(kind, (e.t >> 3) & 1, e.carrier || e.bonus, ef);
+      g.save(); g.translate(e.x + ek.x, e.y + ek.y); g.rotate(Math.PI / 2);
+      g.drawImage(enemySprite, -enemySprite.cx, -enemySprite.cy);
       g.restore();
     }
     for (i = 0; i < L.pickups.length; i++) { var c = L.pickups[i]; var pickupSprite = c.kind === 'crash' ? NS.S.crashCapsule : NS.S.capsule; g.drawImage(pickupSprite[(c.t >> 3) & 1], c.x - 3, c.y - 3); }

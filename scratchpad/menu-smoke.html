@@ -7,7 +7,7 @@
 (function () {
   var frame=document.getElementById('game');
   function press(w,G,code){w.dispatchEvent(new w.KeyboardEvent('keydown',{code:code,bubbles:true}));G.step(1);w.dispatchEvent(new w.KeyboardEvent('keyup',{code:code,bubbles:true}));G.step(1);}
-  function ready(n){var w=frame.contentWindow,NS=w&&w.NS;if(NS&&NS.Game&&NS.Game.state==='loading'&&NS.Game.step)NS.Game.step(1);if(!NS||!NS.Game||NS.Game.state!=='title'){if(n<800)setTimeout(function(){ready(n+1);},25);return;}var G=NS.Game;G.settings.attractMode=false;press(w,G,'ArrowDown');press(w,G,'ArrowDown');press(w,G,'KeyZ');if(location.search.indexOf('controls')>=0){for(var i=0;i<11;i++)press(w,G,'ArrowDown');press(w,G,'KeyZ');}}
+  function ready(n){var w=frame.contentWindow,NS=w&&w.NS;if(NS&&NS.Game&&NS.Game.state==='loading'&&NS.Game.step)NS.Game.step(1);if(!NS||!NS.Game||NS.Game.state!=='title'){if(n<800)setTimeout(function(){ready(n+1);},25);return;}var G=NS.Game,q=location.search;G.settings.attractMode=false;if(q.indexOf('pause-records')>=0){G.startRun(1);G.prevState='play';G.state='paused';G.pause.submenu='records';G.pause.recordsPage=0;}else if(q.indexOf('controls')>=0){G.titleMenu.screen='controls';G.titleMenu.controlIndex=0;G.titleMenu.controlDevice='keyboard';}else if(q.indexOf('profiles')>=0){G.titleMenu.screen='profiles';G.titleMenu.profileIndex=0;}else if(q.indexOf('records-achievements')>=0){G.titleMenu.screen='records';G.titleMenu.recordsPage=1;}else if(q.indexOf('records')>=0){G.titleMenu.screen='records';G.titleMenu.recordsPage=0;}else if(q.indexOf('main')>=0){G.titleMenu.screen='main';G.titleMenu.index=0;}else{G.titleMenu.screen='options';G.titleMenu.optionIndex=0;}G.step(1);}
   frame.addEventListener('load',function(){ready(0);});
 }());
 </script>

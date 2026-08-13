@@ -551,6 +551,7 @@
 
   E.destroy = function (e, game) {
     e.dead = true;
+    if (game.record) game.record('enemiesDestroyed');
     var big = e.kind === 'mouth' || e.kind === 'hatch' || e.kind === 'tentacle';
     NS.FX.explode(e.x + e.w / 2, e.y + e.h / 2, big ? 1.4 : 1.0, 'fire');
     NS.Feedback.destroy(e.x + e.w / 2, e.y + e.h / 2,

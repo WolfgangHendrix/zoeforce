@@ -91,6 +91,7 @@
 
   /* ---- power meter ---------------------------------------------------- */
   Player.prototype.giveCapsule = function () {
+    if (NS.Game && NS.Game.record) NS.Game.record('capsulesCollected');
     this.sel = this.sel >= SLOTS.length ? 1 : this.sel + 1;
     NS.Audio.sfx.pickup();
   };
@@ -385,6 +386,7 @@
     if (NS.Debug && NS.Debug.invincible) return;
     if (!this.alive) return;
     this.alive = false;
+    if (NS.Game && NS.Game.record) NS.Game.record('deaths');
     this.dying = 90;
     this.lives--;
     NS.FX.explode(this.x, this.y, 2.2, 'fire');

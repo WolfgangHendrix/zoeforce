@@ -144,6 +144,17 @@
 
   function campaignTarget(G) {
     var C = NS.Campaign, p = G.player, side = C.horizontal();
+    if (C.ending) {
+      var inset = C.escapeInset || 8, targetX = NS.W / 2, nearest = null;
+      for (var eb = 0; eb < C.escapeBars.length; eb++) {
+        var bar = C.escapeBars[eb];
+        if (bar.dead || bar.y < -110 || bar.y > p.y + 28) continue;
+        if (!nearest || bar.y > nearest.y) nearest = bar;
+      }
+      if (nearest) targetX = nearest.side === 'left'
+        ? NS.W - inset - 24 : inset + 24;
+      return { x: targetX, y: 34 };
+    }
     if (C.mini && !C.mini.dead) {
       for (var i = 0; i < C.mini.cores.length; i++) {
         var core = C.mini.cores[i];

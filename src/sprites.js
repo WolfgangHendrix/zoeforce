@@ -291,6 +291,68 @@
     '.CBBBC.'
   ], sporePal);
 
+  /* Stages 3–6 used to paint every campaign enemy as the same triangle in
+     2D and reuse flapper/spore geometry in voxel mode.  These compact grids
+     give each gameplay verb its own silhouette while remaining the single
+     source for both renderers. */
+  var firePal = { D:[120,30,18], R:[210,55,22], O:[255,125,28], Y:[255,225,105], W:[255,245,210] };
+  var cellPal = { D:[70,24,62], P:[145,54,122], L:[224,118,184], W:[255,225,244], K:[60,12,38] };
+  var goldPal = { D:[88,59,10], B:[170,111,18], Y:[239,190,54], W:[255,242,168], C:[80,225,255] };
+  var mechPal = { D:[31,53,76], B:[52,106,150], C:[72,190,224], W:[210,244,255], O:[255,126,54], K:[12,24,38] };
+  var stonePal = { D:[54,49,44], B:[104,93,77], L:[166,148,116], W:[222,205,166], K:[27,24,22], C:[83,218,255] };
+
+  S.campaignEnemy = {
+    phoenix: [
+      bake(['......Y......','...R.OYO.R...','..ROOYYYOOR..','RROYYYYYYYORR','..ROOYYYOOR..','...R.OYO.R...','......R......'], firePal),
+      bake(['..R...Y...R..','.ROO.OYO.OOR.','..ROOYYYOOR..','...OYYYYYO...','..ROOYYYOOR..','.ROO.OYO.OOR.','..R...R...R..'], firePal)
+    ],
+    cell: [
+      bake(['....L.L....','..DLLWLLD..','.DPPWWWPPD.','DPPWKKKWPPD','DPPWKKKWPPD','.DPPWWWPPD.','..DLLWLLD..','....L.L....'], cellPal),
+      bake(['...L...L...','..DPLWLPD..','.DPPWWWPPD.','DPLWKKKWLPD','DPLWKKKWLPD','.DPPWWWPPD.','..DPLWLPD..','...L...L...'], cellPal)
+    ],
+    gold: [
+      bake(['.....W.....','..D.WWW.D..','.DBYYYYYBD.','DYYYYYYYYYD','.DBYYYYYBD.','..D.WWW.D..','.....D.....'], goldPal),
+      bake(['..D..W..D..','...DWWWD...','.DBYYYYYBD.','DYYYYCYYYYD','.DBYYYYYBD.','...DWWWD...','..D..D..D..'], goldPal)
+    ],
+    blue: [
+      bake(['.....W.....','...BWWWB...','..BCCWCCB..','.BCWWOWWCB.','..BCCWCCB..','...BWWWB...','.....B.....'], mechPal),
+      bake(['..B..W..B..','...BWWW.B..','..BCCWCCB..','.BCWWOWWCB.','..BCCWCCB..','..B.WWWB...','..B..B..B..'], mechPal)
+    ],
+    corpuscle: [bake(['...DDDDD...','.DDRRRRRDD.','DRRWWWWWRRD','DRRWWWWWRRD','.DDRRRRRDD.','...DDDDD...'], {D:[105,20,38],R:[206,48,70],W:[255,142,150]})],
+    lung: [bake(['...L...L...','..LPP.PPL..','.LPPWWWPPL.','LPPWKKKWPPL','LPPWKKKWPPL','.LPPWWWPPL.','..LPP.PPL..','...L...L...'], cellPal)],
+    nodule: [bake(['....D.D....','..D.PLP.D..','.DPLWWWLPD.','DPLWKKKWLPD','.LWWKKKWWL.','DPLWKKKWLPD','.DPLWWWLPD.','..D.PLP.D..','....D.D....'], cellPal)],
+    dragon: [bake(['..........YY.','......RR.OYYO','..RRROOOYYYYY','RROOYYYYWWWYY','..RRROOOYYYYY','......RR.OYYO','..........YY.'], firePal)],
+    rock: [bake(['...BBB....','..BLLBB...','.BLLWLB...','BLLWKLLB..','BLLLLLBB..','.BBLLLB...','..BBBB....'], stonePal)],
+    hatch: [bake(['DDDDDDDDDDD','DBLLLLLLLBD','DLWDDDDDWLD','DLDCWWWCDLD','DLDCWKKCDLD','DLDCWWWCDLD','DLWDDDDDWLD','DBLLLLLLLBD','DDDDDDDDDDD'], stonePal)],
+    block: [bake(['DDDDDDDDDD','DLLLLLLLLD','DLWDDDDWLD','DLDLLLLDLD','DLDLWWLDLD','DLDLLLLDLD','DLWDDDDWLD','DLLLLLLLLD','DDDDDDDDDD'], stonePal)],
+    crystal: [bake(['....C....','...CWC...','..CWWWC..','.CWWCWWC.','CWWCKCWWC','.BCWKCWB.','..BWKWB..','...BKB...','....B....'], mechPal)],
+    cannon: [bake(['....DDD....','..DBBBBBD..','.DBLWWWLBD.','DBLWCCCWLBD','DBLCKKKCLBD','.DBLWWWLBD.','..DBCCCBD..','...DDBDD...','.....D.....'], mechPal)],
+    moai: [
+      bake(['...BBBB....','..BLLLLB...','.BLLWWLLB..','.BLWKKWLB..','.BLLLLLLB..','.BLDDDDLB..','.BLDLLDLB..','.BLLWWLLB..','..BLLLLB...','...BBBB....'], stonePal),
+      bake(['...BBBB....','..BLLLLB...','.BLLWWLLB..','.BLWKKWLB..','.BLLLLLLB..','.BLDCCDLB..','.BLCKKCLB..','.BLLCCLLB..','..BLLLLB...','...BBBB....'], stonePal)
+    ]
+  };
+
+  S.campaignCarrier = {};
+  S.campaignHit = {};
+  for (var campaignKind in S.campaignEnemy) {
+    var campaignFrames = S.campaignEnemy[campaignKind];
+    if (campaignFrames.length === 1) campaignFrames.push(campaignFrames[0]);
+    S.campaignCarrier[campaignKind] = [
+      tint(campaignFrames[0], 255, 58, 46, 0.58),
+      tint(campaignFrames[1], 255, 58, 46, 0.58)
+    ];
+    S.campaignHit[campaignKind] = [
+      tint(campaignFrames[0], 255, 36, 44, 0.82),
+      tint(campaignFrames[1], 255, 36, 44, 0.82)
+    ];
+  }
+  NS.campaignSprite = function (kind, frame, carrier, hit) {
+    var table = hit ? S.campaignHit : (carrier ? S.campaignCarrier : S.campaignEnemy);
+    var pair = table[kind] || (hit ? S.campaignHit.blue : (carrier ? S.campaignCarrier.blue : S.campaignEnemy.blue));
+    return pair[frame & 1];
+  };
+
   /* "ducker" — walks along the flesh floor/ceiling and fires up at you */
   var duckPal = { A: [230, 200, 120], B: [180, 140, 60], C: [110, 80, 30], K: [30, 20, 10], R: [255, 90, 60] };
   S.ducker = [

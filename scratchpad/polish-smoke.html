@@ -39,6 +39,31 @@
     try {
       assert('feedback director loaded', !!F);
       assert('voxel renderer booted', NS.Voxel.status() === 'on', NS.Voxel.status());
+      assert('profile system loaded', !!NS.Profile && NS.Profile.activeSlot() === 1);
+      assert('campaign enemy silhouettes are authored',
+        NS.campaignSprite('phoenix', 0) !== NS.campaignSprite('cell', 0) &&
+        NS.campaignSprite('gold', 0) !== NS.campaignSprite('blue', 0));
+      NS.Level2.reset();
+      assert('stage 2 transition encounter exists',
+        NS.Level2.enemies.some(function (e) { return e.wy === 3180; }) &&
+        NS.Level2.gates.some(function (gate) { return gate.wy === 3490; }));
+      NS.Campaign.reset(3);
+      assert('stage 3 fire-field bridge exists', NS.Campaign.enemies.some(function (e) { return e.world === 2140; }));
+      NS.Campaign.reset(4);
+      assert('stage 4 capillary bridge exists', NS.Campaign.enemies.some(function (e) { return e.world === 2390; }));
+      NS.Campaign.reset(5);
+      assert('stage 5 checkpoint seal exists', NS.Campaign.barriers.some(function (wall) { return wall.world === 5440; }));
+      NS.Campaign.reset(6);
+      assert('stage 6 machine bridge exists', NS.Campaign.enemies.some(function (e) { return e.world === 3150; }));
+      assert('later carrier formations pay capsules',
+        Object.keys(NS.Campaign.groups).filter(function (id) { return NS.Campaign.groups[id].reward === 'capsule'; }).length >= 6);
+      assert('authored speed sections are active',
+        NS.Campaign.scrollMultiplier(4, 2800) === 1.35 &&
+        NS.Campaign.scrollMultiplier(6, 7200) === 1.3 &&
+        NS.Campaign.scrollMultiplier(5, 5000) === 1);
+      assert('silent serial story is present',
+        NS.THEME.stageStories.length === 7 && NS.THEME.epilogue[1] === 'MONDAY REMAINS.');
+      G.resetStage(true);
       if (location.search.indexOf('2d') >= 0) {
         NS.Voxel.disable();
         assert('2D fallback activated', NS.Voxel.status() === 'off', NS.Voxel.status());
@@ -49,6 +74,22 @@
       assert('keyboard rebind captured', I.binding('fire', 'keyboard') === 'KeyQ');
       assert('rebind updates live map', I.matchesKey('fire', 'KeyQ'));
       I.importBindings(originalBindings);
+
+      var originalProfile = NS.Profile.activeSlot();
+      NS.Profile.activate(2); G.loadProfile();
+      assert('empty profile creates independently', G.hiScore === 0 && G.furthestStage === 1);
+      G.record('runsStarted'); G.record('enemiesDestroyed', 100); G.record('capsulesCollected', 50);
+      NS.Profile.setHighScore(123456); NS.Profile.unlockStage(4); NS.Gunner.set('auto'); NS.Profile.flush();
+      var profile2 = NS.Profile.current();
+      assert('profile records persist in memory', profile2.stats.enemiesDestroyed === 100 && profile2.highScore === 123456);
+      assert('profile achievements unlock', !!profile2.achievements.centurion && !!profile2.achievements.high_flyer);
+      var storedProfiles = JSON.parse(NS.Save.read('ns_profiles_v1', '{}'));
+      assert('profile records persist to storage', storedProfiles.slots[1].highScore === 123456 && storedProfiles.active === 2);
+      NS.Profile.activate(originalProfile); G.loadProfile();
+      assert('profile switching restores fire style', NS.Gunner.mode === NS.Profile.current().fireMode);
+      NS.Profile.erase(2); NS.Profile.activate(originalProfile); G.loadProfile(); G.resetStage(true);
+      storedProfiles = JSON.parse(NS.Save.read('ns_profiles_v1', '{}'));
+      assert('profile erase persists safely', storedProfiles.slots[1] === null && storedProfiles.active === originalProfile);
       I.beginCapture('fire', 'keyboard');
       w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyX', key: 'x', bubbles: true }));
       assert('duplicate binding swaps actions', I.binding('power', 'keyboard') === 'KeyZ');
@@ -78,10 +119,14 @@
       assert('attract timeout returns to title', G.state === 'title', G.state);
       assert('attract timeout stops CPU', !NS.Autoplay.active());
 
+      var beforeCpu = JSON.stringify(NS.Profile.current().stats);
       NS.Autoplay.start(G);
       NS.Debug.paused = true; NS.Debug.stepping = true;
       var seen = {}, frames = 0, snapshots = [];
-      while (frames < 360000) {
+      /* A clean six-stage CPU run finishes well below 120k frames. Keep a
+         generous ceiling without turning a failed ending assertion into a
+         multi-minute browser hang. */
+      while (frames < 160000) {
         G.step(1000); frames += 1000; seen[G.stage] = true;
         snapshots.push(G.stage + ':' + G.state);
         if (G.stage === 6 && G.state === 'clear') break;
@@ -89,7 +134,10 @@
       NS.Debug.stepping = false;
       for (var stage = 1; stage <= 6; stage++) assert('CPU reached stage ' + stage, !!seen[stage]);
       assert('CPU completed campaign', G.stage === 6 && G.state === 'clear', G.stage + ':' + G.state);
+      assert('final escape accelerated', NS.Campaign.escapeSpeed > 9);
+      assert('final escape walls converged', NS.Campaign.escapeInset >= 38 && NS.Campaign.escapeFloor <= 130);
       assert('CPU stopped at ending', !NS.Autoplay.active());
+      assert('CPU play excluded from records', JSON.stringify(NS.Profile.current().stats) === beforeCpu);
       assert('no recording overlay API', typeof NS.Autoplay.draw === 'undefined');
       finish({ frames: frames, final: G.stage + ':' + G.state,
         snapshots: snapshots.slice(-24), autoplay: NS.Autoplay.stats() });
