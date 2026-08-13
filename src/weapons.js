@@ -46,6 +46,7 @@
     s.y = y - s.h / 2;
     s.vx = dx * k.speed;
     s.vy = dy * k.speed;
+    if (NS.Feedback) NS.Feedback.muzzle(x, y, dx, dy, type === 'laser' ? 1.5 : 1);
     return s;
   };
 
@@ -90,6 +91,7 @@
       type: 'normal', dead: false, x: x, y: y - 1, w: 6, h: 2,
       vx: 6, vy: 0, dmg: 1, pierce: false, hitIds: null
     });
+    if (NS.Feedback) NS.Feedback.muzzle(x, y, 1, 0, 1);
   };
 
   /* Launch geometry for one missile salvo, shared by every stage.
@@ -171,6 +173,7 @@
       type: 'laser', dead: false, x: x, y: y - 2, w: 46, h: 4,
       vx: 10, vy: 0, dmg: 1, pierce: true, hitIds: {}, t: 0
     });
+    if (NS.Feedback) NS.Feedback.muzzle(x, y, 1, 0, 1.6);
   };
 
   /* Stage 1's crawler. Its surfaces are the ceiling and floor, so here the
@@ -187,6 +190,7 @@
       level: level, dmg: 2, pierce: false, hitIds: null,
       crawling: false, dirDown: true, anim: 0
     });
+    if (NS.Feedback) NS.Feedback.muzzle(x, y, 1, 0.65, 1.25);
   };
 
   /* upward missile variant when the ship is closer to the ceiling —
@@ -199,6 +203,7 @@
       level: level, dmg: 2, pierce: false, hitIds: null,
       crawling: false, dirDown: false, anim: 0 };
     W.player.push(m);
+    if (NS.Feedback) NS.Feedback.muzzle(x, y, 1, -0.65, 1.25);
   };
 
   W.enemyShot = function (x, y, vx, vy, opt) {
@@ -224,6 +229,7 @@
 
       if (p.type === 'missile') {
         p.anim++;
+        if ((p.anim & 3) === 0) NS.FX.trail(p.x + p.w / 2, p.y + p.h / 2, '#ff9a45', 1);
         if (!p.crawling) {
           p.x += p.vx + 1.2;
           p.y += p.vy;
@@ -244,6 +250,7 @@
         p.x -= NS.SCROLL_SPEED * 0.0; // missiles are already in screen space
       } else if (p.type === 'laser') {
         p.t++;
+        if ((p.t & 1) === 0) NS.FX.trail(p.x + p.w * 0.2, p.y + p.h / 2, '#70c8ff', 2);
         p.x += p.vx;
       } else {
         p.x += p.vx;
@@ -298,15 +305,18 @@
      its own rectangles. */
   W.drawShot = function (g, p) {
     var x = p.x | 0, y = p.y | 0;
+    var contrast = NS.projectileContrast();
 
     if (p.type === 'laser') {
       var vertical = p.h > p.w;
       /* three stacked stripes: dark edge, body, hot core */
       if (vertical) {
+        if (contrast) { g.fillStyle = '#ffffff'; g.fillRect(x - 1, y, 6, p.h); }
         g.fillStyle = '#0b3fa0'; g.fillRect(x, y, 4, p.h);
         g.fillStyle = '#4fb0ff'; g.fillRect(x + 1, y, 2, p.h);
         g.fillStyle = '#eaf6ff'; g.fillRect(x + 1, y, 1, p.h);
       } else {
+        if (contrast) { g.fillStyle = '#ffffff'; g.fillRect(x, y - 1, p.w, 6); }
         g.fillStyle = '#0b3fa0'; g.fillRect(x, y, p.w, 4);
         g.fillStyle = '#4fb0ff'; g.fillRect(x, y + 1, p.w, 2);
         g.fillStyle = '#eaf6ff'; g.fillRect(x, y + 1, p.w, 1);
@@ -330,6 +340,11 @@
     }
 
     /* normal shot — the same sprite in both cameras, turned to face travel */
+    if (contrast) {
+      g.fillStyle = '#ffffff';
+      if (p.h > p.w) g.fillRect(x - 1, y, p.w + 2, p.h);
+      else g.fillRect(x, y - 1, p.w, p.h + 2);
+    }
     if (p.h > p.w) {
       g.save();
       g.translate(x + 1, y + 3);
@@ -366,12 +381,21 @@
     for (i = 0; i < W.enemy.length; i++) {
       p = W.enemy[i];
       if (p.dead) continue;
-      if (p.big) {
-        g.fillStyle = '#ffd0d0'; g.fillRect((p.x | 0) - 1, (p.y | 0) - 1, 6, 6);
-        g.fillStyle = '#ff4444'; g.fillRect(p.x | 0, p.y | 0, 4, 4);
-      } else {
-        g.drawImage(NS.S.eshot, p.x | 0, p.y | 0);
-      }
+      W.drawEnemyShot(g, p);
+    }
+  };
+
+  W.drawEnemyShot = function (g, p) {
+    var x = p.x | 0, y = p.y | 0;
+    if (NS.projectileContrast()) {
+      g.fillStyle = '#080a10'; g.fillRect(x - 2, y - 2, 8, 8);
+      g.fillStyle = '#ffffff'; g.fillRect(x - 1, y - 1, 6, 6);
+      g.fillStyle = '#ff3038'; g.fillRect(x, y, 4, 4);
+    } else if (p.big) {
+      g.fillStyle = '#ffd0d0'; g.fillRect(x - 1, y - 1, 6, 6);
+      g.fillStyle = '#ff4444'; g.fillRect(x, y, 4, 4);
+    } else {
+      g.drawImage(NS.S.eshot, x, y);
     }
   };
 

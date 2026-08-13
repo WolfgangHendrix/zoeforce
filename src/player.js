@@ -364,15 +364,15 @@
     if (NS.Autoplay && NS.Autoplay.active()) {
       NS.Autoplay.noteHit();
       this.invuln = 12;                 // hit feedback without death-blinking
-      NS.Audio.sfx.hit();
-      NS.FX.spark(this.x, this.y, 5, 'hit');
+      NS.Audio.sfx.impact('shield', 0.45);
+      NS.Feedback.playerHit(true, this.x, this.y);
       return true;
     }
     if (NS.Debug && NS.Debug.invincible) return true;
     if (this.shield > 0) {
       this.shield--;
-      NS.Audio.sfx.hit();
-      NS.FX.spark(this.x, this.y, 8, 'hit');
+      NS.Audio.sfx.impact('shield', 0.58);
+      NS.Feedback.playerHit(true, this.x, this.y);
       this.invuln = 12;
       return true;
     }
@@ -390,6 +390,7 @@
     NS.FX.explode(this.x, this.y, 2.2, 'fire');
     NS.FX.explode(this.x + 4, this.y + 3, 1.4, 'fire');
     NS.Audio.sfx.death();
+    NS.Feedback.playerHit(false, this.x, this.y);
   };
 
   Player.prototype.respawn = function () {

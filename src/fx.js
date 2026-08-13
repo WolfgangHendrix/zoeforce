@@ -42,6 +42,40 @@
     }
   };
 
+  /* A cone of particles travelling away from an impact. Chunk particles are
+     larger and carry a little gravity, which lets stone, armor and organic
+     matter break differently without adding asset files. */
+  FX.directional = function (x, y, dx, dy, n, hue, material) {
+    var len = Math.sqrt(dx * dx + dy * dy) || 1;
+    dx /= len; dy /= len;
+    var base = Math.atan2(dy, dx);
+    for (var i = 0; i < (n || 6); i++) {
+      var a = base + (Math.random() - 0.5) * 1.35;
+      var sp = 0.55 + Math.random() * 1.65;
+      var chunk = material === 'masonry' || (material === 'armor' && i % 3 === 0);
+      FX.list.push({
+        kind: chunk ? 'chunk' : 'spark', dead: false, x: x, y: y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 10 + Math.random() * (chunk ? 18 : 10), t: 0,
+        hue: hue || 'hit', material: material || 'armor',
+        size: chunk ? (Math.random() < 0.35 ? 3 : 2) : 1,
+        gravity: chunk ? 0.035 : 0
+      });
+    }
+  };
+
+  FX.muzzle = function (x, y, dx, dy, power) {
+    if (NS.reducedMotion()) return;
+    FX.list.push({ kind: 'muzzle', dead: false, x: x, y: y, dx: dx, dy: dy,
+      power: power || 1, t: 0, life: 4, hue: 'hit' });
+  };
+
+  FX.trail = function (x, y, color, size) {
+    if (NS.reducedMotion()) return;
+    FX.list.push({ kind: 'trail', dead: false, x: x, y: y, vx: 0, vy: 0,
+      color: color || '#8fd0ff', size: size || 1, t: 0, life: 8 });
+  };
+
   FX.popText = function (x, y, text, color) {
     FX.list.push({ kind: 'text', dead: false, x: x, y: y, t: 0, life: 40, text: text, color: color || '#ffe9a0' });
   };
@@ -57,10 +91,11 @@
       var e = FX.list[i];
       if (e.dead) continue;
       e.t++;
-      if (e.kind === 'spark') {
+      if (e.kind === 'spark' || e.kind === 'chunk' || e.kind === 'trail') {
         e.x += e.vx; e.y += e.vy;
         e.vx *= 0.94; e.vy *= 0.94;
-        e.x -= NS.SCROLL_SPEED * 0.35;      // drift with the corridor
+        if (e.gravity) e.vy += e.gravity;
+        if (e.kind !== 'trail') e.x -= NS.SCROLL_SPEED * 0.35; // drift with the corridor
       } else if (e.kind === 'text') {
         e.y -= 0.35;
       }
@@ -73,10 +108,21 @@
     for (var i = 0; i < FX.list.length; i++) {
       var e = FX.list[i];
       var k = e.t / e.life;
-      if (e.kind === 'spark') {
+      if (e.kind === 'spark' || e.kind === 'chunk') {
         var pal = ramp(e.hue);
         g.fillStyle = pal[Math.min(pal.length - 1, (k * pal.length) | 0)];
         g.fillRect(e.x | 0, e.y | 0, e.size, e.size);
+      } else if (e.kind === 'trail') {
+        g.globalAlpha = 1 - k;
+        g.fillStyle = e.color;
+        g.fillRect(e.x | 0, e.y | 0, e.size, e.size);
+        g.globalAlpha = 1;
+      } else if (e.kind === 'muzzle') {
+        g.globalAlpha = 1 - k;
+        g.fillStyle = '#ffffff';
+        var mx = e.x + e.dx * (2 + e.power * 2), my = e.y + e.dy * (2 + e.power * 2);
+        g.beginPath(); g.arc(mx, my, 1.5 + e.power * (1 - k), 0, Math.PI * 2); g.fill();
+        g.globalAlpha = 1;
       } else if (e.kind === 'flash') {
         var r = NS.lerp(e.r0, e.r1, k);
         var pal2 = ramp(e.hue);

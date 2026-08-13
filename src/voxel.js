@@ -331,6 +331,8 @@
      a distinct key. Clone the small options object and tint it red without
      mutating the caller's normal rendering setup. */
   function placeDamage(key, canvas, x, y, layer, target, opt) {
+    var kick = NS.hitOffset(target);
+    x += kick.x; y += kick.y;
     if (!NS.damageFlashing(target)) { place(key, canvas, x, y, layer, opt); return; }
     var flashOpt = {}, k;
     opt = opt || {};
@@ -358,8 +360,12 @@
   function placeShot(p) {
     var cx = p.x + p.w / 2, cy = p.y + p.h / 2;
     var vertical = p.h > p.w;
+    var contrast = NS.projectileContrast();
 
     if (p.type === 'missile') {
+      if (contrast) placeAt('missileHalo', NS.S.missile, cx, cy, 'shot',
+              { rz: -NS.Weapons.missileAngle(p), sx: 1.55, sy: 1.55, sz: 1.3,
+                cap: 64, glow: true, tint: '#ffffff', z: LAYER.shot.z - 1 });
       placeAt('missile', NS.S.missile, cx, cy, 'shot',
               { rz: -NS.Weapons.missileAngle(p), rx: p.anim * 0.3,
                 cap: 64, glow: true });
@@ -368,12 +374,19 @@
     if (p.type === 'laser') {
       /* the sprite is 6px long, so sx carries the beam's real length; the
          model is centred on the beam rather than parked at its leading end */
+      if (contrast) placeAt('laserHalo', NS.S.shot, cx, cy, 'shot',
+              { rz: vertical ? Math.PI / 2 : 0,
+                sx: (vertical ? p.h : p.w) / 6, sy: 3.2, sz: 3.2,
+                cap: 48, glow: true, tint: '#ffffff', z: LAYER.shot.z - 1 });
       placeAt('laserSeg', NS.S.shot, cx, cy, 'shot',
               { rz: vertical ? Math.PI / 2 : 0,
                 sx: (vertical ? p.h : p.w) / 6, sy: 2, sz: 2,
                 cap: 48, glow: true });
       return;
     }
+    if (contrast) placeAt('shotHalo', NS.S.shot, cx, cy, 'shot',
+            { rz: vertical ? Math.PI / 2 : 0, sx: 1.4, sy: 1.8, sz: 2.2,
+              cap: 128, glow: true, tint: '#ffffff', z: LAYER.shot.z - 1 });
     placeAt('shot', NS.S.shot, cx, cy, 'shot',
             { rz: vertical ? Math.PI / 2 : 0, sz: 1.5, cap: 128, glow: true });
   }
@@ -405,6 +418,7 @@
      silhouettes are the same shape in the same colours by construction.
      ====================================================================== */
   var primPools = {};
+  var primOffsetX = 0, primOffsetY = 0;
 
   function primPool(key, build, cap, glow) {
     var p = primPools[key];
@@ -433,7 +447,7 @@
   function putPrim(p, x, y, z, tint, o) {
     if (!p.mesh || p.used >= p.cap) return;
     o = o || {};
-    dummy.position.set(x, simY(y), z);
+    dummy.position.set(x + primOffsetX, simY(y + primOffsetY), z);
     dummy.rotation.set(o.rx || 0, o.ry || 0, o.rz || 0);
     dummy.scale.set(o.sx || 1, o.sy || 1, o.sz || 1);
     dummy.updateMatrix();
@@ -881,6 +895,10 @@
                 e, { rz: e.onCeiling ? Math.PI : 0, depth: 12, cap: 24 });
           break;
         case 'prominence':
+          var charge = NS.Feedback.hazardCharge({ t: e.t + e.offset, period: e.period });
+          if (charge > 0) place('promCharge', NS.S.prom[0], e.x - 4,
+                e.y + (e.onCeiling ? 0 : -3), 'hazard',
+                { sx: 2.4, sy: 0.8, sz: 2, cap: 16, glow: true, tint: '#fff3a0' });
           for (var j = 0; j < e.flames.length; j++) {
             var fl = e.flames[j];
             var ps = NS.S.prom[(fl.t >> 2) & 1];
@@ -906,6 +924,9 @@
     for (i = 0; i < W.enemy.length; i++) {
       var es = W.enemy[i];
       if (es.dead) continue;
+      if (NS.projectileContrast()) place('eshotHalo', NS.S.eshot, es.x, es.y, 'shot',
+            { ry: es.t * 0.25, sx: es.big ? 2.2 : 1.7, sy: es.big ? 2.2 : 1.7,
+              sz: es.big ? 2.2 : 1.7, cap: 128, glow: true, tint: '#ffffff', z: LAYER.shot.z - 1 });
       place('eshot', NS.S.eshot, es.x, es.y, 'shot',
             { ry: es.t * 0.25, sx: es.big ? 1.5 : 1, sy: es.big ? 1.5 : 1,
               sz: es.big ? 1.5 : 1, cap: 128, glow: true });
@@ -981,11 +1002,12 @@
            NS.W, 22, 44, '#263c58', { cap: 2 });
       for (i = 0; i < fort.cores.length; i++) {
         var fc = fort.cores[i]; if (fc.dead) continue;
+        var fck = NS.hitOffset(fc), fcx = fc.x + fck.x, fcy = fc.y + fck.y;
         var fcFlash = NS.damageFlashing(fc);
-        vball('v2fortCore' + (fcFlash ? 'Hit' : ''), fc.x, fc.y, fz, 12, fcFlash ? NS.DAMAGE_FLASH_COLOR : '#184b78', { cap: 4, ry: fort.t * 0.02, glow: fcFlash });
-        vball('v2fortPip' + (fcFlash ? 'Hit' : ''), fc.x, fc.y, fz + 13, 5, fcFlash ? '#ff9ba0' : '#ff7b4c', { cap: 4, glow: true });
+        vball('v2fortCore' + (fcFlash ? 'Hit' : ''), fcx, fcy, fz, 12, fcFlash ? NS.DAMAGE_FLASH_COLOR : '#184b78', { cap: 4, ry: fort.t * 0.02, glow: fcFlash });
+        vball('v2fortPip' + (fcFlash ? 'Hit' : ''), fcx, fcy, fz + 13, 5, fcFlash ? '#ff9ba0' : '#ff7b4c', { cap: 4, glow: true });
         if (fc.shield > 0) {
-          vring('v2fortShield', fc.x, fc.y, fz + 4, 15, 2.6, '#8ee8ff',
+          vring('v2fortShield', fcx, fcy, fz + 4, 15, 2.6, '#8ee8ff',
                 14, fort.t * 0.03 + i, 48, true);
         }
       }
@@ -1019,6 +1041,7 @@
     }
     for (i = 0; i < L.enemyShots.length; i++) {
       var es = L.enemyShots[i]; if (es.dead) continue;
+      if (NS.projectileContrast()) place('eshotHalo', NS.S.eshot, es.x - 2, es.y - 2, 'shot', { ry: es.t * 0.2, sx: 1.7, sy: 1.7, sz: 1.7, cap: 128, glow: true, tint: '#ffffff', z: LAYER.shot.z - 1 });
       place('eshot', NS.S.eshot, es.x - 2, es.y - 2, 'shot', { ry: es.t * 0.2, cap: 128, glow: true });
     }
 
@@ -1029,21 +1052,22 @@
        the right colour. */
     var b = L.boss;
     if (b && (!b.dead || (b.dying >> 2) % 2 === 0)) {
+      var bk = NS.hitOffset(b), bx = b.x + bk.x, by = b.y + bk.y;
       var bz = LAYER.boss.z, dep = b.deploy == null ? 1 : b.deploy;
       var bFlash = NS.damageFlashing(b), bSuffix = bFlash ? 'Hit' : '';
-      vball('v2hull' + bSuffix, b.x, b.y, bz, 22, bFlash ? NS.DAMAGE_FLASH_COLOR : '#273d61', { cap: 2, sz: 0.85, ry: b.spin * 0.4, glow: bFlash });
-      vball('v2coreLamp' + bSuffix, b.x, b.y, bz + 17, 8,
+      vball('v2hull' + bSuffix, bx, by, bz, 22, bFlash ? NS.DAMAGE_FLASH_COLOR : '#273d61', { cap: 2, sz: 0.85, ry: b.spin * 0.4, glow: bFlash });
+      vball('v2coreLamp' + bSuffix, bx, by, bz + 17, 8,
             bFlash ? '#ff9ba0' : (b.shield ? '#ff5964' : '#ffd0d0'), { cap: 2, glow: true });
       for (var q = 0; q < 4; q++) {
         var a = q * Math.PI / 2 + b.spin;
         /* the arm spans radius 7..35 in 2D, so its centre is at 21 */
-        vbox('v2arm' + bSuffix, b.x + Math.cos(a) * 21 * dep, b.y + Math.sin(a) * 21 * dep,
+        vbox('v2arm' + bSuffix, bx + Math.cos(a) * 21 * dep, by + Math.sin(a) * 21 * dep,
              bz + 4, 28, 5, 8, bFlash ? '#d9162c' : '#7a9ab8', { rz: -a, sx: Math.max(0.05, dep), cap: 8, glow: bFlash });
-        vball('v2pod' + bSuffix, b.x + Math.cos(a) * 36 * dep, b.y + Math.sin(a) * 36 * dep,
+        vball('v2pod' + bSuffix, bx + Math.cos(a) * 36 * dep, by + Math.sin(a) * 36 * dep,
               bz + 6, 7, bFlash ? '#ff5961' : '#d8e7ef', { cap: 8, ry: b.spin * 2, rx: b.spin, glow: bFlash });
       }
       for (var ring = 0; ring < b.shield; ring++) {
-        vring('v2shield', b.x, b.y, bz + 2, 26 + ring * 4, 2.4,
+        vring('v2shield', bx, by, bz + 2, 26 + ring * 4, 2.4,
               ring === b.shield - 1 ? '#a9f4ff' : '#5fc8e0',
               20, b.t * 0.012 * (ring + 1), 72, true);
       }
@@ -1089,6 +1113,8 @@
     var bz = LAYER.boss.z, i;
     var dep = b.deploy == null ? 1 : b.deploy;
     var flash = NS.damageFlashing(b), red = NS.DAMAGE_FLASH_COLOR, redHi = '#ff9ba0';
+    var kick = NS.hitOffset(b);
+    primOffsetX = kick.x; primOffsetY = kick.y;
 
     if (C.stage === 3) {
       /* Intruder: an upright ovoid with a maw cut into its leading face.
@@ -1176,6 +1202,7 @@
               flash ? red : '#ff5a7a', 16, b.t * 0.02, 48, true);
       }
     }
+    primOffsetX = primOffsetY = 0;
   }
 
   function drawCampaignWorld(G) {
@@ -1186,6 +1213,10 @@
       var ex=Math.max(0,Math.sin(((h.t%h.period)/h.period)*Math.PI))*h.span;
       if(C.horizontal())place('campHaz',NS.S.prom[(h.t>>2)&1],m-3,h.side==='top'?0:NS.PLAYFIELD_H-ex,'hazard',{sx:2,sy:Math.max(1,ex/5),sz:2,cap:64});
       else place('campHaz',NS.S.prom[(h.t>>2)&1],h.side==='left'?0:NS.W-ex,m-3,'hazard',{sx:Math.max(1,ex/5),sy:2,sz:2,cap:64});
+      if(NS.Feedback.hazardCharge(h)>0){
+        if(C.horizontal())place('campHazCharge',NS.S.prom[0],m-5,h.side==='top'?0:NS.PLAYFIELD_H-3,'hazard',{sx:3,sy:.8,sz:2,cap:32,glow:true,tint:'#fff3a0'});
+        else place('campHazCharge',NS.S.prom[0],h.side==='left'?0:NS.W-3,m-5,'hazard',{sx:.8,sy:3,sz:2,cap:32,glow:true,tint:'#fff3a0'});
+      }
     }
     /* Stage 5's shoot-through masonry uses actual box cells here instead of
        borrowing an enemy sprite, preserving the wall silhouette and making
@@ -1195,11 +1226,11 @@
       if(wx>NS.W+25||wx+wall.w<-25)continue;
       for(var bc=0;bc<wall.cells.length;bc++){
         var cell=wall.cells[bc];if(cell.dead)continue;
-        var cellFlash=NS.damageFlashing(cell);
+        var cellFlash=NS.damageFlashing(cell),ck=NS.hitOffset(cell);
         var tint=cellFlash?NS.DAMAGE_FLASH_COLOR:(cell.hp/cell.maxHp>.5?'#b39749':'#80652e');
-        vbox('campBarrier',wx+wall.w/2,cell.y+cell.h/2,LAYER.terrain.z+18,
+        vbox('campBarrier',wx+wall.w/2+ck.x,cell.y+cell.h/2+ck.y,LAYER.terrain.z+18,
              wall.w,Math.max(2,cell.h-1),28,tint,{cap:48});
-        vbox('campBarrierRim',wx+wall.w/2,cell.y+2,LAYER.terrain.z+34,
+        vbox('campBarrierRim',wx+wall.w/2+ck.x,cell.y+2+ck.y,LAYER.terrain.z+34,
              wall.w-3,2,3,cellFlash?'#ff9ba0':'#d7bd66',{cap:48});
       }
     }
@@ -1209,13 +1240,13 @@
       placeDamage('camp'+e.kind+(e.bonus?'C':'')+((e.t>>3)&1),spr,e.x-spr.width/2,e.y-spr.height/2,'enemy',e,{rz:C.horizontal()?0:Math.PI/2,ry:e.t*.025,sx:e.kind==='dragon'?2:1,sy:e.kind==='dragon'?1.5:1,cap:128});
     }
     if(C.mini&&!C.mini.dead)for(i=0;i<C.mini.cores.length;i++){var mc=C.mini.cores[i];if(mc.hp>0){
-      var miniFlash=NS.damageFlashing(mc);
+      var miniFlash=NS.damageFlashing(mc),mck=NS.hitOffset(mc);primOffsetX=mck.x;primOffsetY=mck.y;
       vball('campMiniCore',mc.x,mc.y,LAYER.boss.z+10,10,miniFlash?NS.DAMAGE_FLASH_COLOR:'#72c6ff',{cap:4,ry:C.mini.t*.03,glow:true});
-      vring('campMiniRing',mc.x,mc.y,LAYER.boss.z+4,13,2.2,miniFlash?'#ff9ba0':'#bde8ff',12,C.mini.t*.04+i,40,true);}}
+      vring('campMiniRing',mc.x,mc.y,LAYER.boss.z+4,13,2.2,miniFlash?'#ff9ba0':'#bde8ff',12,C.mini.t*.04+i,40,true);primOffsetX=primOffsetY=0;}}
     for(i=0;i<C.pickups.length;i++){var c=C.pickups[i];place('capsule'+((c.t>>3)&1),NS.S.capsule[(c.t>>3)&1],c.x-3,c.y-3,'capsule',{ry:c.t*.06,cap:32,glow:true});}
     for(i=0;i<G.looseOptions.length;i++){var o=G.looseOptions[i];place('looseOption'+((o.t>>3)&1),NS.S.looseOption[(o.t>>3)&1],o.x-2,o.y-2,'capsule',{ry:o.t*.05,cap:16,glow:true});}
     for(i=0;i<C.shots.length;i++)if(!C.shots[i].dead)placeShot(C.shots[i]);
-    for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];place('eshot',NS.S.eshot,q.x-2,q.y-2,'shot',{ry:q.t*.2,cap:128,glow:true});}
+    for(i=0;i<C.enemyShots.length;i++){var q=C.enemyShots[i];if(NS.projectileContrast())place('eshotHalo',NS.S.eshot,q.x-2,q.y-2,'shot',{ry:q.t*.2,sx:1.7,sy:1.7,sz:1.7,cap:128,glow:true,tint:'#ffffff',z:LAYER.shot.z-1});place('eshot',NS.S.eshot,q.x-2,q.y-2,'shot',{ry:q.t*.2,cap:128,glow:true});}
     var b=C.boss;if(b&&(!b.dead||(b.dying>>2)%2===0))drawCampaignBoss(C,b);
     if(C.ending)for(i=0;i<C.escapeBars.length;i++){var eb=C.escapeBars[i],bx=eb.side==='left'?0:NS.W-eb.w;place('campEscapeBar',NS.S.prom[0],bx,eb.y,'hazard',{sx:Math.max(2,eb.w/3),sy:2.4,sz:3,cap:16});}
     var p=G.player;if(p.alive&&!(p.invuln>14&&(p.anim>>1)%2===0)){
@@ -1230,7 +1261,7 @@
   }
 
   function drawBoss(b) {
-    var cy = b.y + b.bob;
+    var kick = NS.hitOffset(b), bx = b.x + kick.x, cy = b.y + b.bob + kick.y;
     var flash = NS.damageFlashing(b);
     /* body: concentric slabs approximating the drawn blobs */
     var rings = [
@@ -1240,20 +1271,20 @@
     ];
     for (var i = 0; i < rings.length; i++) {
       var r = rings[i];
-      bossSlab(i, b.x + (i === 1 ? 4 : (i === 2 ? 2 : 0)), cy, r, flash);
+      bossSlab(i, bx + (i === 1 ? 4 : (i === 2 ? 2 : 0)), cy, r, flash);
     }
     /* armour plates slide apart as the eye opens. 2D draws them as 26x8
        rects whose centres sit 12px off the core, not 20 — at 20 they hung
        clear of the mass with a gap the flat art does not have. */
     var sep = b.eyeOpen * 9;
-    bossPlate(0, b.x - 1, cy - 12 - sep, flash);
-    bossPlate(1, b.x - 1, cy + 12 + sep, flash);
+    bossPlate(0, bx - 1, cy - 12 - sep, flash);
+    bossPlate(1, bx - 1, cy + 12 + sep, flash);
 
     /* the tendrils rooting it to the chamber wall — the single loudest part
        of the 2D silhouette, and absent here entirely until now */
     var bz = LAYER.boss.z;
     b.eachTendril(7, function (tx, ty, strand, u) {
-      vball('golemTendril', tx, ty, bz - 8 + Math.sin(strand * 2 + u * 5) * 7,
+      vball('golemTendril', tx + kick.x, ty + kick.y, bz - 8 + Math.sin(strand * 2 + u * 5) * 7,
             2.2, flash ? NS.DAMAGE_FLASH_COLOR : (u > 0.75 ? '#5a1530' : '#7a2440'), { cap: 48 });
     });
 
@@ -1261,12 +1292,12 @@
       var spr = flash ? NS.S.bossEyeHit : NS.S.bossEye;
       /* the innermost body blob reaches z+23, so the eye has to sit past
          that or it renders buried inside the mass */
-      place('bossEye', spr, b.x - 6, cy - 6, 'boss',
+      place('bossEye', spr, bx - 6, cy - 6, 'boss',
             { z: LAYER.boss.z + 30, sy: Math.max(0.15, b.eyeOpen),
               depth: 10, cap: 2, glow: true });
       /* the halo is the stage accent doing its one job: marking the only
          place on this thing that a shot does anything */
-      vring('golemEyeHalo', b.x, cy, LAYER.boss.z + 26,
+      vring('golemEyeHalo', bx, cy, LAYER.boss.z + 26,
             9 + Math.sin(b.t * 0.14) * 1.5, 2.0, flash ? '#ff9ba0' : PALETTE[1].accent,
             12, b.t * 0.05, 40, true);
     }
@@ -1399,16 +1430,32 @@
       if (p.dead || p.kind === 'text') continue;
       var k = p.t / p.life;
 
-      if (p.kind === 'spark') {
+      if (p.kind === 'spark' || p.kind === 'chunk') {
         var s = (p.size || 1) * 1.8;
         fxDummy.position.set(p.x, simY(p.y), LAYER.player.z + 6);
-        fxDummy.scale.set(s, s, s);
+        fxDummy.scale.set(s, p.kind === 'chunk' ? s * 0.72 : s, s);
         fxDummy.rotation.set(p.t * 0.2, p.t * 0.15, 0);
         fxDummy.updateMatrix();
         fxMesh.setMatrixAt(n, fxDummy.matrix);
         col.set(rampAt(p.hue, k));
         fxMesh.setColorAt(n, col);
         n++;
+      } else if (p.kind === 'trail') {
+        var ts = Math.max(0.2, (p.size || 1) * (1 - k) * 1.8);
+        fxDummy.position.set(p.x, simY(p.y), LAYER.player.z + 4);
+        fxDummy.scale.set(ts, ts, ts);
+        fxDummy.rotation.set(0, p.t * 0.2, 0);
+        fxDummy.updateMatrix();
+        fxMesh.setMatrixAt(n, fxDummy.matrix);
+        col.set(p.color || '#8fd0ff').multiplyScalar(1 - k * 0.55);
+        fxMesh.setColorAt(n, col); n++;
+      } else if (p.kind === 'muzzle') {
+        var ms = (1.5 + (p.power || 1) * 1.2) * (1 - k);
+        fxDummy.position.set(p.x + p.dx * 4, simY(p.y + p.dy * 4), LAYER.player.z + 7);
+        fxDummy.scale.set(Math.max(.2, ms), Math.max(.2, ms), Math.max(.2, ms));
+        fxDummy.rotation.set(p.t * .4, p.t * .3, 0);
+        fxDummy.updateMatrix();
+        fxMesh.setMatrixAt(n, fxDummy.matrix);col.set('#ffffff');fxMesh.setColorAt(n,col);n++;
       } else if (p.kind === 'flash') {
         /* the 2D flash is a ring; in 3D it reads better as a thin shell of
            cubes stepped around the circle */
@@ -1525,8 +1572,9 @@
     /* a slow drift on the camera keeps the depth legible without ever
        moving far enough to change what you can see of the corridor */
     var t = frame * 0.006;
-    camera.position.x = NS.W * 0.5 - 6 + Math.sin(t) * 5;
-    camera.position.y = NS.PLAYFIELD_H * 0.5 + 14 + Math.cos(t * 0.8) * 3;
+    var shake = NS.Feedback ? NS.Feedback.cameraOffset() : { x: 0, y: 0 };
+    camera.position.x = NS.W * 0.5 - 6 + Math.sin(t) * 5 + shake.x;
+    camera.position.y = NS.PLAYFIELD_H * 0.5 + 14 + Math.cos(t * 0.8) * 3 - shake.y;
     camera.lookAt(NS.W * 0.5, NS.PLAYFIELD_H * 0.5, -10);
     frameCorridor();
 

@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Zoe Force menu smoke test</title>
+<style>html,body,iframe{margin:0;border:0;width:100%;height:100%;overflow:hidden}</style>
+<iframe id="game" src="../index.html"></iframe>
+<script>
+(function () {
+  var frame=document.getElementById('game');
+  function press(w,G,code){w.dispatchEvent(new w.KeyboardEvent('keydown',{code:code,bubbles:true}));G.step(1);w.dispatchEvent(new w.KeyboardEvent('keyup',{code:code,bubbles:true}));G.step(1);}
+  function ready(n){var w=frame.contentWindow,NS=w&&w.NS;if(NS&&NS.Game&&NS.Game.state==='loading'&&NS.Game.step)NS.Game.step(1);if(!NS||!NS.Game||NS.Game.state!=='title'){if(n<800)setTimeout(function(){ready(n+1);},25);return;}var G=NS.Game;G.settings.attractMode=false;press(w,G,'ArrowDown');press(w,G,'ArrowDown');press(w,G,'KeyZ');if(location.search.indexOf('controls')>=0){for(var i=0;i<11;i++)press(w,G,'ArrowDown');press(w,G,'KeyZ');}}
+  frame.addEventListener('load',function(){ready(0);});
+}());
+</script>

@@ -4,7 +4,7 @@
 (function (NS) {
   'use strict';
 
-  var ctx = null, master = null, musicGain = null, sfxGain = null;
+  var ctx = null, master = null, musicGain = null, sfxGain = null, compressor = null;
   var enabled = true;
   var volumes = { master: 1, music: 1, sfx: 1 };
   var BASE_MASTER = 0.35, BASE_MUSIC = 0.30, BASE_SFX = 0.55;
@@ -14,7 +14,14 @@
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) { enabled = false; return; }
     ctx = new AC();
-    master = ctx.createGain(); master.gain.value = BASE_MASTER * volumes.master; master.connect(ctx.destination);
+    master = ctx.createGain(); master.gain.value = BASE_MASTER * volumes.master;
+    /* A gentle mastering stage catches stacked explosions without flattening
+       the chiptune. DynamicsCompressorNode is available anywhere WebAudio is. */
+    compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -16; compressor.knee.value = 12;
+    compressor.ratio.value = 5; compressor.attack.value = 0.003;
+    compressor.release.value = 0.18;
+    master.connect(compressor); compressor.connect(ctx.destination);
     musicGain = ctx.createGain(); musicGain.gain.value = BASE_MUSIC * volumes.music; musicGain.connect(master);
     sfxGain = ctx.createGain(); sfxGain.gain.value = BASE_SFX * volumes.sfx; sfxGain.connect(master);
   }
@@ -35,6 +42,17 @@
     if (master) master.gain.value = BASE_MASTER * volumes.master;
     if (musicGain) musicGain.gain.value = BASE_MUSIC * volumes.music;
     if (sfxGain) sfxGain.gain.value = BASE_SFX * volumes.sfx;
+  }
+
+  /* Brief side-chain style dip beneath major impacts. Scheduled gain ramps
+     keep this click-free and always return to the player's music setting. */
+  function duck(amount, duration) {
+    if (!musicGain || !ctx || volumes.music <= 0) return;
+    var now = ctx.currentTime, normal = BASE_MUSIC * volumes.music;
+    musicGain.gain.cancelScheduledValues(now);
+    musicGain.gain.setValueAtTime(Math.max(0.0001, musicGain.gain.value), now);
+    musicGain.gain.linearRampToValueAtTime(Math.max(0.0001, normal * (1 - NS.clamp(amount || 0.3, 0, 0.85))), now + 0.012);
+    musicGain.gain.exponentialRampToValueAtTime(Math.max(0.0001, normal), now + (duration || 0.16));
   }
 
   /* one-shot tone */
@@ -110,6 +128,31 @@
       noise(0.28, 0.42, 700);
       tone({ f0: 150, f1: 44, dur: 0.36, vol: 0.24, type: 'square' });
       setTimeout(function () { tone({ f0: 92, f1: 30, dur: 0.5, vol: 0.18, type: 'triangle' }); }, 60);
+    },
+
+    /* Material-specific hit layers make the red flash audible without every
+       target sharing the same noise tick. These are intentionally short so
+       sustained fire remains readable rather than becoming a wall of sound. */
+    impact: function (material, strength) {
+      strength = NS.clamp(strength == null ? 0.45 : strength, 0.15, 1);
+      if (material === 'shield') {
+        tone({ f0: 1250, f1: 2200, dur: 0.07, vol: 0.08 + strength * 0.06, type: 'sine' });
+        noise(0.035, 0.05 + strength * 0.05, 3200);
+      } else if (material === 'armor') {
+        tone({ f0: 760, f1: 310, dur: 0.055, vol: 0.07 + strength * 0.07, type: 'square' });
+        noise(0.045, 0.07 + strength * 0.08, 2600);
+      } else if (material === 'masonry') {
+        noise(0.10, 0.08 + strength * 0.12, 720);
+        tone({ f0: 180, f1: 85, dur: 0.08, vol: 0.05 + strength * 0.06, type: 'triangle' });
+      } else {
+        noise(0.055, 0.08 + strength * 0.10, 1500);
+        tone({ f0: 420, f1: 180, dur: 0.055, vol: 0.04 + strength * 0.05, type: 'sawtooth' });
+      }
+    },
+    phase: function () {
+      tone({ f0: 220, f1: 110, dur: 0.24, vol: 0.18, type: 'square' });
+      setTimeout(function () { tone({ f0: 440, f1: 880, dur: 0.16, vol: 0.16, type: 'square' }); }, 90);
+      noise(0.28, 0.24, 620);
     }
   };
 
@@ -496,6 +539,7 @@
     stopMusic: stopMusic,
     setTrack: setTrack,
     setVolumes: setVolumes,
+    duck: duck,
     volumes: function () { return { master: volumes.master, music: volumes.music, sfx: volumes.sfx }; },
     /* restart the arrangement from the top, intro included */
     rewind: function () { step = 0; },

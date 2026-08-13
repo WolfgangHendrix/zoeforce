@@ -36,9 +36,12 @@ python -m http.server 8791
 The title screen includes a stage select that unlocks each stage when you
 reach it. Options are available from both the title and pause menus, with a
 persisted starting-lives count (1–9), lethal or nonlethal wall contact,
-master/music/SFX volume, and a reduced-flash setting. With wall damage off,
-the ship stops against scenery and keeps sliding along the open axis; enemies,
-shots, eruptions, and other active hazards remain dangerous.
+master/music/SFX volume, screen-shake and rumble strength, reduced flash,
+reduced motion, high-contrast projectiles, attract mode, and complete primary
+keyboard/controller remapping. Rebinding a control that is already assigned
+swaps the two bindings instead of silently creating a conflict. With wall
+damage off, the ship stops against scenery and keeps sliding along the open
+axis; enemies, shots, eruptions, and other active hazards remain dangerous.
 
 ### Xbox 360 controller
 
@@ -52,7 +55,9 @@ shots, eruptions, and other active hazards remain dangerous.
 | Right-stick click | Toggle between voxel 3D and pixel 2D |
 
 Controllers use the browser Gamepad API and can be connected before or during
-play. Keyboard, controller, and touch input remain active together.
+play. Supported pads receive adjustable impact rumble; pads and browsers that
+do not expose haptics safely fall back to visual and audio feedback. Keyboard,
+controller, and touch input remain active together.
 
 On touch devices the pad appears automatically: a floating thumbstick on the
 left, FIRE and POW under the right thumb, START/MODE/pause along the top. It
@@ -202,9 +207,21 @@ at 10,000 points and another is awarded every 30,000 points afterward (40k,
 70k, 100k, and so on). Crossing multiple thresholds with one large boss bonus
 awards every life earned rather than skipping an extend.
 
-**Damage feedback** — enemies and other multi-hit targets flash red whenever
-health or shielding is actually removed. Armored and invulnerable impacts do
-not flash, and the Options menu's Reduced Flash setting suppresses the effect.
+**Combat feedback** — enemies and other multi-hit targets flash red whenever
+health or shielding is actually removed. Hits also produce material-specific
+impact audio, directional sparks or debris, brief render-only recoil, optional
+camera trauma and controller rumble, and a restrained micro-pause on major
+breaks. Boss health bars retain a short damage chip, and mechanical phase
+changes receive their own banner, audio duck and break cue. Armored and
+invulnerable impacts ping without a false damage flash. Reduced Flash and
+Reduced Motion suppress their respective secondary effects without changing
+collision, timing, or the deterministic simulation.
+
+Incoming formations receive edge arrows, and cyclic wall hazards brighten at
+their base before extending. High-contrast projectile mode adds light/dark
+separation around bullets in both pixel and voxel views. Losing focus or
+hiding the tab automatically pauses a live run; returning never resumes it
+until the player explicitly chooses Resume.
 
 Stage 1 runs about 3:45 including the boss, aligned to the NES reference's
 roughly 3:48 transition into Stage 2.
@@ -295,6 +312,7 @@ src/core.js      constants, math, input (keyboard+touch+analog), THEME
 src/sprites.js   pixel art as character grids — also the voxel model source
 src/audio.js     WebAudio SFX + the multi-section stage & boss arrangements
 src/fx.js        explosions, sparks, score pops, parallax background
+src/feedback.js  shake, haptics, hit-stop, recoil, telegraphs + phase cues
 src/terrain.js   corridor heightmap: authoring, collision, rendering
 src/weapons.js   every projectile, player and enemy
 src/gunner.js    MANUAL / AUTO / AI ASSIST fire modes
@@ -354,6 +372,11 @@ stops on the final clear screen. The pilot has no drawing path, so recordings
 contain only the normal game—no CPU badge, debug telemetry, watermark or
 capture overlay. Reopen the console with tilde to pause or disable it.
 
+When Attract Mode is enabled, the same invisible pilot also begins after
+twenty seconds of title-screen inactivity. Any player input exits immediately,
+and the preview returns to the title automatically after forty seconds. It
+adds no label, badge, recording watermark, or other non-game imagery.
+
 `NS.Game.step(n)` advances the simulation `n` frames and renders once — used
 for automated smoke tests (browsers throttle `requestAnimationFrame` in hidden
 tabs). `NS.Game.scrollX` can be set directly to jump around the stage; follow
@@ -366,7 +389,7 @@ spawns as it advances — that is what you want per frame, not for a jump.)
 - Two-player co-op and rank/difficulty scaling are not implemented.
 - AI ASSIST runs the guns only. It does not fly the ship or spend the power
   meter — dodging and build order stay yours.
-- The voxel view is a fixed side-on camera with a slow drift. A free/
+- The voxel view is a fixed side-on camera with a slow drift and impact shake. A free/
   orbitable camera would be a natural next step now the scene graph exists.
 - Art is placeholder programmer pixel art, sized and shaped to the NES
   original's silhouettes so real assets can drop in at the same dimensions.

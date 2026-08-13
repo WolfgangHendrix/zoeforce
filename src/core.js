@@ -60,6 +60,12 @@ NS.THEME = {
 NS.reducedFlash = function () {
   return !!(NS.Game && NS.Game.settings && NS.Game.settings.reducedFlash);
 };
+NS.reducedMotion = function () {
+  return !!(NS.Game && NS.Game.settings && NS.Game.settings.reducedMotion);
+};
+NS.projectileContrast = function () {
+  return !!(NS.Game && NS.Game.settings && NS.Game.settings.projectileContrast);
+};
 
 /* One damage-feedback contract shared by every stage. Gameplay owns the
    short timer; renderers decide how to display it and honor Reduced Flash. */
@@ -70,9 +76,18 @@ NS.flashDamage = function (target) {
 };
 NS.tickDamageFlash = function (target) {
   if (target && target.hitFlash > 0) target.hitFlash--;
+  if (target && target.hitKick > 0) target.hitKick--;
 };
 NS.damageFlashing = function (target) {
   return !!(target && target.hitFlash > 0 && !NS.reducedFlash());
+};
+NS.hitOffset = function (target) {
+  if (!target || !target.hitKick || NS.reducedMotion()) return { x: 0, y: 0 };
+  var k = target.hitKick / 4;
+  return {
+    x: (target.hitKickX == null ? -1 : target.hitKickX) * k,
+    y: (target.hitKickY == null ? 0 : target.hitKickY) * k
+  };
 };
 
 /* ---- math ------------------------------------------------------------- */
@@ -110,27 +125,72 @@ NS.Input = (function () {
   var stick = { x: 0, y: 0 };
   var padStick = { x: 0, y: 0 };
   var activePad = '';
-  var MAP = {
-    ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
-    KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down',
-    KeyZ: 'fire', KeyJ: 'fire', Space: 'fire',
-    KeyX: 'power', KeyK: 'power', ShiftLeft: 'power',
-    Enter: 'start', KeyP: 'pause', KeyF: 'fullscreen', KeyR: 'restart',
-    KeyM: 'firemode', KeyT: 'touchpad', KeyV: 'voxel'
+  var activity = 0;
+  var capture = null;
+  var ACTIONS = ['up', 'down', 'left', 'right', 'fire', 'power', 'pause', 'firemode'];
+  var DEFAULT_KEYS = {
+    up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight',
+    fire: 'KeyZ', power: 'KeyX', pause: 'KeyP', firemode: 'KeyM'
   };
+  var DEFAULT_PAD = {
+    up: 12, down: 13, left: 14, right: 15,
+    fire: 0, power: 1, pause: 9, firemode: 8
+  };
+  var keys = {}, padMap = {}, MAP = {};
+
+  function cloneDefaults() {
+    for (var i = 0; i < ACTIONS.length; i++) {
+      var a = ACTIONS[i]; keys[a] = DEFAULT_KEYS[a]; padMap[a] = DEFAULT_PAD[a];
+    }
+  }
+  function rebuildMap() {
+    MAP = {
+      Enter: 'start', KeyF: 'fullscreen', KeyR: 'restart',
+      KeyT: 'touchpad', KeyV: 'voxel'
+    };
+    for (var i = 0; i < ACTIONS.length; i++) MAP[keys[ACTIONS[i]]] = ACTIONS[i];
+    /* Keep the original convenience layout until that action is explicitly
+       rebound. This preserves WASD/J/K/Space for returning players without
+       creating invisible secondary bindings after they customize a key. */
+    if (keys.left === DEFAULT_KEYS.left) MAP.KeyA = 'left';
+    if (keys.right === DEFAULT_KEYS.right) MAP.KeyD = 'right';
+    if (keys.up === DEFAULT_KEYS.up) MAP.KeyW = 'up';
+    if (keys.down === DEFAULT_KEYS.down) MAP.KeyS = 'down';
+    if (keys.fire === DEFAULT_KEYS.fire) { MAP.KeyJ = 'fire'; MAP.Space = 'fire'; }
+    if (keys.power === DEFAULT_KEYS.power) { MAP.KeyK = 'power'; MAP.ShiftLeft = 'power'; }
+  }
+  cloneDefaults(); rebuildMap();
+
+  function assignUnique(map, action, value) {
+    var old = map[action];
+    for (var i = 0; i < ACTIONS.length; i++) {
+      var other = ACTIONS[i];
+      if (other !== action && map[other] === value) { map[other] = old; break; }
+    }
+    map[action] = value;
+  }
 
   window.addEventListener('keydown', function (e) {
+    if (capture && capture.device === 'keyboard') {
+      e.preventDefault();
+      if (e.code === 'Escape') { var cancel = capture.done; capture = null; cancel(false); return; }
+      assignUnique(keys, capture.action, e.code);
+      rebuildMap();
+      var done = capture.done; capture = null; activity++; done(true); return;
+    }
     var k = MAP[e.code];
     if (!k) return;
     e.preventDefault();
     if (!down[k]) pressed[k] = true;
     down[k] = true;
+    activity++;
   });
   window.addEventListener('keyup', function (e) {
     var k = MAP[e.code];
     if (!k) return;
     e.preventDefault();
     down[k] = false;
+    activity++;
   });
   window.addEventListener('blur', function () {
     down = {}; vdown = {}; pdown = {}; pressed = {};
@@ -141,6 +201,14 @@ NS.Input = (function () {
   function padButton(pad, index) {
     var b = pad && pad.buttons && pad.buttons[index];
     return !!b && (b.pressed || b.value > 0.5);
+  }
+  function padAction(pad, action) {
+    if (padButton(pad, padMap[action])) return true;
+    if (action === 'fire' && padMap.fire === DEFAULT_PAD.fire)
+      return padButton(pad, 2) || padButton(pad, 7);
+    if (action === 'power' && padMap.power === DEFAULT_PAD.power)
+      return padButton(pad, 3) || padButton(pad, 4) || padButton(pad, 5);
+    return false;
   }
 
   function setPadButton(action, value) {
@@ -169,6 +237,20 @@ NS.Input = (function () {
     if (!pad) { clearPad(); return; }
     activePad = pad.id || 'GAMEPAD';
 
+    if (capture && capture.device === 'gamepad') {
+      var any = -1;
+      for (var ci = 0; ci < pad.buttons.length; ci++) if (padButton(pad, ci)) { any = ci; break; }
+      if (!capture.armed) { if (any < 0) capture.armed = true; }
+      else if (any >= 0) {
+        assignUnique(padMap, capture.action, any);
+        var done = capture.done; capture = null; activity++; done(true);
+      }
+      /* Capture owns the controller until it completes; the selected button
+         must not also navigate, pause or fire in the same simulation tick. */
+      pdown = {}; padStick.x = padStick.y = 0;
+      return;
+    }
+
     /* Radial dead zone prevents worn Xbox sticks from moving the ship while
        still preserving fine analog control immediately outside the zone. */
     var x = pad.axes && pad.axes.length > 0 ? pad.axes[0] : 0;
@@ -183,22 +265,18 @@ NS.Input = (function () {
       padStick.y = y * scaled;
     }
 
-    setPadButton('left',  padButton(pad, 14));
-    setPadButton('right', padButton(pad, 15));
-    setPadButton('up',    padButton(pad, 12));
-    setPadButton('down',  padButton(pad, 13));
-
-    /* A/X/right trigger fire; B/Y/bumpers spend the selected power-up. */
-    setPadButton('fire', padButton(pad, 0) || padButton(pad, 2) ||
-                         padButton(pad, 7));
-    setPadButton('power', padButton(pad, 1) || padButton(pad, 3) ||
-                          padButton(pad, 4) || padButton(pad, 5));
-    setPadButton('firemode', padButton(pad, 8));       // Back
+    setPadButton('left',  padButton(pad, padMap.left));
+    setPadButton('right', padButton(pad, padMap.right));
+    setPadButton('up',    padButton(pad, padMap.up));
+    setPadButton('down',  padButton(pad, padMap.down));
+    setPadButton('fire', padAction(pad, 'fire'));
+    setPadButton('power', padAction(pad, 'power'));
+    setPadButton('firemode', padAction(pad, 'firemode'));
     setPadButton('voxel', padButton(pad, 11));         // right-stick click
 
     /* Start begins/continues on menus and pauses during play. Both actions
        receive the edge; the game state consumes only the relevant one. */
-    var start = padButton(pad, 9);
+    var start = padButton(pad, padMap.pause);
     setPadButton('start', start);
     setPadButton('pause', start);
   }
@@ -213,7 +291,7 @@ NS.Input = (function () {
        a real key does, so hit() works identically for touch */
     setVirtual: function (k, v) {
       v = !!v;
-      if (v && !vdown[k]) pressed[k] = true;
+      if (v && !vdown[k]) { pressed[k] = true; activity++; }
       vdown[k] = v;
     },
 
@@ -222,6 +300,66 @@ NS.Input = (function () {
 
     pollGamepads: pollGamepads,
     gamepadName: function () { return activePad; },
+    actions: function () { return ACTIONS.slice(); },
+    binding: function (action, device) { return device === 'gamepad' ? padMap[action] : keys[action]; },
+    matchesKey: function (action, code) { return MAP[code] === action; },
+    bindingLabel: function (action, device) {
+      if (device === 'gamepad') {
+        var names = ['A','B','X','Y','LB','RB','LT','RT','BACK','START','LS','RS','UP','DOWN','LEFT','RIGHT'];
+        return names[padMap[action]] || ('B' + padMap[action]);
+      }
+      return (keys[action] || '').replace(/^Arrow/, '').replace(/^Key/, '').replace(/^Digit/, '');
+    },
+    beginCapture: function (action, device, done) {
+      capture = { action: action, device: device, done: done || function () {}, armed: device !== 'gamepad' };
+      if (device === 'gamepad') capture.armed = false;
+    },
+    capturing: function () { return capture; },
+    cancelCapture: function () { if (capture) { var done = capture.done; capture = null; done(false); } },
+    resetBindings: function () { cloneDefaults(); rebuildMap(); },
+    exportBindings: function () { return JSON.stringify({ keys: keys, pad: padMap }); },
+    importBindings: function (raw) {
+      try {
+        var data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!data) return false;
+        for (var i = 0; i < ACTIONS.length; i++) {
+          var a = ACTIONS[i];
+          if (data.keys && typeof data.keys[a] === 'string') keys[a] = data.keys[a];
+          if (data.pad && isFinite(data.pad[a])) padMap[a] = data.pad[a] | 0;
+        }
+        rebuildMap(); return true;
+      } catch (e) { return false; }
+    },
+    activity: function () { return activity; },
+    activeNow: function () {
+      var a = this.axis();
+      if (Math.abs(a.x) > 0.2 || Math.abs(a.y) > 0.2) return true;
+      for (var k in pressed) if (pressed[k]) return true;
+      return false;
+    },
+    rumble: function (weak, strong, ms) {
+      if (!navigator.getGamepads) return false;
+      var pads;
+      try { pads = navigator.getGamepads(); } catch (e) { return false; }
+      var pad = null;
+      for (var i = 0; pads && i < pads.length; i++) if (pads[i] && pads[i].connected) { pad = pads[i]; break; }
+      if (!pad) return false;
+      var actuator = pad.vibrationActuator || (pad.hapticActuators && pad.hapticActuators[0]);
+      if (!actuator) return false;
+      try {
+        var request;
+        if (actuator.playEffect) request = actuator.playEffect('dual-rumble', {
+          duration: ms || 80, strongMagnitude: NS.clamp(strong || 0, 0, 1),
+          weakMagnitude: NS.clamp(weak || 0, 0, 1), startDelay: 0
+        });
+        else if (actuator.pulse) request = actuator.pulse(Math.max(weak || 0, strong || 0), ms || 80);
+        else return false;
+        /* Some browsers expose the API but reject individual effects. That
+           is still a normal no-haptics fallback, not an unhandled error. */
+        if (request && request.catch) request.catch(function () {});
+        return true;
+      } catch (e) { return false; }
+    },
 
     /* Unified movement axis. Digital keys resolve to a normalised diagonal
        so keyboard play is unchanged; otherwise the analog stick is used. */

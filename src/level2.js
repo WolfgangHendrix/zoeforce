@@ -288,6 +288,7 @@
     NS.prune(f.balls);
     if (!alive) {
       f.dead = true; f.state = 'dying'; f.clearT = 90; G.addScore(12000, NS.W / 2, 45);
+      NS.Feedback.phase('FORTRESS BREACHED', 'CORE PASSAGE OPEN', NS.W / 2, 45);
       for (i = 0; i < 7; i++) NS.FX.explode(50 + i * 27, 42 + (i & 1) * 9, 1.5, 'fire');
     }
   }
@@ -301,6 +302,7 @@
     if (e.dead) return;
     e.dead = true; G.addScore(e.kind === 'turret' ? 400 : 100, e.x, e.y);
     NS.FX.explode(e.x, e.y, e.kind === 'turret' ? 1.2 : 0.7, 'fire');
+    NS.Feedback.destroy(e.x, e.y, { dx: 0, dy: 1, material: 'armor', count: e.kind === 'turret' ? 12 : 7, major: e.kind === 'turret' });
     if (e.carrier) L.pickups.push({ x: e.x, y: e.y, t: 0, dead: false });
     if (e.groupId) {
       var group = L.groups[e.groupId];
@@ -427,6 +429,7 @@
 
   function updateMissile(m) {
     m.anim++;
+    if ((m.anim & 3) === 0) NS.FX.trail(m.x + m.w / 2, m.y + m.h / 2, '#ff9a45', 1);
     if (!m.crawling) {
       m.x += m.vx;
       m.y += m.vy;
@@ -455,7 +458,9 @@
       for (j = 0; j < L.enemies.length; j++) {
         var e = L.enemies[j]; if (e.dead || !e.active || s.hit[e.id]) continue;
         if (NS.rectHit(sr, { x: e.x - e.w / 2, y: e.y - e.h / 2, w: e.w, h: e.h })) {
-          s.hit[e.id] = 1; e.hp -= s.dmg; NS.flashDamage(e); if (e.hp <= 0) killEnemy(e, G);
+          s.hit[e.id] = 1; e.hp -= s.dmg;
+          NS.Feedback.damage(e, { x: e.x, y: e.y, dx: 0, dy: -1, material: 'armor', strength: e.hp <= 0 ? 0.58 : 0.42 });
+          if (e.hp <= 0) killEnemy(e, G);
           if (!s.pierce) { s.dead = true; break; }
         }
       }
@@ -464,15 +469,18 @@
       for (j = 0; !s.dead && j < L.volcanoes.length; j++) {
         var v = L.volcanoes[j]; if (v.dead || !v.active || s.hit[v.id]) continue;
         if (NS.rectHit(sr, { x: v.x - 11, y: v.y - 10, w: 22, h: 20 })) {
-          s.hit[v.id] = 1; v.hp -= s.dmg; NS.flashDamage(v);
-          if (v.hp <= 0) { v.dead = true; G.addScore(1000, v.x, v.y); NS.FX.explode(v.x, v.y, 1.8, 'fire'); }
+          s.hit[v.id] = 1; v.hp -= s.dmg;
+          NS.Feedback.damage(v, { x: v.x, y: v.y, dx: 0, dy: -1, material: 'masonry', strength: v.hp <= 0 ? 0.6 : 0.48, count: 6 });
+          if (v.hp <= 0) { v.dead = true; G.addScore(1000, v.x, v.y); NS.FX.explode(v.x, v.y, 1.8, 'fire'); NS.Feedback.destroy(v.x, v.y, { dy: -1, material: 'masonry', count: 18, major: true }); }
           if (!s.pierce) s.dead = true;
         }
       }
       for (j = 0; !s.dead && j < L.rocks.length; j++) {
         var rock = L.rocks[j]; if (rock.dead || s.hit[rock.id]) continue;
         if (NS.rectHit(sr, { x: rock.x - 4, y: rock.y - 4, w: 8, h: 8 })) {
-          s.hit[rock.id] = 1; rock.hp -= s.dmg; NS.flashDamage(rock); if (rock.hp <= 0) { rock.dead = true; G.addScore(30); NS.FX.spark(rock.x, rock.y, 4, 'hit'); }
+          s.hit[rock.id] = 1; rock.hp -= s.dmg;
+          NS.Feedback.damage(rock, { x: rock.x, y: rock.y, dx: 0, dy: -1, material: 'masonry', strength: 0.38 });
+          if (rock.hp <= 0) { rock.dead = true; G.addScore(30); NS.Feedback.destroy(rock.x, rock.y, { dy: -1, material: 'masonry', count: 6 }); }
           if (!s.pierce) s.dead = true;
         }
       }
@@ -481,8 +489,9 @@
         for (var gc = 0; gc < gate.cells.length; gc++) {
           var cell = gate.cells[gc]; if (cell.dead || s.hit[cell.id]) continue;
           if (NS.rectHit(sr, { x: cell.x, y: gate.y - 7, w: cell.w, h: 14 })) {
-            s.hit[cell.id] = 1; cell.hp -= s.dmg; NS.flashDamage(cell);
-            if (cell.hp <= 0) { cell.dead = true; G.addScore(100); NS.FX.explode(cell.x + cell.w / 2, gate.y, 0.7, 'fire'); }
+            s.hit[cell.id] = 1; cell.hp -= s.dmg;
+            NS.Feedback.damage(cell, { x: cell.x + cell.w / 2, y: gate.y, dx: 0, dy: -1, material: 'masonry', strength: cell.hp <= 0 ? 0.58 : 0.46 });
+            if (cell.hp <= 0) { cell.dead = true; G.addScore(100); NS.FX.explode(cell.x + cell.w / 2, gate.y, 0.7, 'fire'); NS.Feedback.destroy(cell.x + cell.w / 2, gate.y, { dy: -1, material: 'masonry', count: 10 }); }
             if (!s.pierce) s.dead = true;
             break;
           }
@@ -495,9 +504,11 @@
           var fdx = s.x + s.w / 2 - fc.x, fdy = s.y + s.h / 2 - fc.y;
           if (fdx * fdx + fdy * fdy < 13 * 13) {
             s.hit[fc.id] = 1;
-            if (fc.shield > 0) fc.shield -= s.dmg; else fc.hp -= s.dmg;
-            NS.flashDamage(fc);
-            if (fc.hp <= 0) { fc.dead = true; G.addScore(2500, fc.x, fc.y); NS.FX.explode(fc.x, fc.y, 1.8, 'fire'); }
+            var hadShield = fc.shield > 0;
+            if (hadShield) fc.shield -= s.dmg; else fc.hp -= s.dmg;
+            NS.Feedback.damage(fc, { x: fc.x, y: fc.y, dx: 0, dy: -1, material: hadShield ? 'shield' : 'armor', strength: 0.58, count: 7 });
+            if (hadShield && fc.shield <= 0) { fc.shield = 0; NS.Feedback.phase('SHIELD BROKEN', 'CORE EXPOSED', fc.x, fc.y); }
+            if (fc.hp <= 0) { fc.dead = true; G.addScore(2500, fc.x, fc.y); NS.FX.explode(fc.x, fc.y, 1.8, 'fire'); NS.Feedback.destroy(fc.x, fc.y, { dy: -1, material: 'armor', count: 18, major: true }); }
             if (!s.pierce) s.dead = true;
             break;
           }
@@ -508,16 +519,19 @@
         var dx = (s.x + s.w / 2) - b.x, dy = (s.y + s.h / 2) - b.y;
         if (dx * dx + dy * dy < b.radius * b.radius) {
           s.hit.boss = 1; b.hitCd = 2;
+          var shieldBefore = b.shield;
           if (b.shield > 0) {
             b.shields[b.shield - 1] -= s.dmg;
             if (b.shields[b.shield - 1] <= 0) b.shield--;
           } else b.hp -= s.dmg;
-          NS.flashDamage(b);
+          NS.Feedback.damage(b, { x: b.x, y: b.y, dx: 0, dy: -1, material: shieldBefore > 0 ? 'shield' : 'armor', strength: 0.6, count: 7 });
+          if (b.shield < shieldBefore) NS.Feedback.phase('SHIELD LAYER DOWN', b.shield ? b.shield + ' LAYERS REMAIN' : 'CORE EXPOSED', b.x, b.y);
           NS.FX.spark(s.x, s.y, 3, b.shield ? 'hit' : 'fire');
           if (!s.pierce) s.dead = true;
           if (b.hp <= 0) {
             b.dead = true; b.dying = 150; G.addScore(30000, b.x, b.y);
             for (var z = 0; z < 8; z++) NS.FX.explode(b.x + Math.sin(z) * 20, b.y + Math.cos(z) * 20, 1.8, 'fire');
+            NS.Feedback.destroy(b.x, b.y, { boss: true, major: true, material: 'armor', count: 28 });
             NS.Audio.stopMusic();
           }
         }
@@ -605,7 +619,8 @@
       var s = L.shots[i];
       if (s.dead) continue;
       if (s.type === 'missile') { updateMissile(s); continue; }
-      s.x += s.vx; s.y += s.vy;
+      s.x += s.vx; s.y += s.vy; s.anim = (s.anim || 0) + 1;
+      if (s.type === 'laser' && (s.anim & 1) === 0) NS.FX.trail(s.x + s.w / 2, s.y + s.h, '#70c8ff', 2);
       if (s.y < -30 || s.x < -20 || s.x > NS.W + 20) s.dead = true;
     }
     for (i = 0; i < L.enemyShots.length; i++) {
@@ -643,20 +658,22 @@
     if (b.dead && (b.dying >> 2) % 2) return;
     var dep = b.deploy == null ? 1 : b.deploy;
     var flash = NS.damageFlashing(b);
-    g.save(); g.translate(b.x, b.y); g.rotate(b.spin);
+    var kick = NS.hitOffset(b);
+    g.save(); g.translate(b.x + kick.x, b.y + kick.y); g.rotate(b.spin);
     for (var q = 0; q < 4; q++) {
       g.rotate(Math.PI / 2); g.fillStyle = flash ? '#d9162c' : '#7a9ab8';
       g.fillRect(7 * dep, -2, Math.max(1, 28 * dep), 4);
       g.fillStyle = flash ? '#ff5961' : '#d8e7ef'; g.beginPath(); g.arc(36 * dep, 0, 7, 0, Math.PI * 2); g.fill();
     }
     g.restore();
-    g.fillStyle = flash ? '#ff3038' : '#273d61'; g.beginPath(); g.arc(b.x, b.y, 22, 0, Math.PI * 2); g.fill();
+    var bx = b.x + kick.x, by = b.y + kick.y;
+    g.fillStyle = flash ? '#ff3038' : '#273d61'; g.beginPath(); g.arc(bx, by, 22, 0, Math.PI * 2); g.fill();
     g.strokeStyle = flash ? '#ff8b91' : (b.shield ? '#a9f4ff' : '#ef6272'); g.lineWidth = b.shield ? 4 : 2; g.stroke();
     for (var ring = 0; ring < b.shield; ring++) {
       g.strokeStyle = 'rgba(130,235,255,' + (0.35 + ring * 0.18) + ')'; g.lineWidth = 1;
-      g.beginPath(); g.arc(b.x, b.y, 26 + ring * 4, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.arc(bx, by, 26 + ring * 4, 0, Math.PI * 2); g.stroke();
     }
-    g.fillStyle = flash ? '#ffb1b5' : '#ff5964'; g.beginPath(); g.arc(b.x, b.y, 8, 0, Math.PI * 2); g.fill();
+    g.fillStyle = flash ? '#ffb1b5' : '#ff5964'; g.beginPath(); g.arc(bx, by, 8, 0, Math.PI * 2); g.fill();
   }
 
   function drawStructures(g) {
@@ -697,10 +714,11 @@
       g.fillStyle = '#58789b'; for (i = 0; i < 8; i++) g.fillRect(i * 34, py - 5, 25, 6);
       for (i = 0; i < f.cores.length; i++) {
         var c = f.cores[i]; if (c.dead) continue;
+        var ck = NS.hitOffset(c), ccx = c.x + ck.x, ccy = c.y + ck.y;
         var ff = NS.damageFlashing(c);
-        g.fillStyle = ff ? '#ff3038' : '#184b78'; g.beginPath(); g.arc(c.x, c.y, 12, 0, Math.PI * 2); g.fill();
+        g.fillStyle = ff ? '#ff3038' : '#184b78'; g.beginPath(); g.arc(ccx, ccy, 12, 0, Math.PI * 2); g.fill();
         g.strokeStyle = ff ? '#ff9ba0' : (c.shield > 0 ? '#8ee8ff' : '#ffb154'); g.lineWidth = c.shield > 0 ? 4 : 2; g.stroke();
-        g.fillStyle = ff ? '#ffc1c4' : '#ff7b4c'; g.beginPath(); g.arc(c.x, c.y, 5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = ff ? '#ffc1c4' : '#ff7b4c'; g.beginPath(); g.arc(ccx, ccy, 5, 0, Math.PI * 2); g.fill();
       }
       for (i = 0; i < f.balls.length; i++) { var ball = f.balls[i]; g.fillStyle = '#8fcaff'; g.beginPath(); g.arc(ball.x, ball.y, 5, 0, Math.PI * 2); g.fill(); }
     }
@@ -711,7 +729,8 @@
     drawStructures(g);
     for (var i = 0; i < L.enemies.length; i++) {
       var e = L.enemies[i]; if (e.dead || !e.active || e.y < -20 || e.y > NS.PLAYFIELD_H + 20) continue;
-      g.save(); g.translate(e.x, e.y);
+      var ek = NS.hitOffset(e);
+      g.save(); g.translate(e.x + ek.x, e.y + ek.y);
       var ef = NS.damageFlashing(e);
       if (e.kind === 'turret') { g.fillStyle = ef ? '#ff3038' : '#b76038'; g.fillRect(-6, -6, 12, 12); g.fillStyle = ef ? '#ff9ba0' : '#ffe070'; g.fillRect(-2, -4, 4, 7); }
       else { g.fillStyle = ef ? '#ff3038' : ((e.carrier || e.bonus) ? '#e44848' : '#93c9d8'); g.beginPath(); g.moveTo(0, 6); g.lineTo(-6, -4); g.lineTo(0, -1); g.lineTo(6, -4); g.closePath(); g.fill(); }
@@ -722,7 +741,7 @@
        as flat yellow and cyan rectangles that matched neither stage 1 nor
        this stage's own voxel view */
     for (i = 0; i < L.shots.length; i++) NS.Weapons.drawShot(g, L.shots[i]);
-    for (i = 0; i < L.enemyShots.length; i++) { var es = L.enemyShots[i]; g.drawImage(NS.S.eshot, es.x - 2, es.y - 2); }
+    for (i = 0; i < L.enemyShots.length; i++) { var es = L.enemyShots[i]; NS.Weapons.drawEnemyShot(g, { x: es.x - 2, y: es.y - 2, big: es.big }); }
     for (i = 0; i < NS.Game.looseOptions.length; i++) { var o = NS.Game.looseOptions[i]; g.drawImage(NS.S.looseOption[(o.t >> 3) & 1], o.x - 2, o.y - 2); }
     if (L.boss) drawBoss(g, L.boss);
     if (L.transitionT > 0 && (L.transitionT >> 3) % 2 === 0) {

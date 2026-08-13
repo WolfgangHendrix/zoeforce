@@ -39,13 +39,19 @@
   G.continues = 2;
   G.continueT = 0;
   G.continueIndex = 0;
+  G.attractT = 0;
   G.settings = {
     startingLives: 3,
     wallDamage: true,
     master: 100,
     music: 100,
     sfx: 100,
-    reducedFlash: false
+    shake: 70,
+    rumble: 70,
+    reducedFlash: false,
+    reducedMotion: false,
+    projectileContrast: false,
+    attractMode: true
   };
 
   var CONTINUES_PER_RUN = 2;
@@ -83,7 +89,13 @@
           G.settings.master = savedInt('ns_master_volume', 100, 0, 100);
           G.settings.music = savedInt('ns_music_volume', 100, 0, 100);
           G.settings.sfx = savedInt('ns_sfx_volume', 100, 0, 100);
+          G.settings.shake = savedInt('ns_screen_shake', 70, 0, 100);
+          G.settings.rumble = savedInt('ns_rumble', 70, 0, 100);
           G.settings.reducedFlash = NS.Save.read('ns_reduced_flash', '0') === '1';
+          G.settings.reducedMotion = NS.Save.read('ns_reduced_motion', '0') === '1';
+          G.settings.projectileContrast = NS.Save.read('ns_projectile_contrast', '0') === '1';
+          G.settings.attractMode = NS.Save.read('ns_attract_mode', '1') !== '0';
+          NS.Input.importBindings(NS.Save.read('ns_bindings', ''));
           applyAudioSettings();
           NS.Gunner.load();
         } },
@@ -219,6 +231,7 @@
     NS.Enemies.clearTimers();
     NS.Weapons.reset();
     NS.FX.reset();
+    if (NS.Feedback) NS.Feedback.reset();
     NS.Intro.stop();
     NS.Level1.reset();
     if (full) G.player.reset(true);
@@ -252,6 +265,7 @@
     G.capsules.length = 0;
     G.looseOptions.length = 0;
     NS.Enemies.reset(); NS.Enemies.clearTimers(); NS.Weapons.reset(); NS.FX.reset();
+    if (NS.Feedback) NS.Feedback.reset();
     NS.Intro.stop();
     NS.Level2.reset();
     G.player.setOrientation('vertical');
@@ -270,6 +284,7 @@
     G.stage = stage; G.scrollX = 0; G.boss = null; G.bossName = '';
     G.capsules.length = 0; G.looseOptions.length = 0;
     NS.Enemies.reset(); NS.Enemies.clearTimers(); NS.Weapons.reset(); NS.FX.reset();
+    if (NS.Feedback) NS.Feedback.reset();
     NS.Intro.stop();
     NS.Campaign.reset(stage, G);
     G.player.setOrientation(NS.Campaign.spec.orientation === 'vertical' ? 'vertical' : 'side');
@@ -393,6 +408,7 @@
     /* the save throbber is UI, not simulation: it keeps counting down in
        every state, including while paused or on the title */
     NS.Save.update();
+    if (NS.Feedback) NS.Feedback.update(G);
 
     if (G.state === 'loading') { G.frame++; advanceBoot(); return; }
 
@@ -425,6 +441,17 @@
     if (G.modeMsg > 0) G.modeMsg--;
 
     if (NS.Debug && NS.Debug.paused && !NS.Debug.stepping) return;
+
+    /* A physical input exits the watermark-free attract run immediately.
+       The CPU input wrapper never mutates NS.Input, so it cannot trip this. */
+    if (NS.Autoplay && NS.Autoplay.attracting && NS.Autoplay.attracting()) {
+      G.attractT++;
+      if (I.activeNow() || G.attractT > 2400) {
+        NS.Autoplay.stop();
+        quitToTitle();
+        return;
+      }
+    }
 
     if (G.state === 'title') {
       G.frame++;
@@ -479,8 +506,13 @@
       return;
     }
 
-    if (I.hit('pause')) {
+    if (I.hit('pause') && !I.capturing() &&
+        (G.state === 'paused' || G.state === 'play' || G.state === 'dying' || G.state === 'departing')) {
       if (G.state === 'paused') {
+        if (pause.submenu === 'controls' && !I.capturing()) {
+          pause.submenu = 'options'; pause.optionIndex = 11; NS.Audio.sfx.hit();
+          return;
+        }
         resumeFromPause();
         return;
       }
@@ -491,6 +523,7 @@
         pause.confirm = null;
         pause.submenu = null;
         pause.inputArmed = false;
+        pause.auto = false;
         NS.Audio.stopMusic();
         /* Xbox Start raises both `pause` and `start`. Do not let the same
            physical edge open the pause screen and select its first row. */
@@ -498,6 +531,8 @@
       }
     }
     if (G.state === 'paused') { updatePause(I); return; }
+
+    if (NS.Feedback && NS.Feedback.consumeFreeze()) return;
 
     /* The showcase pilot supplies only ship controls. Director/menu input
        remains physical, so pause and the debug console always stay usable. */
@@ -640,8 +675,8 @@
      fires on a single press: each opens a confirmation whose default answer
      is the harmless one. A player reaching for pause on a stray input can
      press through nothing here and lose their ship. */
-  var pause = { index: 0, confirm: null, submenu: null, inputArmed: false };
-  var title = { screen: 'main', index: 0, stageIndex: 0, optionIndex: 0 };
+  var pause = { index: 0, confirm: null, submenu: null, inputArmed: false, auto: false };
+  var title = { screen: 'main', index: 0, stageIndex: 0, optionIndex: 0, idle: 0 };
   /* exposed so the debug console — and the automated menu tests — can see
      which entry is selected without inferring it from pixels */
   G.pause = pause;
@@ -666,6 +701,7 @@
     G.state = G.prevState;
     pause.confirm = null;
     pause.submenu = null;
+    pause.auto = false;
     NS.Audio.startMusic();
   }
 
@@ -715,10 +751,17 @@
       master: ['ns_master_volume', 'MASTER VOLUME'],
       music: ['ns_music_volume', 'MUSIC VOLUME'],
       sfx: ['ns_sfx_volume', 'SFX VOLUME'],
-      reducedFlash: ['ns_reduced_flash', 'ACCESSIBILITY']
+      shake: ['ns_screen_shake', 'SCREEN SHAKE'],
+      rumble: ['ns_rumble', 'RUMBLE'],
+      reducedFlash: ['ns_reduced_flash', 'ACCESSIBILITY'],
+      reducedMotion: ['ns_reduced_motion', 'ACCESSIBILITY'],
+      projectileContrast: ['ns_projectile_contrast', 'PROJECTILE CLARITY'],
+      attractMode: ['ns_attract_mode', 'ATTRACT MODE']
     };
     var entry = keys[name];
-    var value = (name === 'wallDamage' || name === 'reducedFlash')
+    var value = (name === 'wallDamage' || name === 'reducedFlash' ||
+                 name === 'reducedMotion' || name === 'projectileContrast' ||
+                 name === 'attractMode')
       ? (G.settings[name] ? 1 : 0)
       : G.settings[name];
     NS.Save.write(entry[0], value, entry[1]);
@@ -726,7 +769,9 @@
 
   var OPTION_NAMES = [
     'STARTING LIVES', 'WALL DAMAGE',
-    'MASTER', 'MUSIC', 'SFX', 'REDUCED FLASH', 'BACK'
+    'MASTER', 'MUSIC', 'SFX', 'SCREEN SHAKE', 'RUMBLE',
+    'REDUCED FLASH', 'REDUCED MOTION', 'PROJECTILE CLARITY',
+    'ATTRACT MODE', 'CONTROLS', 'BACK'
   ];
 
   function leaveOptions(context) {
@@ -735,16 +780,35 @@
   }
 
   function adjustOption(index, direction, context) {
-    if (index === 6) { leaveOptions(context); NS.Audio.sfx.hit(); return; }
+    if (index === 12) { leaveOptions(context); NS.Audio.sfx.hit(); return; }
+    if (index === 11) {
+      var owner = context === 'title' ? title : pause;
+      if (context === 'title') title.screen = 'controls'; else pause.submenu = 'controls';
+      owner.controlIndex = 0; owner.controlDevice = 'keyboard';
+      NS.Audio.sfx.power(); return;
+    }
     if (index === 0) {
       G.settings.startingLives = NS.clamp(G.settings.startingLives + direction, 1, 9);
       saveSetting('startingLives');
     } else if (index === 1) {
       G.settings.wallDamage = !G.settings.wallDamage;
       saveSetting('wallDamage');
-    } else if (index === 5) {
+    } else if (index === 5 || index === 6) {
+      var amountKey = index === 5 ? 'shake' : 'rumble';
+      G.settings[amountKey] = NS.clamp(G.settings[amountKey] + direction * 10, 0, 100);
+      saveSetting(amountKey);
+    } else if (index === 7) {
       G.settings.reducedFlash = !G.settings.reducedFlash;
       saveSetting('reducedFlash');
+    } else if (index === 8) {
+      G.settings.reducedMotion = !G.settings.reducedMotion;
+      saveSetting('reducedMotion');
+    } else if (index === 9) {
+      G.settings.projectileContrast = !G.settings.projectileContrast;
+      saveSetting('projectileContrast');
+    } else if (index === 10) {
+      G.settings.attractMode = !G.settings.attractMode;
+      saveSetting('attractMode');
     } else {
       var key = index === 2 ? 'master' : (index === 3 ? 'music' : 'sfx');
       G.settings[key] = NS.clamp(G.settings[key] + direction * 10, 0, 100);
@@ -792,15 +856,57 @@
       NS.Audio.sfx.pickup();
     }
     var adjust = menuHorizontalStep(I);
-    if (adjust && owner.optionIndex < OPTION_NAMES.length - 1) {
+    if (adjust && owner.optionIndex < 11) {
       adjustOption(owner.optionIndex, adjust, context);
     }
     if (I.hit('fire') || I.hit('start')) adjustOption(owner.optionIndex, 1, context);
   }
 
+  var CONTROL_LABELS = {
+    up: 'MOVE UP', down: 'MOVE DOWN', left: 'MOVE LEFT', right: 'MOVE RIGHT',
+    fire: 'FIRE', power: 'POWER-UP', pause: 'PAUSE / START', firemode: 'FIRE MODE'
+  };
+
+  function leaveControls(context) {
+    var owner = context === 'title' ? title : pause;
+    if (context === 'title') { title.screen = 'options'; title.optionIndex = 11; }
+    else { pause.submenu = 'options'; pause.optionIndex = 11; }
+    owner.controlIndex = 0;
+  }
+
+  function saveBindings() {
+    NS.Save.write('ns_bindings', NS.Input.exportBindings(), 'CONTROLS');
+  }
+
+  function updateControls(I, context) {
+    var owner = context === 'title' ? title : pause;
+    if (I.capturing()) return;
+    var actions = I.actions(), rows = actions.length + 2;
+    var step = menuStep(I);
+    if (step) { owner.controlIndex = (owner.controlIndex + rows + step) % rows; NS.Audio.sfx.pickup(); }
+    var side = menuHorizontalStep(I);
+    if (side) { owner.controlDevice = owner.controlDevice === 'keyboard' ? 'gamepad' : 'keyboard'; NS.Audio.sfx.pickup(); }
+    if (!(I.hit('fire') || I.hit('start'))) return;
+    if (owner.controlIndex === actions.length) {
+      I.resetBindings(); saveBindings(); NS.Audio.sfx.power(); return;
+    }
+    if (owner.controlIndex === actions.length + 1) { leaveControls(context); NS.Audio.sfx.hit(); return; }
+    var action = actions[owner.controlIndex];
+    I.beginCapture(action, owner.controlDevice, function (changed) {
+      if (changed) { saveBindings(); NS.Audio.sfx.power(); }
+      else NS.Audio.sfx.hit();
+    });
+  }
+
   function updateTitle(I) {
+    if (I.activeNow()) title.idle = 0; else title.idle++;
+    if (title.screen === 'main' && title.idle > 1200 && G.settings.attractMode &&
+        NS.Autoplay && NS.Autoplay.startAttract) {
+      title.idle = 0; G.attractT = 0; NS.Autoplay.startAttract(G); return;
+    }
     var select = I.hit('start') || I.hit('fire');
     if (title.screen === 'options') { updateOptions(I, 'title'); return; }
+    if (title.screen === 'controls') { updateControls(I, 'title'); return; }
     if (title.screen === 'stages') {
       var stageStep = menuStep(I);
       if (stageStep) {
@@ -841,6 +947,7 @@
       return;
     }
     if (pause.submenu === 'options') { updateOptions(I, 'pause'); return; }
+    if (pause.submenu === 'controls') { updateControls(I, 'pause'); return; }
     var list = pause.confirm ? 2 : PAUSE_ITEMS.length;
     var step = menuStep(I);
     if (step) {
@@ -930,7 +1037,7 @@
         if (e.dead || e.spawnDelay > 0) continue;
         if (!NS.rectHit(sr, { x: e.x, y: e.y, w: e.w, h: e.h })) continue;
         if (!NS.Weapons.canHit(s, e)) continue;
-        NS.Enemies.damage(e, s.dmg, G);
+        NS.Enemies.damage(e, s.dmg, G, s);
         if (!s.pierce) { s.dead = true; break; }
       }
       if (s.dead) continue;
@@ -1049,6 +1156,14 @@
     g.rect(0, 0, NS.W, NS.PLAYFIELD_H);
     g.clip();
 
+    /* Only the world receives impact motion. HUD, menus, warnings and text
+       remain pinned to the frame, which preserves aim and readability. */
+    var shifted = !overlayOnly && NS.Feedback;
+    if (shifted) {
+      var cameraHit = NS.Feedback.cameraOffset();
+      g.save(); g.translate(cameraHit.x, cameraHit.y);
+    }
+
     if (overlayOnly) {
       NS.FX.drawText(g);
     } else if (G.stage === 2) {
@@ -1070,9 +1185,12 @@
       NS.FX.draw(g);
     }
 
+    if (shifted) g.restore();
+
     /* the entrance cut owns the frame while it runs: its own letterbox and
        name plate replace the stage banner and the blinking warning */
     NS.Intro.draw(g);
+    if (NS.Feedback) NS.Feedback.drawOverlay(g, G);
 
     if (G.stageMsg > 0 && G.stageMsg % 30 < 20 && !NS.Intro.active) {
       centerText(stageName(), 74, '#ffd7e6');
@@ -1157,8 +1275,12 @@
     g.fillRect(0, 0, NS.W, NS.PLAYFIELD_H);
 
     if (pause.submenu === 'options') {
-      drawOptions('OPTIONS', pause.optionIndex, 42);
-      centerText('ARROWS ADJUST    Z SELECT    P RESUME', 166, '#5f6c86');
+      drawOptions('OPTIONS', pause.optionIndex, 30);
+      centerText('ARROWS ADJUST    Z SELECT    P RESUME', 198, '#5f6c86', '5px');
+      return;
+    }
+    if (pause.submenu === 'controls') {
+      drawControls('pause');
       return;
     }
 
@@ -1173,7 +1295,7 @@
       return;
     }
 
-    centerText('PAUSED', 56, '#ffffff', '10px');
+    centerText(pause.auto ? 'PAUSED — FOCUS LOST' : 'PAUSED', 56, '#ffffff', '10px');
     centerText('STAGE ' + G.stage + '  —  ' + stageName(), 72, '#7f8aa3');
     drawMenu(PAUSE_ITEMS.map(function (i) { return i.label; }), 90, null, pause.index);
     centerText('ARROWS CHOOSE    Z SELECT    P RESUME', 158, '#5f6c86');
@@ -1204,16 +1326,22 @@
     if (index === 2) return G.settings.master + '%';
     if (index === 3) return G.settings.music + '%';
     if (index === 4) return G.settings.sfx + '%';
-    if (index === 5) return G.settings.reducedFlash ? 'ON' : 'OFF';
+    if (index === 5) return G.settings.shake + '%';
+    if (index === 6) return G.settings.rumble + '%';
+    if (index === 7) return G.settings.reducedFlash ? 'ON' : 'OFF';
+    if (index === 8) return G.settings.reducedMotion ? 'ON' : 'OFF';
+    if (index === 9) return G.settings.projectileContrast ? 'HIGH' : 'NORMAL';
+    if (index === 10) return G.settings.attractMode ? 'ON' : 'OFF';
     return '';
   }
 
   function drawOptions(heading, selected, top) {
     centerText(heading, top, '#ffffff', '10px');
+    var pitch = OPTION_NAMES.length > 9 ? 10 : 13;
     for (var i = 0; i < OPTION_NAMES.length; i++) {
-      var y = top + 22 + i * 13;
+      var y = top + 16 + i * pitch;
       var label = OPTION_NAMES[i];
-      if (i < OPTION_NAMES.length - 1) label += '  < ' + optionValue(i) + ' >';
+      if (i < 11) label += '  < ' + optionValue(i) + ' >';
       var on = selected === i;
       if (on) {
         g.fillStyle = 'rgba(80,120,200,0.30)';
@@ -1222,6 +1350,27 @@
       centerText((on ? '▶ ' : '') + label + (on ? ' ◀' : ''), y,
                  on ? (((G.frame >> 2) & 1) ? '#ffffff' : '#8fd0ff') : '#6f7d99', '7px');
     }
+  }
+
+  function drawControls(context) {
+    var owner = context === 'title' ? title : pause;
+    var I = NS.Input, actions = I.actions(), capture = I.capturing();
+    centerText('CONTROLS', 34, '#ffffff', '10px');
+    centerText(owner.controlDevice === 'keyboard' ? '◀ KEYBOARD ▶' : '◀ GAMEPAD ▶', 48, '#8fd0ff', '7px');
+    for (var i = 0; i < actions.length; i++) {
+      var y = 62 + i * 13, on = owner.controlIndex === i;
+      if (on) { g.fillStyle = 'rgba(80,120,200,0.30)'; g.fillRect(42, y - 8, NS.W - 84, 12); }
+      var waiting = capture && capture.action === actions[i];
+      var value = waiting ? 'PRESS INPUT...' : I.bindingLabel(actions[i], owner.controlDevice);
+      centerText((on ? '▶ ' : '') + CONTROL_LABELS[actions[i]] + '  ' + value + (on ? ' ◀' : ''), y,
+                 waiting ? '#ffca3a' : (on ? '#ffffff' : '#6f7d99'), '7px');
+    }
+    var reset = actions.length, back = reset + 1;
+    centerText((owner.controlIndex === reset ? '▶ ' : '') + 'RESET DEFAULTS' + (owner.controlIndex === reset ? ' ◀' : ''),
+               62 + reset * 13, owner.controlIndex === reset ? '#ffffff' : '#6f7d99', '7px');
+    centerText((owner.controlIndex === back ? '▶ ' : '') + 'BACK' + (owner.controlIndex === back ? ' ◀' : ''),
+               62 + back * 13, owner.controlIndex === back ? '#ffffff' : '#6f7d99', '7px');
+    centerText('LEFT/RIGHT DEVICE   FIRE REBIND   ESC CANCEL', 198, '#5f6c86', '5px');
   }
 
   function drawCapsules() {
@@ -1248,15 +1397,20 @@
       g.globalAlpha = 1;
     }
 
-    g.fillStyle = 'rgba(0,0,0,0.58)';
-    g.fillRect(0, 34, NS.W, 168);
+    var fullMenu = title.screen === 'options' || title.screen === 'controls';
+    g.fillStyle = 'rgba(0,0,0,0.66)';
+    g.fillRect(0, fullMenu ? 18 : 34, NS.W, fullMenu ? 184 : 168);
 
-    centerText(NS.THEME.title, 52, '#ffffff', '12px');
-    centerText(NS.THEME.subtitle, 68, '#ff9ec0');
+    if (!fullMenu) {
+      centerText(NS.THEME.title, 52, '#ffffff', '12px');
+      centerText(NS.THEME.subtitle, 68, '#ff9ec0');
+    }
 
     if (title.screen === 'options') {
-      drawOptions('OPTIONS', title.optionIndex, 76);
-      centerText('ARROWS ADJUST    Z SELECT', 198, '#5f6c86');
+      drawOptions('OPTIONS', title.optionIndex, 30);
+      centerText('ARROWS ADJUST    Z SELECT', 198, '#5f6c86', '5px');
+    } else if (title.screen === 'controls') {
+      drawControls('title');
     } else if (title.screen === 'stages') {
       centerText('STAGE SELECT  —  FURTHEST ' + G.furthestStage, 84, '#8fd0ff');
       for (var i = 0; i < 6; i++) {
@@ -1373,10 +1527,18 @@
        stays out of the way until the entrance cut has finished */
     if (G.boss && G.boss.state !== 'dying' &&
         !(NS.Intro && NS.Intro.active)) {
-      var pct = NS.clamp(G.boss.hp / G.boss.maxHp, 0, 1);
+      var barState = NS.Feedback && NS.Feedback.bossBar(G.boss);
+      var shownHp = barState ? barState.hp : G.boss.hp;
+      var chipHp = barState ? barState.chip : shownHp;
+      var pct = NS.clamp(shownHp / G.boss.maxHp, 0, 1);
+      var chipPct = NS.clamp(chipHp / G.boss.maxHp, 0, 1);
       var bw = 136, bx = (NS.W - bw) / 2;
       g.fillStyle = '#3a0d18';
       g.fillRect(bx, y - 7, bw, 5);
+      if (chipPct > pct) {
+        g.fillStyle = '#ffe07a';
+        g.fillRect(bx + 1, y - 6, Math.round((bw - 2) * chipPct), 3);
+      }
       g.fillStyle = pct > 0.45 ? '#ff5a7a' : '#ffca3a';
       g.fillRect(bx + 1, y - 6, Math.round((bw - 2) * pct), 3);
       g.fillStyle = '#ffb0b0';
@@ -1410,13 +1572,26 @@
     render();
   };
 
+  function autoPause() {
+    if (G.state !== 'play' && G.state !== 'dying' && G.state !== 'departing') return;
+    if (NS.Autoplay && NS.Autoplay.attracting && NS.Autoplay.attracting()) return;
+    G.prevState = G.state;
+    G.state = 'paused';
+    pause.index = 0; pause.confirm = null; pause.submenu = null;
+    pause.inputArmed = false; pause.auto = true;
+    NS.Audio.stopMusic();
+  }
+  G.autoPause = autoPause;
+
   window.addEventListener('load', function () { G.init(); });
   window.addEventListener('fullscreenchange', function () { if (G.resize) G.resize(); });
+  window.addEventListener('blur', autoPause);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) autoPause(); });
   /* Browsers prohibit fullscreen before a user gesture. Enter/fire starts
      the game and enters fullscreen in that same trusted keyboard event;
      the first pointer press does likewise for mouse and touch players. */
   function fullscreenStartKey(e) {
-    if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyZ' || e.code === 'KeyJ') {
+    if (e.code === 'Enter' || NS.Input.matchesKey('fire', e.code)) {
       G.requestFullscreen();
       window.removeEventListener('keydown', fullscreenStartKey);
     }

@@ -107,8 +107,7 @@
 
     if (!this.rage && this.hp <= this.maxHp * 0.45) {
       this.rage = true;
-      NS.Audio.sfx.alarm();
-      NS.FX.popText(this.x - 20, this.y - 46, 'CORE ENRAGED', '#ff9a9a');
+      NS.Feedback.phase('CORE ENRAGED', 'ATTACK PATTERN ACCELERATED', this.x, this.y);
     }
 
     this.updateCells(player);
@@ -274,20 +273,21 @@
 
     if (inChannel && NS.rectHit(rect, core)) {
       this.hp -= dmg;
-      NS.flashDamage(this);
-      NS.FX.spark(core.x + 6, core.y + 6, 4, 'hit');
-      NS.Audio.sfx.hit();
+      NS.Feedback.damage(this, { x: core.x + 6, y: core.y + 6, dx: 1,
+        material: 'flesh', hue: 'bio', strength: this.hp <= 0 ? 0.6 : 0.58, count: 6 });
       if (this.hp <= 0) {
         this.setState('dying');
         this.deathT = 0;
         game.addScore(5000, this.x, this.y);
         NS.Audio.sfx.bigBoom();
+        NS.Feedback.destroy(this.x, this.y, { boss: true, major: true, material: 'flesh', hue: 'bio', count: 24 });
       }
       return true;
     }
 
     /* armour ping */
-    NS.FX.spark(rect.x, rect.y + rect.h / 2, 2, 'hit');
+    NS.FX.directional(rect.x, rect.y + rect.h / 2, -1, 0, 3, 'hit', 'armor');
+    NS.Audio.sfx.impact('armor', 0.28);
     return true;
   };
 
@@ -309,6 +309,8 @@
   Boss.prototype.draw = function (g) {
     var cx = this.x, cy = this.y + this.bob;
     var flash = NS.damageFlashing(this);
+    var kick = NS.hitOffset(this);
+    g.save(); g.translate(kick.x, kick.y);
 
     /* writhing tendrils anchored to the chamber wall behind the body */
     g.strokeStyle = flash ? '#ff3038' : '#7a2440';
@@ -359,6 +361,7 @@
       var c = this.cells[j];
       if (!c.dead) g.drawImage(NS.S.cell, (c.x - 2) | 0, (c.y - 2) | 0);
     }
+    g.restore();
   };
 
   function drawBlob(g, x, y, rx, ry, fill, stroke) {

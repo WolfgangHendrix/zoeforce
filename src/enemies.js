@@ -532,13 +532,17 @@
   E.clearTimers = function () { timers.length = 0; };
 
   /* ---- damage / death ------------------------------------------------- */
-  E.damage = function (e, dmg, game) {
-    if (e.invincible) { NS.FX.spark(e.x + e.w / 2, e.y + e.h / 2, 2, 'fire'); return false; }
+  E.damage = function (e, dmg, game, shot) {
+    var cx = e.x + e.w / 2, cy = e.y + e.h / 2;
+    var dx = shot && shot.vx != null ? NS.sign(shot.vx) : 1;
+    var dy = shot && shot.vy != null ? NS.sign(shot.vy) : 0;
+    if (e.invincible) {
+      NS.FX.directional(cx, cy, -dx, -dy, 3, 'hit', 'armor');
+      NS.Audio.sfx.impact('armor', 0.3); return false;
+    }
     e.hp -= dmg;
-    NS.flashDamage(e);
+    NS.Feedback.damage(e, { x: cx, y: cy, dx: dx, dy: dy, material: 'flesh', hue: 'bio', strength: e.hp > 0 ? 0.42 : 0.58 });
     if (e.hp > 0) {
-      NS.Audio.sfx.hit();
-      NS.FX.spark(e.x + e.w / 2, e.y + e.h / 2, 3, 'hit');
       return false;
     }
     E.destroy(e, game);
@@ -549,6 +553,8 @@
     e.dead = true;
     var big = e.kind === 'mouth' || e.kind === 'hatch' || e.kind === 'tentacle';
     NS.FX.explode(e.x + e.w / 2, e.y + e.h / 2, big ? 1.4 : 1.0, 'fire');
+    NS.Feedback.destroy(e.x + e.w / 2, e.y + e.h / 2,
+      { dx: 1, material: 'flesh', hue: 'bio', count: big ? 14 : 8, major: big });
     NS.Audio.sfx.explode();
     game.addScore(e.score, e.x, e.y);
 
@@ -610,6 +616,8 @@
       if (e.dead || e.spawnDelay > 0) continue;
       var f = (e.t >> 3) & 1;
       var hitFlash = NS.damageFlashing(e);
+      var kick = NS.hitOffset(e);
+      g.save(); g.translate(kick.x, kick.y);
 
       switch (e.kind) {
         case 'flapper':
@@ -685,8 +693,9 @@
         }
         case 'prominence': {
           /* glowing vent at the base */
-          if (e.firing) {
-            g.fillStyle = 'rgba(255,190,90,0.75)';
+          var charge = NS.Feedback.hazardCharge({ t: e.t + e.offset, period: e.period });
+          if (e.firing || charge > 0) {
+            g.fillStyle = charge > 0 ? 'rgba(255,245,170,' + (0.35 + charge * 0.65) + ')' : 'rgba(255,190,90,0.75)';
             g.fillRect((e.x | 0) - 3, (e.y | 0) - (e.onCeiling ? 0 : 2), 7, 2);
           }
           for (var j = 0; j < e.flames.length; j++) {
@@ -697,6 +706,7 @@
           break;
         }
       }
+      g.restore();
     }
   };
 

@@ -11,18 +11,22 @@
 
   var enabled = false;
   var finished = false;
+  var attract = false;
   var axis = { x: 0, y: 0 };
   var powerPulse = false;
   var safety = { hits: 0, terrain: 0 };
 
   A.active = function () { return enabled; };
+  A.attracting = function () { return enabled && attract; };
   A.finished = function () { return finished; };
   A.stats = function () { return { hits: safety.hits, terrain: safety.terrain }; };
   A.noteHit = function () { safety.hits++; };
   A.noteTerrain = function () { safety.terrain++; };
 
-  A.start = function (G) {
+  A.start = function (G, opt) {
+    opt = opt || {};
     enabled = true;
+    attract = !!opt.attract;
     finished = false;
     axis.x = axis.y = 0;
     powerPulse = false;
@@ -38,14 +42,18 @@
     G.startRun(1);
   };
 
+  A.startAttract = function (G) { A.start(G, { attract: true }); };
+
   A.stop = function () {
     enabled = false;
+    attract = false;
     axis.x = axis.y = 0;
     powerPulse = false;
   };
 
   A.finish = function () {
     enabled = false;
+    attract = false;
     finished = true;
     axis.x = axis.y = 0;
     powerPulse = false;

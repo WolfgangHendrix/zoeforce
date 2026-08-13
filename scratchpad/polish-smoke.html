@@ -1,0 +1,103 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Zoe Force polish smoke test</title>
+<style>#result{white-space:pre-wrap;word-break:break-word;max-width:1880px}iframe{display:block}</style>
+<pre id="result">RUNNING</pre>
+<iframe id="game" src="../index.html" width="1920" height="1080"></iframe>
+<script>
+(function () {
+  'use strict';
+  var result = document.getElementById('result');
+  var frame = document.getElementById('game');
+  var failures = [], errors = [], checks = {};
+
+  function assert(name, condition, detail) {
+    checks[name] = !!condition;
+    if (!condition) failures.push(name + (detail ? ': ' + detail : ''));
+  }
+  function finish(extra) {
+    result.textContent = JSON.stringify({
+      ok: failures.length === 0 && errors.length === 0,
+      checks: checks, failures: failures, errors: errors, extra: extra || {}
+    });
+    document.title = failures.length || errors.length ? 'SMOKE FAIL' : 'SMOKE PASS';
+  }
+  function waitForGame(tries) {
+    var w = frame.contentWindow, NS = w && w.NS;
+    if (NS && NS.Game && NS.Game.state === 'loading' && NS.Game.step) NS.Game.step(1);
+    if (!NS || !NS.Game || NS.Game.state !== 'title') {
+      if (tries > 800) { failures.push('boot timeout'); finish({ state: NS && NS.Game && NS.Game.state }); return; }
+      setTimeout(function () { waitForGame(tries + 1); }, 25); return;
+    }
+    run(w, NS);
+  }
+  function run(w, NS) {
+    w.addEventListener('error', function (e) { errors.push(e.message || 'window error'); });
+    w.addEventListener('unhandledrejection', function (e) { errors.push(String(e.reason)); });
+    var G = NS.Game, I = NS.Input, F = NS.Feedback;
+    var originalBindings = I.exportBindings();
+    try {
+      assert('feedback director loaded', !!F);
+      assert('voxel renderer booted', NS.Voxel.status() === 'on', NS.Voxel.status());
+      if (location.search.indexOf('2d') >= 0) {
+        NS.Voxel.disable();
+        assert('2D fallback activated', NS.Voxel.status() === 'off', NS.Voxel.status());
+      }
+
+      I.beginCapture('fire', 'keyboard');
+      w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyQ', key: 'q', bubbles: true }));
+      assert('keyboard rebind captured', I.binding('fire', 'keyboard') === 'KeyQ');
+      assert('rebind updates live map', I.matchesKey('fire', 'KeyQ'));
+      I.importBindings(originalBindings);
+      I.beginCapture('fire', 'keyboard');
+      w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyX', key: 'x', bubbles: true }));
+      assert('duplicate binding swaps actions', I.binding('power', 'keyboard') === 'KeyZ');
+      I.importBindings(originalBindings);
+
+      G.settings.reducedMotion = true;
+      var target = { x: 20, y: 20, hitFlash: 0 };
+      F.damage(target, { material: 'armor', strength: .4 });
+      assert('reduced motion removes recoil', NS.hitOffset(target).x === 0);
+      F.impact('phase');
+      assert('reduced motion removes hit-stop', !F.consumeFreeze());
+      G.settings.reducedMotion = false; F.reset();
+      var vertical = { x: 20, y: 20, hitFlash: 0 };
+      F.damage(vertical, { dx: 0, dy: -1, material: 'armor', strength: .4 });
+      assert('vertical recoil keeps zero x', NS.hitOffset(vertical).x === 0);
+      F.reset(); G.settings.shake = 0; F.impact('bossDeath');
+      var quietCamera = F.cameraOffset();
+      assert('zero shake is fully static', quietCamera.x === 0 && quietCamera.y === 0);
+      G.settings.shake = 70; F.reset();
+      assert('hazard precharge has lead time', F.hazardCharge({ t: 90, period: 100 }) > 0);
+      assert('hazard cue rests mid-cycle', F.hazardCharge({ t: 50, period: 100 }) === 0);
+
+      G.startRun(1); G.step(3); G.autoPause();
+      assert('focus-loss path pauses play', G.state === 'paused', G.state);
+
+      NS.Autoplay.startAttract(G); G.attractT = 2400; G.step(1);
+      assert('attract timeout returns to title', G.state === 'title', G.state);
+      assert('attract timeout stops CPU', !NS.Autoplay.active());
+
+      NS.Autoplay.start(G);
+      NS.Debug.paused = true; NS.Debug.stepping = true;
+      var seen = {}, frames = 0, snapshots = [];
+      while (frames < 360000) {
+        G.step(1000); frames += 1000; seen[G.stage] = true;
+        snapshots.push(G.stage + ':' + G.state);
+        if (G.stage === 6 && G.state === 'clear') break;
+      }
+      NS.Debug.stepping = false;
+      for (var stage = 1; stage <= 6; stage++) assert('CPU reached stage ' + stage, !!seen[stage]);
+      assert('CPU completed campaign', G.stage === 6 && G.state === 'clear', G.stage + ':' + G.state);
+      assert('CPU stopped at ending', !NS.Autoplay.active());
+      assert('no recording overlay API', typeof NS.Autoplay.draw === 'undefined');
+      finish({ frames: frames, final: G.stage + ':' + G.state,
+        snapshots: snapshots.slice(-24), autoplay: NS.Autoplay.stats() });
+    } catch (e) {
+      errors.push(e && e.stack ? e.stack : String(e));
+      finish();
+    }
+  }
+  frame.addEventListener('load', function () { waitForGame(0); });
+}());
+</script>
