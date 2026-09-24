@@ -1,5 +1,7 @@
 # Zoe Force — six-stage campaign
 
+[Play Zoe Force in your browser](https://zoeforce.vercel.app) · [More SpaceChakra games](https://spacechakra.com)
+
 A playable **Life Force**-inspired six-stage campaign alternating horizontal
 and vertical combat from the organic corridor through Mechanical City.
 Vanilla JS, no build step. The simulation runs at 256×224 and is presented by
