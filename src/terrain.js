@@ -148,6 +148,9 @@
   for (var vi = 0; vi < VEIN.length; vi++) VEIN[vi] = (veinRng() * 255) | 0;
 
   T.draw = function (g, scrollX, time) {
+    if (NS.Art && NS.Art.terrain(g, 1, scrollX, function (x) {
+      return { a: T.topAt((scrollX + x) | 0), z: T.botAt((scrollX + x) | 0) };
+    }, true)) return;
     var pulse = Math.sin(time * 0.04) * 0.5 + 0.5;
 
     for (var sx = 0; sx < NS.W; sx++) {
@@ -206,6 +209,7 @@
     var ty = T.topAt(sealWorldX | 0), by = T.botAt(sealWorldX | 0);
     g.fillStyle = '#8b2f52';
     g.fillRect(sx | 0, ty, 6, by - ty);
+    if (NS.Art && NS.Art.block(g,sx,ty,6,by-ty,1,false)) return;
     g.fillStyle = '#ffb0cd';
     g.fillRect(sx | 0, ty, 1, by - ty);
   };

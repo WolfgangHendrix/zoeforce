@@ -37,12 +37,14 @@ counter-jets; Cellular Current keeps web and rib pressure through the Giga
 approach; and Mechanical City uses shutters at both major section changes.
 
 The largest reconciliation is the Temple interior after the three-core
-checkpoint. It now alternates four complete masonry seals—each requiring the
-player to shoot out a ship-sized route—with six pre-breached high/low walls.
-Moving pillars, hatch guns and destructible blocks occupy the spaces between
-those walls. This implements the guide's “temple pillars and destructible
-block maze” as a sustained post-miniboss sequence rather than isolated small
-enemies spread across otherwise empty scrolling.
+checkpoint. It alternates complete masonry seals—each requiring the player to
+shoot out a ship-sized route—with six pre-breached high/low walls. The later
+seals have three, four and five independently collidable layers, selected
+buried cells hide a total of three power capsules, and the two deepest fields
+rebuild only after the opened cells pass behind the ship. Moving pillars,
+hatch guns and destructible blocks occupy the spaces between those walls.
+This implements the guide's long, sometimes regenerating “block passages” as
+a sustained post-miniboss sequence rather than isolated single-width doors.
 
 Designated later-stage formations remain complete-set power opportunities.
 Stages 3–5 are deliberately generous recovery stages; Stage 6 keeps most blue

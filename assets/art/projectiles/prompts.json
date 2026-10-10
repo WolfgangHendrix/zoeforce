@@ -1,0 +1,18 @@
+{
+  "generator": "Built-in imagegen",
+  "generatedAt": "2026-09-28",
+  "assets": [
+    {
+      "id": "bossPlasma",
+      "file": "projectiles/boss-plasma-v2.png",
+      "prompt": "Use case: stylized-concept. Asset type: ONE transparent 2D enemy projectile sprite for Zoe Force. Reference image 1 is a style reference only. Create a compact circular biomechanical plasma bolt: unmistakable incandescent ivory core surrounded by three bold crimson molten lobes, a thin dark ribbed organic shell with bright copper edges. H.R. Giger meets LifeForce, detailed painted 2D shooter art. Must read very clearly when scaled to 40 pixels: simple circular silhouette, high contrast hot core, restrained detail. Centered directly face-on, symmetrical overall round shape, fills 85 percent of a square canvas, no long tail (code adds directional trails). True alpha transparent background, tight soft orange edge glow only, no scene, no text, no drop shadow, no interface, one object. Distinct from friendly cyan bullets and green pickups.",
+      "reference": "C:/Users/santi/games/zoeforce/assets/art/enemies/hostile-orb.png"
+    },
+    {
+      "id": "fireball",
+      "file": "projectiles/fireball-v2.png",
+      "prompt": "Use case: stylized-concept. Asset type: ONE transparent 2D small fireball sprite for Zoe Force. Reference image 1 is a style reference only. Create a vivid compact rounded fireball with an ivory yellow molten core and bold curling orange-red flame tongues around its rim, three or four clearly separated tongues, scorching dark red outer rim. Detailed painted 2D H.R. Giger meets LifeForce shooter effects. Must read at only 35 pixels, so avoid tangled fine detail or a giant glowing halo. Centered face-on round silhouette, fills 85 percent of square canvas, no long tail (game draws directional trail), genuine alpha transparent background, very restrained soft glow, no text, no scene, no shadow, one object. Warm hostile orange-red, not blue or green.",
+      "reference": "C:/Users/santi/games/zoeforce/assets/art/enemies/prominence.png"
+    }
+  ]
+}

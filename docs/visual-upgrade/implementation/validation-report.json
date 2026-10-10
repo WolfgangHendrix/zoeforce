@@ -1,0 +1,222 @@
+{
+  "passed": true,
+  "checkedAt": "2026-09-28T22:44:30.284Z",
+  "checks": [
+    "painted 2D boots by default and loads all manifest assets",
+    "128 original sprite dimensions and anchors remain unchanged",
+    "menu crossfade rejects held confirmation and releases on key-up",
+    "reduced motion removes fades without bypassing confirmation release",
+    "stage handoff freezes simulation for the 400 ms crossfade",
+    "stage 1 painted renderer leaves terrain and collision state intact",
+    "stage 2 painted renderer leaves terrain and collision state intact",
+    "stage 3 painted renderer leaves terrain and collision state intact",
+    "stage 4 painted renderer leaves terrain and collision state intact",
+    "stage 5 painted renderer leaves terrain and collision state intact",
+    "stage 6 painted renderer leaves terrain and collision state intact",
+    "missing painted assets fall back to original sprite drawing",
+    "voxel view can still be enabled and switched back to painted 2D",
+    "touch layout has no horizontal page overflow",
+    "file:// offline boot loads painted art without a server"
+  ],
+  "captures": [
+    {
+      "id": "title",
+      "label": "Title and live main menu",
+      "group": "UI",
+      "file": "screens/review-1790635447932/title.png"
+    },
+    {
+      "id": "ui-stages",
+      "label": "stages",
+      "group": "UI",
+      "file": "screens/review-1790635447932/ui-stages.png"
+    },
+    {
+      "id": "ui-options",
+      "label": "options",
+      "group": "UI",
+      "file": "screens/review-1790635447932/ui-options.png"
+    },
+    {
+      "id": "ui-controls",
+      "label": "controls",
+      "group": "UI",
+      "file": "screens/review-1790635447932/ui-controls.png"
+    },
+    {
+      "id": "ui-records",
+      "label": "records",
+      "group": "UI",
+      "file": "screens/review-1790635447932/ui-records.png"
+    },
+    {
+      "id": "ui-profiles",
+      "label": "profiles",
+      "group": "UI",
+      "file": "screens/review-1790635447932/ui-profiles.png"
+    },
+    {
+      "id": "stage-01",
+      "label": "Stage 1 — Bio-Cathedral",
+      "group": "Stages",
+      "file": "screens/review-1790635447932/stage-01.png"
+    },
+    {
+      "id": "boss-01",
+      "label": "Stage 1 boss",
+      "group": "Bosses",
+      "file": "screens/review-1790635447932/boss-01.png"
+    },
+    {
+      "id": "stage-02",
+      "label": "Stage 2 — Volcanic Ascent",
+      "group": "Stages",
+      "file": "screens/review-1790635447932/stage-02.png"
+    },
+    {
+      "id": "boss-02",
+      "label": "Stage 2 boss",
+      "group": "Bosses",
+      "file": "screens/review-1790635447932/boss-02.png"
+    },
+    {
+      "id": "stage-03",
+      "label": "Stage 3 — Prominence Inferno",
+      "group": "Stages",
+      "file": "screens/review-1790635447932/stage-03.png"
+    },
+    {
+      "id": "boss-03",
+      "label": "Stage 3 boss",
+      "group": "Bosses",
+      "file": "screens/review-1790635447932/boss-03.png"
+    },
+    {
+      "id": "stage-04",
+      "label": "Stage 4 — Cellular Current",
+      "group": "Stages",
+      "file": "screens/review-1790635447932/stage-04.png"
+    },
+    {
+      "id": "boss-04",
+      "label": "Stage 4 boss",
+      "group": "Bosses",
+      "file": "screens/review-1790635447932/boss-04.png"
+    },
+    {
+      "id": "stage-05",
+      "label": "Stage 5 — Latis Temple",
+      "group": "Stages",
+      "file": "screens/review-1790635447932/stage-05.png"
+    },
+    {
+      "id": "boss-05",
+      "label": "Stage 5 boss",
+      "group": "Bosses",
+      "file": "screens/review-1790635447932/boss-05.png"
+    },
+    {
+      "id": "stage-06",
+      "label": "Stage 6 — Mechanical City",
+      "group": "Stages",
+      "file": "screens/review-1790635447932/stage-06.png"
+    },
+    {
+      "id": "boss-06",
+      "label": "Stage 6 boss",
+      "group": "Bosses",
+      "file": "screens/review-1790635447932/boss-06.png"
+    },
+    {
+      "id": "encounter-2-fortress",
+      "label": "fortress",
+      "group": "Encounters",
+      "file": "screens/review-1790635447932/encounter-2-fortress.png"
+    },
+    {
+      "id": "encounter-2-rocks",
+      "label": "rocks",
+      "group": "Encounters",
+      "file": "screens/review-1790635447932/encounter-2-rocks.png"
+    },
+    {
+      "id": "encounter-5-mini",
+      "label": "mini",
+      "group": "Encounters",
+      "file": "screens/review-1790635447932/encounter-5-mini.png"
+    },
+    {
+      "id": "encounter-5-blocks",
+      "label": "blocks",
+      "group": "Encounters",
+      "file": "screens/review-1790635447932/encounter-5-blocks.png"
+    },
+    {
+      "id": "action-laser-formation",
+      "label": "Painted ships, formation and live laser fire",
+      "group": "Encounters",
+      "file": "screens/review-1790635447932/action-laser-formation.png"
+    },
+    {
+      "id": "boss-01-open",
+      "label": "Golem exposed eye",
+      "group": "Bosses",
+      "file": "screens/review-1790635447932/boss-01-open.png"
+    },
+    {
+      "id": "boss-04-detached-eye",
+      "label": "Giga detached eye phase",
+      "group": "Bosses",
+      "file": "screens/review-1790635447932/boss-04-detached-eye.png"
+    },
+    {
+      "id": "boss-06-heart",
+      "label": "Zelos exposed heart phase",
+      "group": "Bosses",
+      "file": "screens/review-1790635447932/boss-06-heart.png"
+    },
+    {
+      "id": "ui-pause",
+      "label": "Pause menu",
+      "group": "UI",
+      "file": "screens/review-1790635447932/ui-pause.png"
+    },
+    {
+      "id": "ui-continue",
+      "label": "continue",
+      "group": "UI",
+      "file": "screens/review-1790635447932/ui-continue.png"
+    },
+    {
+      "id": "ui-gameover",
+      "label": "gameover",
+      "group": "UI",
+      "file": "screens/review-1790635447932/ui-gameover.png"
+    },
+    {
+      "id": "ui-clear",
+      "label": "clear",
+      "group": "UI",
+      "file": "screens/review-1790635447932/ui-clear.png"
+    },
+    {
+      "id": "ending-escape",
+      "label": "Final escape",
+      "group": "Encounters",
+      "file": "screens/review-1790635447932/ending-escape.png"
+    },
+    {
+      "id": "touch-landscape",
+      "label": "Touch landscape",
+      "group": "Touch",
+      "file": "screens/review-1790635447932/touch-landscape.png"
+    },
+    {
+      "id": "touch-portrait",
+      "label": "Touch portrait",
+      "group": "Touch",
+      "file": "screens/review-1790635447932/touch-portrait.png"
+    }
+  ],
+  "browserErrors": []
+}

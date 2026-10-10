@@ -602,9 +602,12 @@
   L.update = function (G) {
     L.t++;
     if ((G.state === 'play' || G.state === 'dying') && !L.bossStarted) {
+      var frozen = NS.Debug && NS.Debug.freezeScroll;
       if (L.phase === 'flight') {
-        L.scrollY = Math.min(L.FORTRESS_Y, L.scrollY + NS.SCROLL_SPEED);
-        if (L.scrollY >= L.FORTRESS_Y) startFortress(G);
+        if (!frozen) {
+          L.scrollY = Math.min(L.FORTRESS_Y, L.scrollY + NS.SCROLL_SPEED);
+          if (L.scrollY >= L.FORTRESS_Y) startFortress(G);
+        }
       } else if (L.phase === 'fortress') {
         updateFortress(G);
         if (L.fortress && L.fortress.dead) {
@@ -617,8 +620,10 @@
         }
       } else if (L.phase === 'escape') {
         if (L.transitionT > 0) L.transitionT--;
-        L.scrollY = Math.min(L.LENGTH, L.scrollY + NS.SCROLL_SPEED * 0.82);
-        if (L.scrollY >= L.LENGTH) spawnBoss(G);
+        if (!frozen) {
+          L.scrollY = Math.min(L.LENGTH, L.scrollY + NS.SCROLL_SPEED * 0.82);
+          if (L.scrollY >= L.LENGTH) spawnBoss(G);
+        }
       }
     }
     for (var i = 0; i < L.enemies.length; i++) if (!L.enemies[i].dead) updateEnemy(L.enemies[i], G.player, G);
@@ -638,8 +643,7 @@
     for (i = 0; i < L.pickups.length; i++) { var c = L.pickups[i]; c.t++; c.y += 0.45; if (c.y > NS.PLAYFIELD_H + 10) c.dead = true; }
     for (i = 0; i < G.looseOptions.length; i++) {
       var o = G.looseOptions[i]; if (o.dead) continue;
-      o.t++; o.y += 0.16; o.x += Math.sin(o.t * 0.045 + o.phase) * 0.06;
-      if (o.y > NS.PLAYFIELD_H + 8 || o.t > 720) o.dead = true;
+      G.driftOption(o,true,function(drop){var edge=L.edgesAt(L.scrollY+NS.PLAYFIELD_H-drop.y);return {a:edge.left,z:NS.W-edge.right};});
     }
     updateBoss(G.player, G); collide(G);
     if (L.boss && L.boss.dead) { L.boss.dying--; if (L.boss.dying <= 0) L.complete = true; }
@@ -648,6 +652,10 @@
   };
 
   function drawTerrain(g) {
+    if (NS.Art && NS.Art.terrain(g, 2, L.scrollY, function (y) {
+      var e = L.edgesAt(L.scrollY + NS.PLAYFIELD_H - y);
+      return { a: e.left, z: NS.W - e.right };
+    }, false)) return;
     g.fillStyle = '#13090c'; g.fillRect(0, 0, NS.W, NS.PLAYFIELD_H);
     for (var y = -4; y < NS.PLAYFIELD_H + 4; y += 4) {
       var wy = L.scrollY + NS.PLAYFIELD_H - y, e = L.edgesAt(wy);
@@ -663,6 +671,7 @@
   }
 
   function drawBoss(g, b) {
+    if (NS.Art && NS.Art.boss(g, 2, b)) return;
     if (b.dead && (b.dying >> 2) % 2) return;
     var dep = b.deploy == null ? 1 : b.deploy;
     var flash = NS.damageFlashing(b);
@@ -691,18 +700,21 @@
       g.fillStyle = '#542323'; g.beginPath(); g.ellipse(a.x, ay, a.rx, a.ry, 0, 0, Math.PI * 2); g.fill();
       g.strokeStyle = '#d7502e'; g.lineWidth = 3; g.stroke();
       g.fillStyle = '#7e3430'; g.beginPath(); g.ellipse(a.x - 4, ay - 5, a.rx * 0.62, a.ry * 0.72, 0, 0, Math.PI * 2); g.fill();
+      if (NS.Art.active()) { g.save(); g.beginPath(); g.ellipse(a.x,ay,a.rx,a.ry,0,0,Math.PI*2); g.clip(); NS.Art.image(g,'wall2',a.x-a.rx,ay-a.ry,a.rx*2,a.ry*2); g.restore(); }
     }
     for (i = 0; i < L.volcanoes.length; i++) {
       var v = L.volcanoes[i]; if (v.dead || v.y < -30 || v.y > NS.PLAYFIELD_H + 30) continue;
       var vf = NS.damageFlashing(v);
       g.fillStyle = vf ? '#ff3038' : '#6f3027'; g.beginPath(); g.moveTo(v.x - 13, v.y + 10); g.lineTo(v.x - 5, v.y - 9); g.lineTo(v.x + 5, v.y - 9); g.lineTo(v.x + 13, v.y + 10); g.closePath(); g.fill();
       g.fillStyle = vf ? '#ff8b91' : '#ff9a35'; g.fillRect(v.x - 5, v.y - 10, 10, 4);
+      if (NS.Art.active()) { g.save(); g.beginPath(); g.moveTo(v.x-13,v.y+10); g.lineTo(v.x-5,v.y-9); g.lineTo(v.x+5,v.y-9); g.lineTo(v.x+13,v.y+10); g.closePath(); g.clip(); NS.Art.block(g,v.x-13,v.y-10,26,20,2,vf); g.restore(); NS.Art.image(g,'prom',v.x-5,v.y-12,10,6); }
     }
     for (i = 0; i < L.gates.length; i++) {
       var gate = L.gates[i]; if (gate.y < -20 || gate.y > NS.PLAYFIELD_H + 20) continue;
       for (j = 0; j < gate.cells.length; j++) {
         var cell = gate.cells[j]; if (cell.dead) continue;
         var cf = NS.damageFlashing(cell);
+        if (NS.Art.block(g,cell.x,gate.y-7,cell.w,14,2,cf)) continue;
         g.fillStyle = cf ? '#ff3038' : '#7b3b43'; g.fillRect(cell.x, gate.y - 7, cell.w, 14);
         g.fillStyle = cf ? '#ff8b91' : '#d66a58'; g.fillRect(cell.x + 2, gate.y - 5, cell.w - 4, 3);
       }
@@ -710,6 +722,7 @@
     for (i = 0; i < L.rocks.length; i++) {
       var r = L.rocks[i]; if (r.dead) continue;
       var rf = NS.damageFlashing(r);
+      if (NS.Art.active()) { g.save(); if(rf)g.filter='sepia(1) saturate(5) hue-rotate(315deg)'; NS.Art.image(g,'rock',r.x-4,r.y-4,8,8);g.restore();continue; }
       g.fillStyle = rf ? '#ff3038' : '#b8b2aa'; g.beginPath(); g.arc(r.x, r.y, 4, 0, Math.PI * 2); g.fill();
       g.fillStyle = rf ? '#ff9ba0' : '#eee3d0'; g.fillRect(r.x - 1, r.y - 2, 2, 2);
     }
@@ -720,6 +733,7 @@
       var py = 22 * drop;                      // bottom edge of the plate
       g.fillStyle = '#263c58'; g.fillRect(0, py - 22, NS.W, 22);
       g.fillStyle = '#58789b'; for (i = 0; i < 8; i++) g.fillRect(i * 34, py - 5, 25, 6);
+      NS.Art.block(g,0,py-22,NS.W,22,2,false);
       for (i = 0; i < f.cores.length; i++) {
         var c = f.cores[i]; if (c.dead) continue;
         var ck = NS.hitOffset(c), ccx = c.x + ck.x, ccy = c.y + ck.y;
@@ -727,8 +741,13 @@
         g.fillStyle = ff ? '#ff3038' : '#184b78'; g.beginPath(); g.arc(ccx, ccy, 12, 0, Math.PI * 2); g.fill();
         g.strokeStyle = ff ? '#ff9ba0' : (c.shield > 0 ? '#8ee8ff' : '#ffb154'); g.lineWidth = c.shield > 0 ? 4 : 2; g.stroke();
         g.fillStyle = ff ? '#ffc1c4' : '#ff7b4c'; g.beginPath(); g.arc(ccx, ccy, 5, 0, Math.PI * 2); g.fill();
+        if(NS.Art.active()){g.save();if(ff)g.filter='sepia(1) saturate(5) hue-rotate(315deg)';NS.Art.image(g,'boss2',ccx-12,ccy-12,24,24);NS.Art.image(g,c.shield>0?'coreClosed':'coreOpen',ccx-5,ccy-5,10,10);g.restore();}
       }
-      for (i = 0; i < f.balls.length; i++) { var ball = f.balls[i]; g.fillStyle = '#8fcaff'; g.beginPath(); g.arc(ball.x, ball.y, 5, 0, Math.PI * 2); g.fill(); }
+      for (i = 0; i < f.balls.length; i++) {
+        var ball=f.balls[i];
+        if(NS.Art.active()) NS.Weapons.drawFireball(g,ball,10);
+        else {g.fillStyle='#8fcaff';g.beginPath();g.arc(ball.x,ball.y,5,0,Math.PI*2);g.fill();}
+      }
     }
   }
 
@@ -749,8 +768,8 @@
        as flat yellow and cyan rectangles that matched neither stage 1 nor
        this stage's own voxel view */
     for (i = 0; i < L.shots.length; i++) NS.Weapons.drawShot(g, L.shots[i]);
-    for (i = 0; i < L.enemyShots.length; i++) { var es = L.enemyShots[i]; NS.Weapons.drawEnemyShot(g, { x: es.x - 2, y: es.y - 2, big: es.big }); }
-    for (i = 0; i < NS.Game.looseOptions.length; i++) { var o = NS.Game.looseOptions[i]; g.drawImage(NS.S.looseOption[(o.t >> 3) & 1], o.x - 2, o.y - 2); }
+    for (i = 0; i < L.enemyShots.length; i++) { var es = L.enemyShots[i]; NS.Weapons.drawEnemyShot(g, { x: es.x - 2, y: es.y - 2, big: es.big, vx:es.vx, vy:es.vy, t:es.t }); }
+    for (i = 0; i < NS.Game.looseOptions.length; i++) { NS.Game.drawLooseOption(g,NS.Game.looseOptions[i]); }
     if (L.boss) drawBoss(g, L.boss);
     if (L.transitionT > 0 && (L.transitionT >> 3) % 2 === 0) {
       g.font = '6px monospace'; g.textAlign = 'center'; g.fillStyle = '#9fe8ff';

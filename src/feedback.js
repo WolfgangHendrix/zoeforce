@@ -13,7 +13,7 @@
 
   var trauma = 0, age = 0, freeze = 0;
   var banner = null;
-  var bossRef = null, bossDisplayHp = 0, bossChipHp = 0, bossChipHold = 0;
+  var bossRef = null, bossKey = '', bossMax = 1, bossDisplayHp = 0, bossChipHp = 0, bossChipHold = 0;
 
   function setting(name, fallback) {
     var s = NS.Game && NS.Game.settings;
@@ -28,8 +28,20 @@
 
   F.reset = function () {
     trauma = age = freeze = 0; banner = null;
-    bossRef = null; bossDisplayHp = bossChipHp = bossChipHold = 0;
+    bossRef = null; bossKey = ''; bossMax = 1;
+    bossDisplayHp = bossChipHp = bossChipHold = 0;
   };
+
+  /* Zelos spends the visible meter on the serpent first. The heart's own
+     pool must not sit full on the bar while that serpent is what can be hit. */
+  function meterOf(b) {
+    if (!b) return null;
+    if (b.form === 'dragon' && b.maxDragonHp != null) {
+      return { key: 'dragon', hp: Math.max(0, b.dragonHp), max: b.maxDragonHp };
+    }
+    if (b.hp == null) return null;
+    return { key: 'core', hp: b.hp, max: b.maxHp || 1 };
+  }
 
   F.impact = function (kind, opt) {
     opt = opt || {};
@@ -113,18 +125,22 @@
     if (banner && --banner.t <= 0) banner = null;
 
     var b = G && G.boss;
-    if (b !== bossRef) {
-      bossRef = b;
-      bossDisplayHp = bossChipHp = b && b.hp != null ? b.hp : 0;
+    var meter = meterOf(b);
+    if (!meter) {
+      bossRef = null; bossKey = '';
+    } else if (b !== bossRef || meter.key !== bossKey) {
+      bossRef = b; bossKey = meter.key; bossMax = meter.max;
+      bossDisplayHp = bossChipHp = meter.hp;
       bossChipHold = 0;
-    } else if (b && b.hp != null) {
-      if (b.hp < bossDisplayHp) {
-        bossDisplayHp = b.hp;
+    } else {
+      bossMax = meter.max;
+      if (meter.hp < bossDisplayHp) {
+        bossDisplayHp = meter.hp;
         bossChipHold = 10;
       }
       if (bossChipHold > 0) bossChipHold--;
-      else bossChipHp = NS.lerp(bossChipHp, b.hp, 0.11);
-      if (bossChipHp < b.hp) bossChipHp = b.hp;
+      else bossChipHp = NS.lerp(bossChipHp, meter.hp, 0.11);
+      if (bossChipHp < meter.hp) bossChipHp = meter.hp;
     }
   };
 
@@ -146,7 +162,7 @@
 
   F.bossBar = function (boss) {
     if (!boss || boss !== bossRef) return null;
-    return { hp: bossDisplayHp, chip: bossChipHp, flash: bossChipHold > 0 };
+    return { hp: bossDisplayHp, chip: bossChipHp, max: bossMax, flash: bossChipHold > 0 };
   };
 
   function arrow(g, side, cross, color) {

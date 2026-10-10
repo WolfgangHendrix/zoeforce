@@ -2,13 +2,13 @@
 
 A playable **Life Force**-inspired six-stage campaign alternating horizontal
 and vertical combat from the organic corridor through Mechanical City.
-Vanilla JS, no build step. The simulation runs at 256×224 and is presented by
-a **real-geometry Three.js voxel view** by default, with the original pixel 2D
-renderer retained as a fallback and alternate view.
+Vanilla JS, no build step. The simulation runs at 256×224 and uses the original
+pixel 2D renderer when opened directly. On a local server, the real-geometry
+Three.js voxel view starts by default; `V` switches between the two.
 
 ## Run it
 
-Double-click `index.html` for the fallback 2D game — it still works from
+Double-click `index.html` for the original pixel 2D game — it works from
 `file://` (plain `<script>` tags, no modules).
 
 The default voxel view needs a real server, because three.js is ESM-only and
@@ -72,8 +72,12 @@ is multi-touch and analog, and feeds the same `NS.Input` the keyboard does.
 
 ## What's implemented
 
-**Power meter** — the Gradius/Life Force capsule system, six slots:
-`SPEED · MISSILE · RIPPLE · LASER · OPTION · FORCE`. Each capsule advances the
+The painted artwork and transition work is active in `../zoeforce2/`. Its art
+files and review material remain here for reference, but this version renders
+with the earlier pixel/voxel presentation.
+
+**Power meter** — the Gradius/Life Force capsule system, five slots:
+`SPEED · MISSILE · LASER · OPTION · FORCE`. Each capsule advances the
 highlight; `X` spends it. Speed has five incremental levels tuned for normalized
 keyboard and analog-stick movement. Options cap at 2 and trail the ship along
 its own flight path, Ripple and Laser are mutually exclusive, Force
@@ -194,13 +198,17 @@ channel reach it. Enrages below 45% HP. ~18s fight with the base gun.
 Seven sections in A minor with their own chord progressions, four-bar melodic
 phrases that answer each other, a bridge that lifts to the relative major,
 per-section drum kits with fills on the turnarounds, and a separate boss
-theme. Runs ~70s before repeating, and repeats past the intro rather than back
-into it. Still synthesised at schedule time — no audio assets.
+theme. Each stage reorders those sections and shifts key and tempo
+(`STAGE_MUSIC`); the boss theme stays in that stage's key. The Stage 6
+lockdown stays silent, then the victory card plays a slower, brighter pass
+of the main theme. Still synthesised at schedule time — no audio assets.
 
 **Voxel view** (`src/voxel.js`) — see below.
 
 **Death and recovery** — the stage keeps scrolling while the next life flies
-in instead of rewinding to a Gradius checkpoint. Power is wiped, but equipped
+in instead of rewinding to a Gradius checkpoint. The new ship is placed in
+the nearest open cell, so a gate or island on the old spawn point cannot
+chain-kill the next life. Power is wiped, but equipped
 Options turn green, drift slowly toward the left edge, and can be reclaimed by
 touching them. The default is 3 lives (configurable from 1–9), plus score,
 persisted hi-score, and chiptune WebAudio SFX.
@@ -264,8 +272,11 @@ NES campaign structure:
 - Latis Temple opens with ten paired three-ship power waves, then hatches,
   rocks and a three-core capsule-paying miniboss. Beyond it is an authored
   interior gauntlet of full masonry seals that must be shot open, pre-breached
-  high/low walls, moving pillars, hatch guns and destructible blocks, followed
-  by Tutanhamanattack's orbiting shield and eye weak point.
+  high/low walls, moving pillars, hatch guns and destructible blocks. Three of
+  its late seals expand into three-, four- and five-layer block fields: normal
+  fire must bore through every layer, buried cells hide limited power capsules,
+  and the two deepest fields rebuild behind the ship. Tutanhamanattack's
+  orbiting shield and eye weak point wait beyond them.
 - Mechanical City combines blue/gold formations, crystal bombs, cannons,
   crossing shutters and mouth-gated Moai without empty transitions between
   its major sections. Six visibly marked gold formations provide complete-set
@@ -382,12 +393,15 @@ Three places, in order of how much they matter:
 ## Debug hook
 
 Type `userspacechakra`, then press tilde/backquote to unlock and open the
-concealed QA console. After it has been unlocked, tilde toggles it for the
-rest of the page session. Opening the console freezes gameplay. It provides
-encounter warps for all six stages, direct jumps to every boss and the Stage 5
-miniboss, invincibility, full loadout and recovery controls, frame stepping,
-enemy/bullet cleanup, boss damage controls, pickup spawning, live telemetry,
-hitbox overlays, fullscreen, and 2D/voxel switching.
+concealed QA console. A source build can also open `index.html?debug=1`,
+which unlocks the console for that origin until **Lock Console** is used.
+After it has been unlocked, tilde toggles it for the rest of the page session.
+Opening the console freezes gameplay. It provides encounter warps for all six
+stages, direct jumps to every boss and the Stage 5 miniboss, invincibility,
+noclip, scroll freeze, 1×/2×/4× time, full loadout and recovery controls,
+frame stepping, enemy/bullet cleanup, boss damage controls, pickup spawning,
+campaign unlock, profile erase, live telemetry, hitbox and corridor overlays,
+fullscreen, and 2D/voxel switching.
 
 **CPU Showcase** in that console starts a fresh Stage 1 run, closes the panel,
 and pilots continuously through the Stage 6 ending. It flies, dodges, fires,

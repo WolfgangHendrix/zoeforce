@@ -131,6 +131,16 @@
     if (score > p.highScore) { p.highScore = score | 0; dirty = true; }
     return evaluate(p);
   };
+  /* QA hook. Does not grant achievements, and works while invincible. */
+  P.debugUnlockAll = function () {
+    P.init();
+    var p = P.current();
+    p.furthestStage = 6;
+    dirty = true;
+    persist('STAGES UNLOCKED');
+    return p;
+  };
+
   P.unlockStage = function (stage) {
     if (!recording()) return [];
     var p = P.current();

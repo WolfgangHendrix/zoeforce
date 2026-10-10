@@ -371,8 +371,27 @@
      heard once per run and never again. */
   var TRACKS = {
     stage: { order: ['intro', 'A', 'B', 'breakdown', 'bridge', 'A', 'turnaround'],
-             loopFrom: 1 },
-    boss:  { order: ['bossA'], loopFrom: 0 }
+             loopFrom: 1, semi: 0, rate: 1 },
+    boss:  { order: ['bossA'], loopFrom: 0, semi: 0, rate: 1.08 },
+    /* Victory card only. The Stage 6 climb stays silent on purpose. */
+    ending: { order: ['A', 'turnaround'], loopFrom: 0, semi: 7, rate: 0.86 }
+  };
+
+  /* Same sections, different order, key and tempo. Authoring six full
+     arrangements can replace these rows later without touching the mixer. */
+  var STAGE_MUSIC = {
+    1: { order: ['intro', 'A', 'B', 'breakdown', 'bridge', 'A', 'turnaround'],
+         loopFrom: 1, semi: 0, rate: 1, bossRate: 1.06 },
+    2: { order: ['intro', 'B', 'bridge', 'A', 'turnaround', 'breakdown'],
+         loopFrom: 1, semi: 2, rate: 1.04, bossRate: 1.08 },
+    3: { order: ['intro', 'bridge', 'B', 'A', 'turnaround', 'breakdown'],
+         loopFrom: 1, semi: 4, rate: 1.07, bossRate: 1.12 },
+    4: { order: ['intro', 'breakdown', 'A', 'bridge', 'B', 'turnaround'],
+         loopFrom: 1, semi: -4, rate: 0.95, bossRate: 1.04 },
+    5: { order: ['intro', 'A', 'breakdown', 'turnaround', 'bridge', 'B'],
+         loopFrom: 1, semi: -7, rate: 0.9, bossRate: 1.02 },
+    6: { order: ['intro', 'turnaround', 'B', 'A', 'bridge', 'breakdown'],
+         loopFrom: 1, semi: 3, rate: 1.1, bossRate: 1.14 }
   };
 
   var track = TRACKS.stage;
@@ -468,11 +487,12 @@
     var tri = TRIAD[chord.q];
 
     /* --- bass: chord root and fifth, an octave and a half below the lead */
+    var semi = track.semi || 0;
     var bassTok = sec.bass[slot.bar][s];
     if (bassTok && bassTok !== '.' && bassTok !== '-') {
       var bn = parseInt(bassTok, 10);
       var bdur = heldSteps(sec.bass[slot.bar], s) * SPB * 0.92;
-      blip(t, hz(55, bn), bdur, 0.26, 'triangle');
+      blip(t, hz(55, bn + semi), bdur, 0.26, 'triangle');
     }
 
     /* --- lead */
@@ -480,14 +500,14 @@
     if (leadTok && leadTok !== '.' && leadTok !== '-') {
       var ln = parseInt(leadTok, 10);
       var ldur = heldSteps(sec.lead[slot.bar], s) * SPB * 0.95;
-      blip(t, hz(220, ln), ldur, 0.115, 'square');
+      blip(t, hz(220, ln + semi), ldur, 0.115, 'square');
       /* a quiet detuned double gives the lead some width */
-      blip(t, hz(220, ln), ldur * 0.8, 0.045, 'square', 8);
+      blip(t, hz(220, ln + semi), ldur * 0.8, 0.045, 'square', 8);
     }
 
     /* --- inner harmony: the chord's third, on the offbeats, quietly */
     if (s % 4 === 2) {
-      blip(t, hz(110, chord.root + tri[1]), SPB * 1.6, 0.035, 'square');
+      blip(t, hz(110, chord.root + tri[1] + semi), SPB * 1.6, 0.035, 'square');
     }
 
     /* --- drums, with the section's last bar taking a fill */
@@ -523,13 +543,40 @@
 
   /* Switch arrangements. Restarting from bar 0 is deliberate: the boss
      theme should hit on its downbeat, not wherever the stage track was. */
+  function applyTempo(next) {
+    var rate = next && next.rate ? next.rate : 1;
+    BPM = 148 * rate;
+    SPB = 60 / BPM / 4;
+  }
+
   function setTrack(name) {
     var next = TRACKS[name] || TRACKS.stage;
-    if (next === track) return;
-    track = next;
-    step = 0;
-    buildTimeline();
+    if (next !== track) {
+      track = next;
+      step = 0;
+      timeline = [];
+    }
+    applyTempo(track);
+    if (!timeline.length) buildTimeline();
     if (musicTimer && ctx) nextTime = ctx.currentTime + 0.05;
+  }
+
+  /* Called at each stage entry, before setTrack('stage') or setTrack('boss').
+     Boss music stays in the stage's key and takes that stage's tempo. */
+  function prepareStage(stage) {
+    var spec = STAGE_MUSIC[stage] || STAGE_MUSIC[1];
+    TRACKS.stage.order = spec.order.slice();
+    TRACKS.stage.loopFrom = spec.loopFrom;
+    TRACKS.stage.semi = spec.semi || 0;
+    TRACKS.stage.rate = spec.rate || 1;
+    TRACKS.boss.semi = spec.semi || 0;
+    TRACKS.boss.rate = spec.bossRate || 1.08;
+    if (track === TRACKS.stage || track === TRACKS.boss) {
+      applyTempo(track);
+      step = 0;
+      timeline = [];
+      buildTimeline();
+    }
   }
 
   NS.Audio = {
@@ -538,6 +585,18 @@
     startMusic: startMusic,
     stopMusic: stopMusic,
     setTrack: setTrack,
+    prepareStage: prepareStage,
+    stageMusic: function () {
+      return {
+        order: TRACKS.stage.order.slice(),
+        semi: TRACKS.stage.semi || 0,
+        rate: TRACKS.stage.rate || 1,
+        bossSemi: TRACKS.boss.semi || 0,
+        bossRate: TRACKS.boss.rate || 1,
+        endingSemi: TRACKS.ending.semi,
+        endingRate: TRACKS.ending.rate
+      };
+    },
     setVolumes: setVolumes,
     duck: duck,
     volumes: function () { return { master: volumes.master, music: volumes.music, sfx: volumes.sfx }; },

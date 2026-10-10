@@ -111,7 +111,8 @@
       if (e.kind === 'spark' || e.kind === 'chunk') {
         var pal = ramp(e.hue);
         g.fillStyle = pal[Math.min(pal.length - 1, (k * pal.length) | 0)];
-        g.fillRect(e.x | 0, e.y | 0, e.size, e.size);
+        if (NS.Art && NS.Art.active()) { g.beginPath(); g.arc(e.x,e.y,e.size/2,0,Math.PI*2); g.fill(); }
+        else g.fillRect(e.x | 0, e.y | 0, e.size, e.size);
       } else if (e.kind === 'trail') {
         g.globalAlpha = 1 - k;
         g.fillStyle = e.color;

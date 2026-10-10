@@ -31,6 +31,7 @@
     this.alive = true;
     this.dying = 0;
     this.invuln = INVULN_FRAMES;
+    this.embedGrace = 0;
     this.fireCd = 0;
     this.anim = 0;
     this.bank = 0;
@@ -191,15 +192,21 @@
 
     /* Animated hazards stay lethal in both modes. When wall damage is off,
        resolve each movement axis independently: the blocked component stops
-       while the component parallel to the surface survives as a slide. */
-    if (hitsWall(this, scrollX)) {
-      if (!NS.Game.settings || NS.Game.settings.wallDamage !== false) {
+       while the component parallel to the surface survives as a slide.
+       embedGrace exists only after a respawn that found no open cell, so the
+       new ship can still fly out of a sealed gate. Ordinary contact does
+       not receive that grace, and noclip is the authoring bypass. */
+    var noclip = NS.Debug && NS.Debug.noclip;
+    if (this.embedGrace > 0) this.embedGrace--;
+    if (!noclip && hitsWall(this, scrollX)) {
+      if (this.embedGrace > 0 || (NS.Game.settings && NS.Game.settings.wallDamage === false)) {
+        resolveWallSlide(this, scrollX, oldX, oldY);
+      } else {
         this.kill(true);
         return;
       }
-      resolveWallSlide(this, scrollX, oldX, oldY);
     }
-    if (hitsHazard(this)) {
+    if (!noclip && this.embedGrace <= 0 && hitsHazard(this)) {
       this.kill(true);
       return;
     }
@@ -230,6 +237,65 @@
     if (this.fireCd === 0 && wantsFire) {
       this.fire();
     }
+  };
+
+  function screenLimits(p) {
+    var exhaustPad = p.orientation === 'vertical' ? NS.S.flameTop.height - 1 : 0;
+    return {
+      minX: p.sw * 0.5,
+      maxX: NS.W - p.sw * 0.5,
+      minY: p.sh * 0.5,
+      maxY: NS.PLAYFIELD_H - p.sh * 0.5 - exhaustPad
+    };
+  }
+
+  /* Respawn used to drop the ship on one fixed screen point. A gate, island
+     or temple seal sitting on that point killed the new life on the same
+     frame, because terrain ignores the blink. Search for daylight first. */
+  function overlapsTerrain(p, margin) {
+    var w = p.w, h = p.h;
+    p.w = w + margin * 2;
+    p.h = h + margin * 2;
+    var hit = hitsWall(p, NS.Game.scrollX) || hitsHazard(p);
+    p.w = w;
+    p.h = h;
+    return hit;
+  }
+
+  Player.prototype.placeClear = function (x, y) {
+    var box = screenLimits(this);
+    function fit(px, py) {
+      return {
+        x: NS.clamp(px, box.minX, box.maxX),
+        y: NS.clamp(py, box.minY, box.maxY)
+      };
+    }
+    var seeds = [fit(x, y)];
+    var ring;
+    for (ring = 8; ring <= 112; ring += 8) {
+      seeds.push(fit(x - ring, y), fit(x + ring, y), fit(x, y - ring), fit(x, y + ring));
+      seeds.push(fit(x - ring, y - ring * 0.5), fit(x + ring, y - ring * 0.5));
+      seeds.push(fit(x - ring, y + ring * 0.5), fit(x + ring, y + ring * 0.5));
+    }
+    var gy, gx;
+    for (gy = box.minY; gy <= box.maxY; gy += 8) {
+      for (gx = box.minX; gx <= box.maxX; gx += 10) seeds.push({ x: gx, y: gy });
+    }
+    for (var i = 0; i < seeds.length; i++) {
+      this.x = seeds[i].x;
+      this.y = seeds[i].y;
+      if (!overlapsTerrain(this, 3)) {
+        this.embedGrace = 0;
+        this.trail = [{ x: this.x, y: this.y }];
+        return true;
+      }
+    }
+    var fallback = fit(x, y);
+    this.x = fallback.x;
+    this.y = fallback.y;
+    this.trail = [{ x: this.x, y: this.y }];
+    this.embedGrace = 48;
+    return false;
   };
 
   function hitsWall(p, scrollX) {

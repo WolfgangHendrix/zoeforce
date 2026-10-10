@@ -1,0 +1,4460 @@
+{
+  "baseline": {
+    "capturedAt": "2026-09-28T20:26:59.085Z",
+    "root": "C:\\Users\\santi\\games\\zoeforce",
+    "commit": "958584d45b57b480620ff735da2c6a6b278734c7",
+    "existingChanges": [
+      "M GOALS.md",
+      " M README.md",
+      " M docs/life-force-reference.md",
+      " M scratchpad/polish-smoke.html",
+      " M src/audio.js",
+      " M src/campaign.js",
+      " M src/debug.js",
+      " M src/feedback.js",
+      " M src/game.js",
+      " M src/level2.js",
+      " M src/player.js",
+      " M src/profile.js",
+      " M src/voxel.js"
+    ],
+    "sourceHashes": {
+      "index.html": "6d085aec4b3263923694e6db3474b07bd6d53f55d02127790f2ea7e8d3448962",
+      "src/audio.js": "39f1663373aa022c64e6b3dd05694d1364b68a3cddd609d9c65c6076d5e07fae",
+      "src/autoplay.js": "22f5c0e181adb3caa8852533dac8520c5910dea5410b3f7e659170a80041cbc9",
+      "src/boss.js": "fef33a434ff5b6b4bac8e071743b7c9a826ba2593225d27dfef66761e20a950c",
+      "src/campaign.js": "e5bd8a24670e2f69bb01677d9db2ca2fe45ff58bbc857472b01c8fb93f8a5cfc",
+      "src/core.js": "1984a3ca31c9870a10723083a58b1e59c64df98d844277a64ae44e6b368a7710",
+      "src/debug.js": "e4fd9fbff57511d8dfba8b38168f7524c7df5f45ff3123ac6676ecc44e3ca953",
+      "src/enemies.js": "1ccb976b03690d94e271a7cb3695671598fdc940db352a95342d97ee5212b630",
+      "src/feedback.js": "3b42c5adf04825123e159a36a1c6e9b9bfc4635d7491dd7ed81ad9872acd3841",
+      "src/fx.js": "be5a44a180e3095228d7b32d69048627c4e51e33c7286f47be4226f4e3e617e2",
+      "src/game.js": "6a3dde1ea4d013ac87209e3375a42daec9d500060f63d347f1e51c936861dbcc",
+      "src/gunner.js": "7aa6d80d7b531af1f7ad9a29cdcb0f0469df054b6f309836cb538a9a4149fc5e",
+      "src/intro.js": "be68d674380cc8eda853424670574176a5bc2bf759cb9e53d029d2b535d40e1a",
+      "src/level1.js": "e38a2e330021029e37d68398f20ddba5fcdcbec6b58d34bf021d17f2dd5f7660",
+      "src/level2.js": "dfb84772e161044bec8f1662de6736328e84b1c9cc5ee537e0719e3e33ff82eb",
+      "src/player.js": "3ce14a2e5cc61191bae48ebb8474ed5e9d2e5a92b47f22f2681efba7ac2aa719",
+      "src/profile.js": "b1e749014959e2851b799496d3de7e361f102de3f189ddf7f1cbc43bbd577ed0",
+      "src/save.js": "8b971dab3082d7b48d57bf6976fdc725d72e8863eb19087a138c76928fc6216a",
+      "src/sprites.js": "61d85aa11f68f43695fc5f4fce86185d4834035c055ffb75ad451bcaf254115c",
+      "src/terrain.js": "e629ddf774d7d2efdaeda3f7f37777afb60b4a4f7980f3406f7d809c170d88f1",
+      "src/touch.js": "f3a994c4cae4d2c7acc326fae2fd0c0ccf138ca377e6a50d3ec290188820bb9e",
+      "src/voxel.js": "2c3a259246bc565ab9096cb73069bb2b5d239f64d99611696355ae56f920d03c",
+      "src/weapons.js": "02e5bf5041babd13a47dd4497c5c8d3a541af11f0072164742e121810b011b67"
+    },
+    "notes": [
+      "Current local working tree, including pre-existing enhancements.",
+      "New isolated browser context; normal player saves untouched.",
+      "Existing debug warps and frame stepping used for coverage; not proof of full campaign passability.",
+      "Capture-only CSS hides the outside control hint and removes its layout gap.",
+      "Frame-stepped footage is labeled; it documents original transitions, not real-time performance."
+    ]
+  },
+  "captures": [
+    {
+      "id": "ui-loading",
+      "scene": "ui-loading",
+      "label": "Loading / boot",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-loading.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "id": "ui-main-2d",
+      "scene": "ui-main",
+      "label": "Title / main menu",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-main-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-main-voxel",
+      "scene": "ui-main",
+      "label": "Title / main menu",
+      "group": "UI",
+      "renderer": "voxel",
+      "file": "screens/ui-main-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "ui-stages-2d",
+      "scene": "ui-stages",
+      "label": "Stage selection — fresh profile",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-stages-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "stages",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-options-2d",
+      "scene": "ui-options",
+      "label": "Options — keyboard selection",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-options-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "options",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-controls-2d",
+      "scene": "ui-controls",
+      "label": "Controls / remapping",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-controls-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "controls",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-profiles-2d",
+      "scene": "ui-profiles",
+      "label": "Pilot profiles",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-profiles-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "profiles",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-records-2d",
+      "scene": "ui-records",
+      "label": "Career records",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-records-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "records",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-stages-unlocked-2d",
+      "scene": "ui-stages-unlocked",
+      "label": "Stage selection — all six stages unlocked",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-stages-unlocked-2d.png",
+      "notes": "QA unlock in isolated saves.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "stages",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-achievements-2d",
+      "scene": "ui-achievements",
+      "label": "Achievements / locked rewards",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-achievements-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "records",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-profile-erase-2d",
+      "scene": "ui-profile-erase",
+      "label": "Erase profile confirmation — Cancel selected",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-profile-erase-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "profiles",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-controls-gamepad-2d",
+      "scene": "ui-controls-gamepad",
+      "label": "Controls / gamepad bindings",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-controls-gamepad-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "controls",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-controls-waiting-2d",
+      "scene": "ui-controls-waiting",
+      "label": "Controls / waiting for replacement fire input",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-controls-waiting-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "controls",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-pause-main-2d",
+      "scene": "ui-pause-main",
+      "label": "Pause menu",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-pause-main-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "paused",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 2170.399999999995,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 30,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-pause-options-2d",
+      "scene": "ui-pause-options",
+      "label": "Pause / options",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-pause-options-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "paused",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": "options",
+        "scroll": 2170.399999999995,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 30,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-pause-controls-2d",
+      "scene": "ui-pause-controls",
+      "label": "Pause / controls",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-pause-controls-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "paused",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": "controls",
+        "scroll": 2170.399999999995,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 30,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-pause-records-2d",
+      "scene": "ui-pause-records",
+      "label": "Pause / career records",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-pause-records-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "paused",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": "records",
+        "scroll": 2170.399999999995,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 30,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-pause-achievements-2d",
+      "scene": "ui-pause-achievements",
+      "label": "Pause / achievements",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-pause-achievements-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "paused",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": "records",
+        "scroll": 2170.399999999995,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 30,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-confirm-restart-2d",
+      "scene": "ui-confirm-restart",
+      "label": "Restart confirmation",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-confirm-restart-2d.png",
+      "notes": "Existing confirmation text rendered directly; Cancel is the default.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "paused",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 2170.399999999995,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 30,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-confirm-quit-2d",
+      "scene": "ui-confirm-quit",
+      "label": "Quit confirmation",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-confirm-quit-2d.png",
+      "notes": "Existing confirmation text rendered directly; Cancel is the default.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "paused",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 2170.399999999995,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 30,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-continue-2d",
+      "scene": "ui-continue",
+      "label": "Continue countdown / restart stage",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-continue-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "continue",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 2166.999999999996,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 25,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-gameover-2d",
+      "scene": "ui-gameover",
+      "label": "Game over",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-gameover-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "gameover",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 2166.999999999996,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 25,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-ending-2d",
+      "scene": "ui-ending",
+      "label": "Campaign ending / victory card",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-ending-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "clear",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 25,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-achievement-save-2d",
+      "scene": "ui-achievement-save",
+      "label": "Achievement notification, save indicator and loaded HUD",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-achievement-save-2d.png",
+      "notes": "Notification forced in isolated capture state.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 1093.2000000000057,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "laser",
+          "alive": true
+        },
+        "frame": 90,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "ui-achievement-save-voxel",
+      "scene": "ui-achievement-save",
+      "label": "Achievement notification, save indicator and loaded HUD",
+      "group": "UI",
+      "renderer": "voxel",
+      "file": "screens/ui-achievement-save-voxel.png",
+      "notes": "Notification forced in isolated capture state.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 1093.2000000000057,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "laser",
+          "alive": true
+        },
+        "frame": 90,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "ui-focus-lost-2d",
+      "scene": "ui-focus-lost",
+      "label": "Automatic pause / focus lost",
+      "group": "UI",
+      "renderer": "2d",
+      "file": "screens/ui-focus-lost-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "paused",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 1093.2000000000057,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "laser",
+          "alive": true
+        },
+        "frame": 90,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-1-opening-2d",
+      "scene": "stage-1-opening",
+      "label": "BIO-CATHEDRAL / opening",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "2d",
+      "file": "screens/stage-1-opening-2d.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 265.00000000000136,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 200,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-1-opening-voxel",
+      "scene": "stage-1-opening",
+      "label": "BIO-CATHEDRAL / opening",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "voxel",
+      "file": "screens/stage-1-opening-voxel.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 265.00000000000136,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 200,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-1-middle-2d",
+      "scene": "stage-1-middle",
+      "label": "BIO-CATHEDRAL / middle",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "2d",
+      "file": "screens/stage-1-middle-2d.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 4216.400000000038,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 130,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-1-middle-voxel",
+      "scene": "stage-1-middle",
+      "label": "BIO-CATHEDRAL / middle",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "voxel",
+      "file": "screens/stage-1-middle-voxel.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 4216.400000000038,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 130,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-1-late-2d",
+      "scene": "stage-1-late",
+      "label": "BIO-CATHEDRAL / late",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "2d",
+      "file": "screens/stage-1-late-2d.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7636.000000000029,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 100,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-1-late-voxel",
+      "scene": "stage-1-late",
+      "label": "BIO-CATHEDRAL / late",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "voxel",
+      "file": "screens/stage-1-late-voxel.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7636.000000000029,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 100,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-1-story-2d",
+      "scene": "stage-1-story",
+      "label": "BIO-CATHEDRAL / stage story card",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "2d",
+      "file": "screens/stage-1-story-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 0,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-1-story-voxel",
+      "scene": "stage-1-story",
+      "label": "BIO-CATHEDRAL / stage story card",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "voxel",
+      "file": "screens/stage-1-story-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 0,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-1-boss-2d",
+      "scene": "stage-1-boss",
+      "label": "GOLEM OSSUARY / encounter",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "2d",
+      "file": "screens/stage-1-boss-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "GOLEM OSSUARY",
+          "form": null,
+          "hp": 70,
+          "dead": false
+        },
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 280,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-1-boss-voxel",
+      "scene": "stage-1-boss",
+      "label": "GOLEM OSSUARY / encounter",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "voxel",
+      "file": "screens/stage-1-boss-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "GOLEM OSSUARY",
+          "form": null,
+          "hp": 70,
+          "dead": false
+        },
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 280,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-1-boss-core-2d",
+      "scene": "stage-1-boss-core",
+      "label": "Golem Ossuary / open weak point",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "2d",
+      "file": "screens/stage-1-boss-core-2d.png",
+      "notes": "Existing boss open-state renderer selected for reference.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "GOLEM OSSUARY",
+          "form": null,
+          "hp": 70,
+          "dead": false
+        },
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 280,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-1-boss-core-voxel",
+      "scene": "stage-1-boss-core",
+      "label": "Golem Ossuary / open weak point",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "voxel",
+      "file": "screens/stage-1-boss-core-voxel.png",
+      "notes": "Existing boss open-state renderer selected for reference.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "GOLEM OSSUARY",
+          "form": null,
+          "hp": 70,
+          "dead": false
+        },
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 280,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-2-opening-2d",
+      "scene": "stage-2-opening",
+      "label": "VOLCANIC ASCENT / opening",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "2d",
+      "file": "screens/stage-2-opening-2d.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 239.50000000000136,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 236,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-2-opening-voxel",
+      "scene": "stage-2-opening",
+      "label": "VOLCANIC ASCENT / opening",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "voxel",
+      "file": "screens/stage-2-opening-voxel.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 239.50000000000136,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 236,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-2-middle-2d",
+      "scene": "stage-2-middle",
+      "label": "VOLCANIC ASCENT / middle",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "2d",
+      "file": "screens/stage-2-middle-2d.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 3400.3999999999787,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 366,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-2-middle-voxel",
+      "scene": "stage-2-middle",
+      "label": "VOLCANIC ASCENT / middle",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "voxel",
+      "file": "screens/stage-2-middle-voxel.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 3400.3999999999787,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 366,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-2-late-2d",
+      "scene": "stage-2-late",
+      "label": "VOLCANIC ASCENT / late",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "2d",
+      "file": "screens/stage-2-late-2d.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 6140.000000000029,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-2-late-voxel",
+      "scene": "stage-2-late",
+      "label": "VOLCANIC ASCENT / late",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "voxel",
+      "file": "screens/stage-2-late-voxel.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 6140.000000000029,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-2-story-2d",
+      "scene": "stage-2-story",
+      "label": "VOLCANIC ASCENT / stage story card",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "2d",
+      "file": "screens/stage-2-story-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-2-story-voxel",
+      "scene": "stage-2-story",
+      "label": "VOLCANIC ASCENT / stage story card",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "voxel",
+      "file": "screens/stage-2-story-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-2-boss-2d",
+      "scene": "stage-2-boss",
+      "label": "CRUISER TETRAN / encounter",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "2d",
+      "file": "screens/stage-2-boss-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8350,
+        "boss": {
+          "name": "CRUISER TETRAN",
+          "form": null,
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 801,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-2-boss-voxel",
+      "scene": "stage-2-boss",
+      "label": "CRUISER TETRAN / encounter",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "voxel",
+      "file": "screens/stage-2-boss-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8350,
+        "boss": {
+          "name": "CRUISER TETRAN",
+          "form": null,
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 801,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-2-volcano-2d",
+      "scene": "stage-2-volcano",
+      "label": "Volcano route",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "2d",
+      "file": "screens/stage-2-volcano-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 3967.9999999999836,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 901,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-2-volcano-voxel",
+      "scene": "stage-2-volcano",
+      "label": "Volcano route",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "voxel",
+      "file": "screens/stage-2-volcano-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 3967.9999999999836,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 901,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-2-rocks-2d",
+      "scene": "stage-2-rocks",
+      "label": "Rock storm",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "2d",
+      "file": "screens/stage-2-rocks-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 5648.000000000029,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1001,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-2-rocks-voxel",
+      "scene": "stage-2-rocks",
+      "label": "Rock storm",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "voxel",
+      "file": "screens/stage-2-rocks-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 5648.000000000029,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1001,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-2-fortress-2d",
+      "scene": "stage-2-fortress",
+      "label": "Valis Fortress cores",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "2d",
+      "file": "screens/stage-2-fortress-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 6900,
+        "boss": {
+          "name": "VALIS FORTRESS",
+          "form": null,
+          "hp": 216,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1101,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-2-fortress-voxel",
+      "scene": "stage-2-fortress",
+      "label": "Valis Fortress cores",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "voxel",
+      "file": "screens/stage-2-fortress-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 6900,
+        "boss": {
+          "name": "VALIS FORTRESS",
+          "form": null,
+          "hp": 216,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1101,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-2-passage-2d",
+      "scene": "stage-2-passage",
+      "label": "Core passage",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "2d",
+      "file": "screens/stage-2-passage-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7215.760000000009,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1201,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-2-passage-voxel",
+      "scene": "stage-2-passage",
+      "label": "Core passage",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "voxel",
+      "file": "screens/stage-2-passage-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7215.760000000009,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1201,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-3-opening-2d",
+      "scene": "stage-3-opening",
+      "label": "PROMINENCE INFERNO / opening",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "2d",
+      "file": "screens/stage-3-opening-2d.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 250.00000000000136,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 236,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-3-opening-voxel",
+      "scene": "stage-3-opening",
+      "label": "PROMINENCE INFERNO / opening",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "voxel",
+      "file": "screens/stage-3-opening-voxel.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 250.00000000000136,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 236,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-3-middle-2d",
+      "scene": "stage-3-middle",
+      "label": "PROMINENCE INFERNO / middle",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "2d",
+      "file": "screens/stage-3-middle-2d.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 3736.3999999999787,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 366,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-3-middle-voxel",
+      "scene": "stage-3-middle",
+      "label": "PROMINENCE INFERNO / middle",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "voxel",
+      "file": "screens/stage-3-middle-voxel.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 3736.3999999999787,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 366,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-3-late-2d",
+      "scene": "stage-3-late",
+      "label": "PROMINENCE INFERNO / late",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "2d",
+      "file": "screens/stage-3-late-2d.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 6756.000000000029,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-3-late-voxel",
+      "scene": "stage-3-late",
+      "label": "PROMINENCE INFERNO / late",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "voxel",
+      "file": "screens/stage-3-late-voxel.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 6756.000000000029,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-3-story-2d",
+      "scene": "stage-3-story",
+      "label": "PROMINENCE INFERNO / stage story card",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "2d",
+      "file": "screens/stage-3-story-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-3-story-voxel",
+      "scene": "stage-3-story",
+      "label": "PROMINENCE INFERNO / stage story card",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "voxel",
+      "file": "screens/stage-3-story-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-3-boss-2d",
+      "scene": "stage-3-boss",
+      "label": "INTRUDER / encounter",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "2d",
+      "file": "screens/stage-3-boss-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7600,
+        "boss": {
+          "name": "INTRUDER",
+          "form": null,
+          "hp": 105,
+          "dead": false
+        },
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 801,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-3-boss-voxel",
+      "scene": "stage-3-boss",
+      "label": "INTRUDER / encounter",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "voxel",
+      "file": "screens/stage-3-boss-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7600,
+        "boss": {
+          "name": "INTRUDER",
+          "form": null,
+          "hp": 105,
+          "dead": false
+        },
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 801,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-4-opening-2d",
+      "scene": "stage-4-opening",
+      "label": "CELLULAR CURRENT / opening",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "2d",
+      "file": "screens/stage-4-opening-2d.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 254.50000000000136,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 236,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-4-opening-voxel",
+      "scene": "stage-4-opening",
+      "label": "CELLULAR CURRENT / opening",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "voxel",
+      "file": "screens/stage-4-opening-voxel.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 254.50000000000136,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 236,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-4-middle-2d",
+      "scene": "stage-4-middle",
+      "label": "CELLULAR CURRENT / middle",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "2d",
+      "file": "screens/stage-4-middle-2d.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 3880.3999999999787,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 366,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-4-middle-voxel",
+      "scene": "stage-4-middle",
+      "label": "CELLULAR CURRENT / middle",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "voxel",
+      "file": "screens/stage-4-middle-voxel.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 3880.3999999999787,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 366,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-4-late-2d",
+      "scene": "stage-4-late",
+      "label": "CELLULAR CURRENT / late",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "2d",
+      "file": "screens/stage-4-late-2d.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7020.000000000029,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-4-late-voxel",
+      "scene": "stage-4-late",
+      "label": "CELLULAR CURRENT / late",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "voxel",
+      "file": "screens/stage-4-late-voxel.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7020.000000000029,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-4-story-2d",
+      "scene": "stage-4-story",
+      "label": "CELLULAR CURRENT / stage story card",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "2d",
+      "file": "screens/stage-4-story-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-4-story-voxel",
+      "scene": "stage-4-story",
+      "label": "CELLULAR CURRENT / stage story card",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "voxel",
+      "file": "screens/stage-4-story-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-4-boss-2d",
+      "scene": "stage-4-boss",
+      "label": "GIGA / encounter",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "2d",
+      "file": "screens/stage-4-boss-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7900,
+        "boss": {
+          "name": "GIGA",
+          "form": null,
+          "hp": 125,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 801,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-4-boss-voxel",
+      "scene": "stage-4-boss",
+      "label": "GIGA / encounter",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "voxel",
+      "file": "screens/stage-4-boss-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7900,
+        "boss": {
+          "name": "GIGA",
+          "form": null,
+          "hp": 125,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 801,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-5-opening-2d",
+      "scene": "stage-5-opening",
+      "label": "LATIS TEMPLE / opening",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "2d",
+      "file": "screens/stage-5-opening-2d.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 277.00000000000136,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 236,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-5-opening-voxel",
+      "scene": "stage-5-opening",
+      "label": "LATIS TEMPLE / opening",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "voxel",
+      "file": "screens/stage-5-opening-voxel.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 277.00000000000136,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 236,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-5-middle-2d",
+      "scene": "stage-5-middle",
+      "label": "LATIS TEMPLE / middle",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "2d",
+      "file": "screens/stage-5-middle-2d.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 4600.400000000038,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 366,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-5-middle-voxel",
+      "scene": "stage-5-middle",
+      "label": "LATIS TEMPLE / middle",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "voxel",
+      "file": "screens/stage-5-middle-voxel.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 4600.400000000038,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 366,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-5-late-2d",
+      "scene": "stage-5-late",
+      "label": "LATIS TEMPLE / late",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "2d",
+      "file": "screens/stage-5-late-2d.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8340.00000000003,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-5-late-voxel",
+      "scene": "stage-5-late",
+      "label": "LATIS TEMPLE / late",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "voxel",
+      "file": "screens/stage-5-late-voxel.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8340.00000000003,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-5-story-2d",
+      "scene": "stage-5-story",
+      "label": "LATIS TEMPLE / stage story card",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "2d",
+      "file": "screens/stage-5-story-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-5-story-voxel",
+      "scene": "stage-5-story",
+      "label": "LATIS TEMPLE / stage story card",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "voxel",
+      "file": "screens/stage-5-story-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 466,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-5-boss-2d",
+      "scene": "stage-5-boss",
+      "label": "TUTANHAMANATTACK / encounter",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "2d",
+      "file": "screens/stage-5-boss-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 9400,
+        "boss": {
+          "name": "TUTANHAMANATTACK",
+          "form": null,
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 801,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-5-boss-voxel",
+      "scene": "stage-5-boss",
+      "label": "TUTANHAMANATTACK / encounter",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "voxel",
+      "file": "screens/stage-5-boss-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 9400,
+        "boss": {
+          "name": "TUTANHAMANATTACK",
+          "form": null,
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 801,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-5-miniboss-2d",
+      "scene": "stage-5-miniboss",
+      "label": "Triple Core temple miniboss",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "2d",
+      "file": "screens/stage-5-miniboss-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 5200,
+        "boss": {
+          "name": "TRIPLE CORE GUARD",
+          "form": null,
+          "hp": 96,
+          "dead": false
+        },
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1021,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-5-miniboss-voxel",
+      "scene": "stage-5-miniboss",
+      "label": "Triple Core temple miniboss",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "voxel",
+      "file": "screens/stage-5-miniboss-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 5200,
+        "boss": {
+          "name": "TRIPLE CORE GUARD",
+          "form": null,
+          "hp": 96,
+          "dead": false
+        },
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1021,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-5-barriers-2d",
+      "scene": "stage-5-barriers",
+      "label": "Temple / shoot-through masonry and hidden cells",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "2d",
+      "file": "screens/stage-5-barriers-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 5437.60000000002,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1091,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-5-barriers-voxel",
+      "scene": "stage-5-barriers",
+      "label": "Temple / shoot-through masonry and hidden cells",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "voxel",
+      "file": "screens/stage-5-barriers-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 5437.60000000002,
+        "boss": null,
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1091,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-6-opening-2d",
+      "scene": "stage-6-opening",
+      "label": "MECHANICAL CITY / opening",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "2d",
+      "file": "screens/stage-6-opening-2d.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 265.00000000000136,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 236,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-6-opening-voxel",
+      "scene": "stage-6-opening",
+      "label": "MECHANICAL CITY / opening",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "voxel",
+      "file": "screens/stage-6-opening-voxel.png",
+      "notes": "QA position at 2% followed by 200 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 265.00000000000136,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 236,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-6-middle-2d",
+      "scene": "stage-6-middle",
+      "label": "MECHANICAL CITY / middle",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "2d",
+      "file": "screens/stage-6-middle-2d.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 4216.400000000038,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 366,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-6-middle-voxel",
+      "scene": "stage-6-middle",
+      "label": "MECHANICAL CITY / middle",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "voxel",
+      "file": "screens/stage-6-middle-voxel.png",
+      "notes": "QA position at 48% followed by 130 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 4216.400000000038,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 366,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-6-late-2d",
+      "scene": "stage-6-late",
+      "label": "MECHANICAL CITY / late",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "2d",
+      "file": "screens/stage-6-late-2d.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7652.864000000001,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 462,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-6-late-voxel",
+      "scene": "stage-6-late",
+      "label": "MECHANICAL CITY / late",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "voxel",
+      "file": "screens/stage-6-late-voxel.png",
+      "notes": "QA position at 88% followed by 100 simulation frames.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7652.864000000001,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 462,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-6-story-2d",
+      "scene": "stage-6-story",
+      "label": "MECHANICAL CITY / stage story card",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "2d",
+      "file": "screens/stage-6-story-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 462,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-6-story-voxel",
+      "scene": "stage-6-story",
+      "label": "MECHANICAL CITY / stage story card",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "voxel",
+      "file": "screens/stage-6-story-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 462,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-6-boss-2d",
+      "scene": "stage-6-boss",
+      "label": "ZELOS FORCE / encounter",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "2d",
+      "file": "screens/stage-6-boss-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "ZELOS FORCE",
+          "form": "dragon",
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 797,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-6-boss-voxel",
+      "scene": "stage-6-boss",
+      "label": "ZELOS FORCE / encounter",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "voxel",
+      "file": "screens/stage-6-boss-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "ZELOS FORCE",
+          "form": "dragon",
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 797,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-6-heart-2d",
+      "scene": "stage-6-heart",
+      "label": "Zelos Force / exposed heart phase",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "2d",
+      "file": "screens/stage-6-heart-2d.png",
+      "notes": "Debug phase switch retains existing heart renderer.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "ZELOS FORCE",
+          "form": "heart",
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 897,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-6-heart-voxel",
+      "scene": "stage-6-heart",
+      "label": "Zelos Force / exposed heart phase",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "voxel",
+      "file": "screens/stage-6-heart-voxel.png",
+      "notes": "Debug phase switch retains existing heart renderer.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "ZELOS FORCE",
+          "form": "heart",
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 897,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-6-escape-60-2d",
+      "scene": "stage-6-escape-60",
+      "label": "Final escape / frame 60",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "2d",
+      "file": "screens/stage-6-escape-60-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 42,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 953,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-6-escape-60-voxel",
+      "scene": "stage-6-escape-60",
+      "label": "Final escape / frame 60",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "voxel",
+      "file": "screens/stage-6-escape-60-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 42,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 953,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-6-escape-230-2d",
+      "scene": "stage-6-escape-230",
+      "label": "Final escape / frame 230",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "2d",
+      "file": "screens/stage-6-escape-230-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 42,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1179,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-6-escape-230-voxel",
+      "scene": "stage-6-escape-230",
+      "label": "Final escape / frame 230",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "voxel",
+      "file": "screens/stage-6-escape-230-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 42,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1179,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "stage-6-escape-430-2d",
+      "scene": "stage-6-escape-430",
+      "label": "Final escape / frame 430",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "2d",
+      "file": "screens/stage-6-escape-430-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 42,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1605,
+        "voxel": "off"
+      }
+    },
+    {
+      "id": "stage-6-escape-430-voxel",
+      "scene": "stage-6-escape-430",
+      "label": "Final escape / frame 430",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "voxel",
+      "file": "screens/stage-6-escape-430-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 128,
+          "y": 42,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 1605,
+        "voxel": "on"
+      }
+    },
+    {
+      "id": "touch-landscape-title",
+      "scene": "touch-landscape-title",
+      "label": "Touch landscape / title",
+      "group": "Touch layouts",
+      "renderer": "2d",
+      "file": "screens/touch-landscape-title.png",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      },
+      "notes": "Existing touch controls enabled; viewport layout reference, not a physical-device input test."
+    },
+    {
+      "id": "touch-landscape-play",
+      "scene": "touch-landscape-play",
+      "label": "Touch landscape / play",
+      "group": "Touch layouts",
+      "renderer": "2d",
+      "file": "screens/touch-landscape-play.png",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 1154.4000000000115,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 180,
+        "voxel": "off"
+      },
+      "notes": "Existing touch controls enabled; viewport layout reference, not a physical-device input test."
+    },
+    {
+      "id": "touch-portrait-title",
+      "scene": "touch-portrait-title",
+      "label": "Touch portrait / title",
+      "group": "Touch layouts",
+      "renderer": "2d",
+      "file": "screens/touch-portrait-title.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "setup": {
+        "state": "title",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 0,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 120,
+        "voxel": "off"
+      },
+      "notes": "Existing touch controls enabled; viewport layout reference, not a physical-device input test."
+    },
+    {
+      "id": "touch-portrait-play",
+      "scene": "touch-portrait-play",
+      "label": "Touch portrait / play",
+      "group": "Touch layouts",
+      "renderer": "2d",
+      "file": "screens/touch-portrait-play.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 1154.4000000000115,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 180,
+        "voxel": "off"
+      },
+      "notes": "Existing touch controls enabled; viewport layout reference, not a physical-device input test."
+    },
+    {
+      "id": "stage-1-boss-intro-2d",
+      "scene": "stage-1-boss-intro",
+      "label": "GOLEM OSSUARY / entrance",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "2d",
+      "file": "screens/stage-1-boss-intro-2d.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "GOLEM OSSUARY",
+          "form": null,
+          "hp": 70,
+          "dead": false
+        },
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 125,
+        "voxel": "off",
+        "intro": {
+          "active": true,
+          "frame": 122,
+          "name": "GOLEM OSSUARY"
+        }
+      }
+    },
+    {
+      "id": "stage-1-boss-intro-voxel",
+      "scene": "stage-1-boss-intro",
+      "label": "GOLEM OSSUARY / entrance",
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "renderer": "voxel",
+      "file": "screens/stage-1-boss-intro-voxel.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "GOLEM OSSUARY",
+          "form": null,
+          "hp": 70,
+          "dead": false
+        },
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 125,
+        "voxel": "on",
+        "intro": {
+          "active": true,
+          "frame": 122,
+          "name": "GOLEM OSSUARY"
+        }
+      }
+    },
+    {
+      "id": "stage-2-boss-intro-2d",
+      "scene": "stage-2-boss-intro",
+      "label": "CRUISER TETRAN / entrance",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "2d",
+      "file": "screens/stage-2-boss-intro-2d.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8350,
+        "boss": {
+          "name": "CRUISER TETRAN",
+          "form": null,
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 250,
+        "voxel": "off",
+        "intro": {
+          "active": true,
+          "frame": 125,
+          "name": "CRUISER TETRAN"
+        }
+      }
+    },
+    {
+      "id": "stage-2-boss-intro-voxel",
+      "scene": "stage-2-boss-intro",
+      "label": "CRUISER TETRAN / entrance",
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "renderer": "voxel",
+      "file": "screens/stage-2-boss-intro-voxel.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 2,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8350,
+        "boss": {
+          "name": "CRUISER TETRAN",
+          "form": null,
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 250,
+        "voxel": "on",
+        "intro": {
+          "active": true,
+          "frame": 125,
+          "name": "CRUISER TETRAN"
+        }
+      }
+    },
+    {
+      "id": "stage-3-boss-intro-2d",
+      "scene": "stage-3-boss-intro",
+      "label": "INTRUDER / entrance",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "2d",
+      "file": "screens/stage-3-boss-intro-2d.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7600,
+        "boss": {
+          "name": "INTRUDER",
+          "form": null,
+          "hp": 105,
+          "dead": false
+        },
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 375,
+        "voxel": "off",
+        "intro": {
+          "active": true,
+          "frame": 125,
+          "name": "INTRUDER"
+        }
+      }
+    },
+    {
+      "id": "stage-3-boss-intro-voxel",
+      "scene": "stage-3-boss-intro",
+      "label": "INTRUDER / entrance",
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "renderer": "voxel",
+      "file": "screens/stage-3-boss-intro-voxel.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 3,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7600,
+        "boss": {
+          "name": "INTRUDER",
+          "form": null,
+          "hp": 105,
+          "dead": false
+        },
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 375,
+        "voxel": "on",
+        "intro": {
+          "active": true,
+          "frame": 125,
+          "name": "INTRUDER"
+        }
+      }
+    },
+    {
+      "id": "stage-4-boss-intro-2d",
+      "scene": "stage-4-boss-intro",
+      "label": "GIGA / entrance",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "2d",
+      "file": "screens/stage-4-boss-intro-2d.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7900,
+        "boss": {
+          "name": "GIGA",
+          "form": null,
+          "hp": 125,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 500,
+        "voxel": "off",
+        "intro": {
+          "active": true,
+          "frame": 125,
+          "name": "GIGA"
+        }
+      }
+    },
+    {
+      "id": "stage-4-boss-intro-voxel",
+      "scene": "stage-4-boss-intro",
+      "label": "GIGA / entrance",
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "renderer": "voxel",
+      "file": "screens/stage-4-boss-intro-voxel.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 4,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 7900,
+        "boss": {
+          "name": "GIGA",
+          "form": null,
+          "hp": 125,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 500,
+        "voxel": "on",
+        "intro": {
+          "active": true,
+          "frame": 125,
+          "name": "GIGA"
+        }
+      }
+    },
+    {
+      "id": "stage-5-boss-intro-2d",
+      "scene": "stage-5-boss-intro",
+      "label": "TUTANHAMANATTACK / entrance",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "2d",
+      "file": "screens/stage-5-boss-intro-2d.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 9400,
+        "boss": {
+          "name": "TUTANHAMANATTACK",
+          "form": null,
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 625,
+        "voxel": "off",
+        "intro": {
+          "active": true,
+          "frame": 125,
+          "name": "TUTANHAMANATTACK"
+        }
+      }
+    },
+    {
+      "id": "stage-5-boss-intro-voxel",
+      "scene": "stage-5-boss-intro",
+      "label": "TUTANHAMANATTACK / entrance",
+      "group": "Stage 5 — LATIS TEMPLE",
+      "renderer": "voxel",
+      "file": "screens/stage-5-boss-intro-voxel.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 5,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 9400,
+        "boss": {
+          "name": "TUTANHAMANATTACK",
+          "form": null,
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 38,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 625,
+        "voxel": "on",
+        "intro": {
+          "active": true,
+          "frame": 125,
+          "name": "TUTANHAMANATTACK"
+        }
+      }
+    },
+    {
+      "id": "stage-6-boss-intro-2d",
+      "scene": "stage-6-boss-intro",
+      "label": "ZELOS FORCE / entrance",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "2d",
+      "file": "screens/stage-6-boss-intro-2d.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "ZELOS FORCE",
+          "form": "dragon",
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 750,
+        "voxel": "off",
+        "intro": {
+          "active": true,
+          "frame": 125,
+          "name": "ZELOS FORCE"
+        }
+      }
+    },
+    {
+      "id": "stage-6-boss-intro-voxel",
+      "scene": "stage-6-boss-intro",
+      "label": "ZELOS FORCE / entrance",
+      "group": "Stage 6 — MECHANICAL CITY",
+      "renderer": "voxel",
+      "file": "screens/stage-6-boss-intro-voxel.png",
+      "notes": "Original cinematic sampled with its nameplate and letterbox active.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 6,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 8600,
+        "boss": {
+          "name": "ZELOS FORCE",
+          "form": "dragon",
+          "hp": 150,
+          "dead": false
+        },
+        "player": {
+          "x": 128,
+          "y": 180,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 750,
+        "voxel": "on",
+        "intro": {
+          "active": true,
+          "frame": 125,
+          "name": "ZELOS FORCE"
+        }
+      }
+    },
+    {
+      "id": "detail-wall-threats-2d",
+      "scene": "detail-wall-threats",
+      "label": "Bio-Cathedral / wall threats and eruption",
+      "group": "Gameplay details",
+      "renderer": "2d",
+      "file": "screens/detail-wall-threats-2d.png",
+      "notes": "Natural simulation following a QA seek through the wall-threat section.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 3621.5999999998985,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 620,
+        "voxel": "off",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-wall-threats-voxel",
+      "scene": "detail-wall-threats",
+      "label": "Bio-Cathedral / wall threats and eruption",
+      "group": "Gameplay details",
+      "renderer": "voxel",
+      "file": "screens/detail-wall-threats-voxel.png",
+      "notes": "Natural simulation following a QA seek through the wall-threat section.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 3621.5999999998985,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 620,
+        "voxel": "on",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-weapon-normal-2d",
+      "scene": "detail-weapon-normal",
+      "label": "normal weapon, missiles, Options and shield",
+      "group": "Gameplay details",
+      "renderer": "2d",
+      "file": "screens/detail-weapon-normal-2d.png",
+      "notes": "Shots triggered through the existing player fire method.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 555.1199999999976,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 184,
+        "voxel": "off",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-weapon-normal-voxel",
+      "scene": "detail-weapon-normal",
+      "label": "normal weapon, missiles, Options and shield",
+      "group": "Gameplay details",
+      "renderer": "voxel",
+      "file": "screens/detail-weapon-normal-voxel.png",
+      "notes": "Shots triggered through the existing player fire method.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 555.1199999999976,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 184,
+        "voxel": "on",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-weapon-laser-2d",
+      "scene": "detail-weapon-laser",
+      "label": "laser weapon, missiles, Options and shield",
+      "group": "Gameplay details",
+      "renderer": "2d",
+      "file": "screens/detail-weapon-laser-2d.png",
+      "notes": "Shots triggered through the existing player fire method.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 555.1199999999976,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "laser",
+          "alive": true
+        },
+        "frame": 184,
+        "voxel": "off",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-weapon-laser-voxel",
+      "scene": "detail-weapon-laser",
+      "label": "laser weapon, missiles, Options and shield",
+      "group": "Gameplay details",
+      "renderer": "voxel",
+      "file": "screens/detail-weapon-laser-voxel.png",
+      "notes": "Shots triggered through the existing player fire method.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 555.1199999999976,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "laser",
+          "alive": true
+        },
+        "frame": 184,
+        "voxel": "on",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-capsule-2d",
+      "scene": "detail-capsule",
+      "label": "Power capsule and selection meter",
+      "group": "Gameplay details",
+      "renderer": "2d",
+      "file": "screens/detail-capsule-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 1324.0000000000032,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 50,
+        "voxel": "off",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-capsule-voxel",
+      "scene": "detail-capsule",
+      "label": "Power capsule and selection meter",
+      "group": "Gameplay details",
+      "renderer": "voxel",
+      "file": "screens/detail-capsule-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 1324.0000000000032,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 50,
+        "voxel": "on",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-player-death-2d",
+      "scene": "detail-player-death",
+      "label": "Player destruction / death feedback",
+      "group": "Gameplay details",
+      "renderer": "2d",
+      "file": "screens/detail-player-death-2d.png",
+      "notes": "Death triggered by existing kill method.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "dying",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 535.3999999999991,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": false
+        },
+        "frame": 155,
+        "voxel": "off",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-player-death-voxel",
+      "scene": "detail-player-death",
+      "label": "Player destruction / death feedback",
+      "group": "Gameplay details",
+      "renderer": "voxel",
+      "file": "screens/detail-player-death-voxel.png",
+      "notes": "Death triggered by existing kill method.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "dying",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 535.3999999999991,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": false
+        },
+        "frame": 155,
+        "voxel": "on",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-projectile-contrast-2d",
+      "scene": "detail-projectile-contrast",
+      "label": "High-contrast projectile option",
+      "group": "Gameplay details",
+      "renderer": "2d",
+      "file": "screens/detail-projectile-contrast-2d.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 1326.0400000000034,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 53,
+        "voxel": "off",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-projectile-contrast-voxel",
+      "scene": "detail-projectile-contrast",
+      "label": "High-contrast projectile option",
+      "group": "Gameplay details",
+      "renderer": "voxel",
+      "file": "screens/detail-projectile-contrast-voxel.png",
+      "notes": "",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 1326.0400000000034,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 53,
+        "voxel": "on",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-air-formation-2d",
+      "scene": "detail-air-formation",
+      "label": "Bio-Cathedral / natural opening enemy formation",
+      "group": "Gameplay details",
+      "renderer": "2d",
+      "file": "screens/detail-air-formation-2d.png",
+      "notes": "Existing wave table advanced until the full formation is inside the playfield.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 350.0000000000022,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 325,
+        "voxel": "off",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "detail-air-formation-voxel",
+      "scene": "detail-air-formation",
+      "label": "Bio-Cathedral / natural opening enemy formation",
+      "group": "Gameplay details",
+      "renderer": "voxel",
+      "file": "screens/detail-air-formation-voxel.png",
+      "notes": "Existing wave table advanced until the full formation is inside the playfield.",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "setup": {
+        "state": "play",
+        "stage": 1,
+        "titleScreen": "main",
+        "pauseSubmenu": null,
+        "scroll": 350.0000000000022,
+        "boss": null,
+        "player": {
+          "x": 40,
+          "y": 104,
+          "weapon": "normal",
+          "alive": true
+        },
+        "frame": 325,
+        "voxel": "on",
+        "intro": {
+          "active": false,
+          "frame": 0,
+          "name": ""
+        }
+      }
+    },
+    {
+      "id": "sprite-inventory-01",
+      "scene": "sprite-inventory-01",
+      "label": "Original sprite frames / sheet 1",
+      "group": "Original sprite inventory",
+      "renderer": "2d",
+      "file": "screens/sprite-inventory-01.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "notes": "Original baked game canvases, enlarged with nearest-neighbor sampling for inspection. Individual transparent originals are in sprites/; sprite-index.json records native dimensions and anchors."
+    },
+    {
+      "id": "sprite-inventory-02",
+      "scene": "sprite-inventory-02",
+      "label": "Original sprite frames / sheet 2",
+      "group": "Original sprite inventory",
+      "renderer": "2d",
+      "file": "screens/sprite-inventory-02.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "notes": "Original baked game canvases, enlarged with nearest-neighbor sampling for inspection. Individual transparent originals are in sprites/; sprite-index.json records native dimensions and anchors."
+    },
+    {
+      "id": "sprite-inventory-03",
+      "scene": "sprite-inventory-03",
+      "label": "Original sprite frames / sheet 3",
+      "group": "Original sprite inventory",
+      "renderer": "2d",
+      "file": "screens/sprite-inventory-03.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "notes": "Original baked game canvases, enlarged with nearest-neighbor sampling for inspection. Individual transparent originals are in sprites/; sprite-index.json records native dimensions and anchors."
+    },
+    {
+      "id": "sprite-inventory-04",
+      "scene": "sprite-inventory-04",
+      "label": "Original sprite frames / sheet 4",
+      "group": "Original sprite inventory",
+      "renderer": "2d",
+      "file": "screens/sprite-inventory-04.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "notes": "Original baked game canvases, enlarged with nearest-neighbor sampling for inspection. Individual transparent originals are in sprites/; sprite-index.json records native dimensions and anchors."
+    }
+  ],
+  "recordings": [
+    {
+      "id": "menu-navigation",
+      "label": "Title → stage selection → main menu",
+      "file": "videos/menu-navigation.webm",
+      "simulationFrames": 240,
+      "selectedWallClockMs": 6215,
+      "notes": "Frame-stepped capture at nominal 60 simulation frames/second; video includes boot before the selected scene. Audio not captured."
+    },
+    {
+      "id": "stage-departure-arrival",
+      "label": "Stage 1 departure → vertical Stage 2 arrival",
+      "file": "videos/stage-departure-arrival.webm",
+      "simulationFrames": 240,
+      "selectedWallClockMs": 5528,
+      "notes": "Frame-stepped capture at nominal 60 simulation frames/second; video includes boot before the selected scene. Audio not captured."
+    },
+    {
+      "id": "boss-entrance",
+      "label": "Golem Ossuary boss entrance / warning",
+      "file": "videos/boss-entrance.webm",
+      "simulationFrames": 270,
+      "selectedWallClockMs": 7449,
+      "notes": "Frame-stepped capture at nominal 60 simulation frames/second; video includes boot before the selected scene. Audio not captured."
+    },
+    {
+      "id": "final-escape-ending",
+      "label": "Final lockdown escape → campaign clear",
+      "file": "videos/final-escape-ending.webm",
+      "simulationFrames": 660,
+      "selectedWallClockMs": 17090,
+      "notes": "Frame-stepped capture at nominal 60 simulation frames/second; video includes boot before the selected scene. Audio not captured."
+    }
+  ],
+  "contactSheets": [
+    {
+      "group": "UI",
+      "file": "contact-sheets/ui.jpg"
+    },
+    {
+      "group": "Stage 1 — BIO-CATHEDRAL",
+      "file": "contact-sheets/stage-1-bio-cathedral.jpg"
+    },
+    {
+      "group": "Stage 2 — VOLCANIC ASCENT",
+      "file": "contact-sheets/stage-2-volcanic-ascent.jpg"
+    },
+    {
+      "group": "Stage 3 — PROMINENCE INFERNO",
+      "file": "contact-sheets/stage-3-prominence-inferno.jpg"
+    },
+    {
+      "group": "Stage 4 — CELLULAR CURRENT",
+      "file": "contact-sheets/stage-4-cellular-current.jpg"
+    },
+    {
+      "group": "Stage 5 — LATIS TEMPLE",
+      "file": "contact-sheets/stage-5-latis-temple.jpg"
+    },
+    {
+      "group": "Stage 6 — MECHANICAL CITY",
+      "file": "contact-sheets/stage-6-mechanical-city.jpg"
+    },
+    {
+      "group": "Touch layouts",
+      "file": "contact-sheets/touch-layouts.jpg"
+    },
+    {
+      "group": "Gameplay details",
+      "file": "contact-sheets/gameplay-details.jpg"
+    },
+    {
+      "group": "Original sprite inventory",
+      "file": "contact-sheets/original-sprite-inventory.jpg"
+    }
+  ],
+  "errors": []
+}

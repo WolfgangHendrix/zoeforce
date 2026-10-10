@@ -108,10 +108,8 @@
           G.resetStage(true);
         } },
       { label: 'WIRING CONTROLS', run: function () { NS.Touch.init(); resize(); } },
-      /* The only genuinely asynchronous step: three.js is an ES module and
-         is fetched at runtime. `wait` holds the queue here until it resolves
-         or fails, which is what stops the voxel world assembling itself in
-         view behind a live title screen. */
+      /* Restore the original voxel-first presentation. If an ES module cannot
+         load (for example from file://), the pixel 2D renderer remains. */
       { label: 'BUILDING VOXEL GEOMETRY', pending: false, done: false,
         run: function () {
           var step = this;
@@ -238,14 +236,17 @@
     if (NS.Feedback) NS.Feedback.reset();
     NS.Intro.stop();
     NS.Level1.reset();
-    if (full) G.player.reset(true);
-    else G.player.respawn();
+    /* 'world' resets the corridor only. Stage 2+ transitions already keep
+       the loadout; stage 1 has to be able to do the same. */
+    if (full === true) G.player.reset(true);
+    else if (full !== 'world') G.player.respawn();
   };
 
   function startStageOne() {
     G.resetStage(false);
     G.state = 'play';
     NS.Audio.resume();
+    NS.Audio.prepareStage(1);
     NS.Audio.setTrack('stage');
     NS.Audio.rewind();
     NS.Audio.startMusic();
@@ -281,6 +282,7 @@
     }
     G.player.trail = [{ x: G.player.x, y: G.player.y }];
     G.state = 'play'; G.stageMsg = 180; G.bossWarn = 0;
+    NS.Audio.prepareStage(2);
     NS.Audio.setTrack('stage'); NS.Audio.rewind(); NS.Audio.startMusic();
   }
   G.startStage2 = startStage2; // debug hook for testing the vertical stage directly
@@ -298,9 +300,36 @@
     G.player.invuln = 90; G.player.trail = [{x:G.player.x,y:G.player.y}];
     for (var i=0;i<G.player.options.length;i++){G.player.options[i].x=G.player.x;G.player.options[i].y=G.player.y;}
     G.state='play';G.stageMsg=180;G.bossWarn=0;
+    NS.Audio.prepareStage(stage);
     NS.Audio.setTrack('stage');NS.Audio.rewind();NS.Audio.startMusic();
   }
-  G.startStage = function(stage){ if(stage===1)G.startRun();else if(stage===2)startStage2();else startLaterStage(stage); };
+  function continueStageOne() {
+    G.resetStage('world');
+    G.player.setOrientation('side');
+    G.player.invuln = 90;
+    var top = NS.Terrain.topAt(40) + 7;
+    var bot = NS.Terrain.botAt(40) - 7;
+    G.player.placeClear(40, (top + bot) * 0.5);
+    for (var i = 0; i < G.player.options.length; i++) {
+      G.player.options[i].x = G.player.x;
+      G.player.options[i].y = G.player.y;
+    }
+    G.player.trail = [{ x: G.player.x, y: G.player.y }];
+    G.state = 'play';
+    NS.Audio.resume();
+    NS.Audio.prepareStage(1);
+    NS.Audio.setTrack('stage');
+    NS.Audio.rewind();
+    NS.Audio.startMusic();
+  }
+
+  /* Continuation keeps ships, score and loadout. A new credit is startRun(),
+     which is the only path that resets them. */
+  G.startStage = function (stage) {
+    if (stage === 1) continueStageOne();
+    else if (stage === 2) startStage2();
+    else startLaterStage(stage);
+  };
 
   function unlockStage(stage) {
     stage = NS.clamp(stage, 1, 6);
@@ -395,6 +424,7 @@
         y: opts[i].y,
         vx: -0.07 - i * 0.012,
         phase: i * 1.7,
+        recoveryGrace: 90,
         t: 0,
         dead: false,
         w: 5,
@@ -413,8 +443,19 @@
     var step = 1000 / NS.FPS;
     var guard = 0;
     while (acc >= step && guard < 5) {
-      update();
-      NS.Input.endFrame();
+      /* Time scale is a playtest tool. Menus stay at 1x so a held key cannot
+         skip a confirm, and Game.step() never reads it so smoke tests stay
+         one call = one frame. */
+      var burst = 1;
+      if (NS.Debug && !NS.Debug.paused && NS.Debug.timeScale > 1 &&
+          (G.state === 'play' || G.state === 'dying' || G.state === 'departing')) {
+        burst = NS.Debug.timeScale | 0;
+        if (burst > 8) burst = 8;
+      }
+      for (var bi = 0; bi < burst; bi++) {
+        update();
+        NS.Input.endFrame();
+      }
       acc -= step;
       guard++;
     }
@@ -425,10 +466,16 @@
 
   function update() {
     var I = NS.Input;
+    I.pollGamepads();
+    updateSimulation();
+  }
+
+  function updateSimulation() {
+    var I = NS.Input;
 
     /* Gamepads are polled at the fixed simulation rate so button edges have
        exactly the same semantics as keyboard and touch presses. */
-    I.pollGamepads();
+    /* Polled once by update(), including while screen transitions settle. */
 
     /* the save throbber is UI, not simulation: it keeps counting down in
        every state, including while paused or on the title */
@@ -525,6 +572,13 @@
       NS.FX.updateBackground();
       if (G.clearT === 1) flushHiScore();
       if (G.clearT === 1) NS.Profile.flush('RUN RECORD');
+      /* The lockdown climb stays silent. The victory card is where the
+         ending arrangement starts, slower and brighter than the stage bed. */
+      if (G.clearT === 1 && G.state === 'clear') {
+        NS.Audio.setTrack('ending');
+        NS.Audio.rewind();
+        NS.Audio.startMusic();
+      }
       if (G.clearT > 90 && (I.hit('start') || I.hit('fire'))) {
         G.state = 'title';
         title.screen = 'main'; title.index = 0;
@@ -601,7 +655,8 @@
     /* ---- scroll ---- */
     /* Life Force continues the stage while the replacement ship is on its
        way in; death does not rewind to a Gradius-style checkpoint. */
-    var scrolling = (G.state === 'play' || G.state === 'dying') && !G.boss;
+    var scrolling = (G.state === 'play' || G.state === 'dying') && !G.boss &&
+      !(NS.Debug && NS.Debug.freezeScroll);
     if (scrolling) {
       G.scrollX += NS.SCROLL_SPEED;
       if (G.scrollX >= NS.Terrain.BOSS_X) {
@@ -642,7 +697,7 @@
            including tight passages where screen centre may be solid flesh. */
         var spawnTop = NS.Terrain.topAt(G.scrollX + G.player.x) + 7;
         var spawnBot = NS.Terrain.botAt(G.scrollX + G.player.x) - 7;
-        G.player.y = (spawnTop + spawnBot) * 0.5;
+        G.player.placeClear(G.player.x, (spawnTop + spawnBot) * 0.5);
         G.state = 'play';
       } else {
         beginContinue();
@@ -675,7 +730,7 @@
     if (G.state === 'dying' && G.player.dying <= 0) {
       if (G.player.lives > 0) {
         G.player.respawn(); G.player.setOrientation('vertical');
-        G.player.x = NS.W / 2; G.player.y = NS.PLAYFIELD_H - 28;
+        G.player.placeClear(NS.W / 2, NS.PLAYFIELD_H - 28);
         G.state = 'play';
       } else {
         beginContinue();
@@ -693,7 +748,8 @@
     if(!G.player.alive&&G.state==='play'){releaseOptions();G.state='dying';}
     if(G.state==='dying'&&G.player.dying<=0){
       if(G.player.lives>0){G.player.respawn();G.player.setOrientation(NS.Campaign.spec.orientation==='vertical'?'vertical':'side');
-        G.player.x=NS.Campaign.horizontal()?38:NS.W/2;G.player.y=NS.Campaign.horizontal()?NS.PLAYFIELD_H/2:NS.PLAYFIELD_H-28;G.state='play';}
+        G.player.placeClear(NS.Campaign.horizontal()?38:NS.W/2, NS.Campaign.horizontal()?NS.PLAYFIELD_H/2:NS.PLAYFIELD_H-28);
+        G.state='play';}
       else{beginContinue();}
     }
     if(NS.Campaign.complete&&G.state!=='continue'&&G.state!=='gameover'){G.boss=null;G.clearT=0;
@@ -748,6 +804,7 @@
     if (G.stage === 1) {
       G.resetStage(false);              // respawn(): keeps lives and score
       G.state = 'play';
+      NS.Audio.prepareStage(1);
       NS.Audio.setTrack('stage'); NS.Audio.rewind(); NS.Audio.startMusic();
     } else {
       /* startStage() for stage 2+ leaves the ship exactly as it was, which
@@ -1086,20 +1143,43 @@
     NS.prune(G.capsules);
   }
 
+  /* Shared by all six stages: protect the death/respawn recovery window,
+     then drift naturally offscreen instead of expiring in mid-air. */
+  G.driftOption = function (o, vertical, bounds) {
+    if (o.dead) return;
+    o.t++;
+    var alive=G.player.alive, protectedDrop=!alive || o.recoveryGrace>0;
+    var pace=alive?1:.5;
+    if (vertical) {o.y+=.14*pace;o.x+=Math.sin(o.t*.045+o.phase)*.06;}
+    else {o.x+=(o.vx==null?-.07:o.vx)*pace;o.y+=Math.sin(o.t*.045+o.phase)*.05;}
+    if (protectedDrop) {
+      o.x=NS.clamp(o.x,3,NS.W-3);o.y=NS.clamp(o.y,3,NS.PLAYFIELD_H-3);
+      if (alive && o.recoveryGrace>0) o.recoveryGrace--;
+    }
+    if (bounds) {
+      var edge=bounds(o);
+      if (vertical) o.x=NS.clamp(o.x,edge.a+4,edge.z-4);
+      else o.y=NS.clamp(o.y,edge.a+4,edge.z-4);
+    }
+    if (!protectedDrop && (o.x < -8 || o.x > NS.W+8 || o.y < -8 || o.y > NS.PLAYFIELD_H+8)) o.dead=true;
+  };
+
+  G.drawLooseOption = function (ctx,o) {
+    if (o.dead) return;
+    var spr=NS.S.looseOption[(o.t>>3)&1];
+    if (!NS.Art.active()) {ctx.drawImage(spr,(o.x-2)|0,(o.y-2)|0);return;}
+    ctx.save();
+    ctx.fillStyle='rgba(3,15,10,.85)';ctx.beginPath();ctx.arc(o.x,o.y,3.7,0,Math.PI*2);ctx.fill();
+    ctx.save();ctx.filter='hue-rotate(300deg)';ctx.drawImage(spr,o.x-2.5,o.y-2.5,5,5);ctx.restore();
+    ctx.strokeStyle='#a7ffba';ctx.lineWidth=.5;ctx.beginPath();ctx.arc(o.x,o.y,3.5,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='#a7ffba';ctx.beginPath();ctx.moveTo(o.x,o.y-4.5);ctx.lineTo(o.x-1.6,o.y-7);ctx.lineTo(o.x+1.6,o.y-7);ctx.fill();
+    ctx.restore();
+  };
+
   function updateLooseOptions() {
     for (var i = 0; i < G.looseOptions.length; i++) {
       var o = G.looseOptions[i];
-      if (o.dead) continue;
-      o.t++;
-      o.x += o.vx;
-      o.y += Math.sin(o.t * 0.045 + o.phase) * 0.08;
-
-      /* Keep recoverable Options in the open corridor while they drift. */
-      var floor = NS.Terrain.botAt(G.scrollX + o.x) - o.h - 1;
-      var ceil = NS.Terrain.topAt(G.scrollX + o.x) + 1;
-      if (o.y > floor) o.y = floor;
-      if (o.y < ceil) o.y = ceil;
-      if (o.x < -8 || o.t > 720) o.dead = true;
+      G.driftOption(o,false,function(drop){return {a:NS.Terrain.topAt(G.scrollX+drop.x),z:NS.Terrain.botAt(G.scrollX+drop.x)};});
     }
     NS.prune(G.looseOptions);
   }
@@ -1295,17 +1375,20 @@
     if (NS.Feedback) NS.Feedback.drawOverlay(g, G);
     drawEscapeCue();
 
-    if (G.stageMsg > 0 && G.stageMsg % 30 < 20 && !NS.Intro.active) {
+    if (G.stageMsg > 0 && !NS.Intro.active) {
+      g.save();g.globalAlpha=NS.reducedMotion()?1:NS.clamp(G.stageMsg/24,0,1);
       var story = stageStory();
       if (story) { g.fillStyle = 'rgba(3,5,9,.78)'; g.fillRect(30, 46, NS.W - 60, 57); }
+      if(story) NS.Art.modal(g,28,44,NS.W-56,62);
       centerText('— STAGE ' + G.stage + ' —', 58, '#8fd0ff', '6px');
       centerText(stageName(), 71, '#ffd7e6', '8px');
       if (story) {
         centerText(story[0], 87, '#d7d9d2', '5px');
         centerText(story[1], 96, '#ffffff', '5px');
       }
+      g.restore();
     }
-    if (G.bossWarn > 0 && !NS.Intro.active && (G.bossWarn >> 3) % 2 === 0) {
+    if (G.bossWarn > 0 && !NS.Intro.active && (NS.reducedFlash() || (G.bossWarn >> 3) % 2 === 0)) {
       centerText('!! WARNING !!', 40, '#ff7676');
       centerText(G.bossName || bossName(), 52, '#ffb0b0');
     }
@@ -1327,6 +1410,7 @@
     if (G.state === 'continue') {
       g.fillStyle = 'rgba(0,0,0,0.72)';
       g.fillRect(0, 0, NS.W, NS.PLAYFIELD_H);
+      NS.Art.modal(g, 36, 38, 184, 149);
       centerText('CONTINUE?', 58, '#ffffff', '11px');
       centerText(String(Math.max(0, Math.ceil(G.continueT / NS.FPS))), 82, '#ff8080', '16px');
       drawMenu(['YES — RESTART STAGE ' + G.stage, 'NO — END RUN'], 112,
@@ -1337,12 +1421,14 @@
     if (G.state === 'gameover') {
       g.fillStyle = 'rgba(0,0,0,0.6)';
       g.fillRect(0, 0, NS.W, NS.PLAYFIELD_H);
+      NS.Art.modal(g, 40, 56, 176, 94);
       centerText('GAME OVER', 92, '#ff8080');
       if (G.clearT > 90) centerText('PRESS ENTER', 112, '#c8d2e8');
     }
     if (G.state === 'clear') {
       g.fillStyle = 'rgba(0,0,0,' + Math.min(0.6, G.clearT / 200) + ')';
       g.fillRect(0, 0, NS.W, NS.PLAYFIELD_H);
+      NS.Art.modal(g, 34, 42, 188, 123);
       centerText(G.stage === 6 ? 'ZELOS DESTROYED' : 'STAGE ' + G.stage + ' CLEAR', G.stage === 6 ? 70 : 84, '#a8ffc0');
       if (G.stage === 6) {
         var epilogue = NS.THEME.epilogue || ['THE SIX TERROR ZONES ARE SILENT', ''];
@@ -1365,6 +1451,7 @@
   function drawLoading() {
     g.fillStyle = '#05060a';
     g.fillRect(0, 0, NS.W, NS.H);
+    if (NS.Art.images.title) { NS.Art.image(g, 'title', 0, 0, NS.W, NS.H); g.fillStyle = 'rgba(0,0,0,.76)'; g.fillRect(0,0,NS.W,NS.H); }
 
     centerText(NS.THEME.title, 74, '#ffffff', '12px');
     centerText(NS.THEME.subtitle, 90, '#ff9ec0');
@@ -1393,6 +1480,7 @@
   function drawPause() {
     g.fillStyle = 'rgba(0,0,0,0.72)';
     g.fillRect(0, 0, NS.W, NS.PLAYFIELD_H);
+    NS.Art.modal(g, 30, 20, 196, 184);
 
     if (pause.submenu === 'options') {
       drawOptions('OPTIONS', pause.optionIndex, 30);
@@ -1433,6 +1521,11 @@
       var on = selected === i;
       var y = top + i * 14;
       var color = colors ? colors[i] : '#c8d2e8';
+      if (NS.Art.ready) {
+        NS.Art.panel(g, 54, y - 9, NS.W - 108, 12, on);
+        centerText(labels[i], y, on ? '#f4e5d0' : '#afa69e', '7px');
+        continue;
+      }
       if (on) {
         g.fillStyle = 'rgba(80,120,200,0.30)';
         g.fillRect(48, y - 8, NS.W - 96, 12);
@@ -1571,13 +1664,15 @@
     for (var j = 0; j < G.looseOptions.length; j++) {
       var o = G.looseOptions[j];
       if (o.dead) continue;
-      var spr = NS.S.looseOption[(o.t >> 3) & 1];
-      g.drawImage(spr, (o.x - 2) | 0, (o.y - 2) | 0);
+      G.drawLooseOption(g,o);
     }
   }
 
   function drawTitle(overlayOnly) {
-    if (!overlayOnly) {
+    var fullMenu = title.screen === 'options' || title.screen === 'controls' ||
+                   title.screen === 'records' || title.screen === 'profiles';
+    var painted = !overlayOnly && NS.Art.titleBackdrop(g, fullMenu);
+    if (!overlayOnly && !painted) {
       NS.FX.drawBackground(g, G.frame * 0.6);
 
       /* silhouette of the corridor behind the logo */
@@ -1586,13 +1681,22 @@
       g.globalAlpha = 1;
     }
 
-    var fullMenu = title.screen === 'options' || title.screen === 'controls' ||
-                   title.screen === 'records' || title.screen === 'profiles';
+    if (!painted) {
     g.fillStyle = 'rgba(0,0,0,0.66)';
     g.fillRect(0, fullMenu ? 18 : 34, NS.W, fullMenu ? 184 : 168);
+    }
 
     if (!fullMenu) {
-      centerText(NS.THEME.title, 52, '#ffffff', '12px');
+      if (painted) {
+        if (!NS.Art.image(g, 'logo', 48, 25, 160, 37)) {
+        g.save();
+        g.font = 'bold 17px Georgia, serif'; g.textAlign = 'center';
+        var logo = g.createLinearGradient(0, 36, 0, 53);
+        logo.addColorStop(0, '#fff3dc'); logo.addColorStop(.45, '#b9a28b'); logo.addColorStop(.6, '#564237'); logo.addColorStop(1, '#e5cfb2');
+        g.fillStyle = logo; g.shadowColor = '#000'; g.shadowBlur = 12;
+        g.fillText(NS.THEME.title, NS.W/2, 53); g.restore();
+        }
+      } else centerText(NS.THEME.title, 52, '#ffffff', '12px');
       centerText(NS.THEME.subtitle, 68, '#ff9ec0');
     }
 
@@ -1658,6 +1762,10 @@
     g.fillRect(0, y, NS.W, NS.HUD_H);
     g.fillStyle = '#1e2740';
     g.fillRect(0, y, NS.W, 1);
+    if (NS.Art.ready) {
+      NS.Art.hud(g,y);
+      g.fillStyle = 'rgba(4,7,10,.58)'; g.fillRect(0,y,NS.W,NS.HUD_H);
+    }
 
     g.font = '6px monospace';
     g.textAlign = 'left';
@@ -1681,17 +1789,22 @@
       var owned = maxed || state === 'owned';
       /* a maxed power-up gets its own amber, so "I have this" and "this is
          as good as it gets" are not the same colour */
-      g.fillStyle = on ? ((G.frame >> 2) % 2 ? '#ff5a5a' : '#ffa0a0')
-                       : (maxed ? '#6a4a12' : (owned ? '#1c3a5c' : '#151a26'));
+      g.fillStyle = maxed ? '#6a4a12' : (owned ? '#1c3a5c' : (on ? '#234451' : '#151a26'));
       g.fillRect(sx, y + 3, MET_PITCH - 2, 10);
-      g.strokeStyle = on ? '#ffd0d0' : (maxed ? '#ffca3a' : '#2a3450');
-      g.lineWidth = 1;
+      g.strokeStyle = on ? '#bceef4' : (maxed ? '#ffca3a' : '#2a3450');
+      g.lineWidth = on ? .9 : .5;
       g.strokeRect(sx + 0.5, y + 3.5, MET_PITCH - 3, 9);
+      if (on) {
+        /* Selection is an independent, steady marker; gold still means max. */
+        g.fillStyle='#bceef4';g.beginPath();g.moveTo(sx+13.5,y+3);
+        g.lineTo(sx+11,y+.5);g.lineTo(sx+16,y+.5);g.fill();
+        g.fillRect(sx+4,y+13.5,MET_PITCH-10,1);
+      }
       /* the labels are set a size down: MISSILE is seven characters and does
          not fit a 22px cell at 6px, so at 6px it bled across the divider */
       g.font = '5px monospace';
       g.textAlign = 'center';
-      g.fillStyle = on ? '#ffffff' : (maxed ? '#ffe9a0' : (owned ? '#8fd0ff' : '#4b5673'));
+      g.fillStyle = maxed ? '#ffe9a0' : (on ? '#ffffff' : (owned ? '#8fd0ff' : '#4b5673'));
       g.fillText(slots[i], sx + (MET_PITCH - 2) / 2, y + 10);
       g.textAlign = 'left';
       g.font = '6px monospace';
@@ -1725,8 +1838,9 @@
       var barState = NS.Feedback && NS.Feedback.bossBar(G.boss);
       var shownHp = barState ? barState.hp : G.boss.hp;
       var chipHp = barState ? barState.chip : shownHp;
-      var pct = NS.clamp(shownHp / G.boss.maxHp, 0, 1);
-      var chipPct = NS.clamp(chipHp / G.boss.maxHp, 0, 1);
+      var barMax = (barState && barState.max) || G.boss.maxHp || 1;
+      var pct = NS.clamp(shownHp / barMax, 0, 1);
+      var chipPct = NS.clamp(chipHp / barMax, 0, 1);
       var bw = 136, bx = (NS.W - bw) / 2;
       g.fillStyle = '#3a0d18';
       g.fillRect(bx, y - 7, bw, 5);
@@ -1746,10 +1860,17 @@
   }
 
   function centerText(t, y, color, size) {
+    /* Keep the original layout; warmer ink and a steady outline replace
+       palette flicker while text still comes from live game state. */
+    var palette = { '#6f7d99':'#b6afa6', '#5f6c86':'#9e9a91', '#6f7f9c':'#b4ada3', '#566681':'#9d9a93', '#7f8aa3':'#b3aca2', '#8fd0ff':'#a8d8df', '#ff9ec0':'#c7ac95' };
+    if (NS.Art.ready && palette[color]) color = palette[color];
+    g.save();
     g.font = (size || '6px') + ' monospace';
     g.textAlign = 'center';
     g.fillStyle = color;
+    if (NS.Art.ready) { g.shadowColor = '#05080b'; g.shadowBlur = 3; }
     g.fillText(t, NS.W / 2, y);
+    g.restore();
     g.textAlign = 'left';
     g.font = '6px monospace';
   }

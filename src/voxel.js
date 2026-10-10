@@ -1262,11 +1262,12 @@
       for(var bc=0;bc<wall.cells.length;bc++){
         var cell=wall.cells[bc];if(cell.dead)continue;
         var cellFlash=NS.damageFlashing(cell),ck=NS.hitOffset(cell);
-        var tint=cellFlash?NS.DAMAGE_FLASH_COLOR:(cell.hp/cell.maxHp>.5?'#b39749':'#80652e');
+        var deep=wall.layer%2;
+        var tint=cellFlash?NS.DAMAGE_FLASH_COLOR:(cell.hp/cell.maxHp>.5?(deep?'#94783a':'#b39749'):(deep?'#684f29':'#80652e'));
         vbox('campBarrier',wx+wall.w/2+ck.x,cell.y+cell.h/2+ck.y,LAYER.terrain.z+18,
              wall.w,1,28,tint,{cap:48,sy:Math.max(2,cell.h-1)});
         vbox('campBarrierRim',wx+wall.w/2+ck.x,cell.y+2+ck.y,LAYER.terrain.z+34,
-             wall.w-3,2,3,cellFlash?'#ff9ba0':'#d7bd66',{cap:48});
+             wall.w-3,2,3,cellFlash?'#ff9ba0':(deep?'#b99b53':'#d7bd66'),{cap:48});
       }
     }
     for(i=0;i<C.enemies.length;i++){

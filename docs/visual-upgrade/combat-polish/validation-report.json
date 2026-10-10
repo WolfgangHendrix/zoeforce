@@ -1,0 +1,290 @@
+{
+  "checkedAt": "2026-09-28T22:41:00.203Z",
+  "checks": [
+    "Actual prominence eruption supplies visible fireballs",
+    "All five maxed slots retain rendered gold when selected by energy pickups and show a separate active marker",
+    "Painted, accessibility and missing-art projectile rendering preserve simulation state",
+    "Stage 1 normal death preserves visible and directly recoverable Options",
+    "Stage 1 edge death preserves visible and directly recoverable Options",
+    "Stage 2 normal death preserves visible and directly recoverable Options",
+    "Stage 2 edge death preserves visible and directly recoverable Options",
+    "Stage 3 normal death preserves visible and directly recoverable Options",
+    "Stage 3 edge death preserves visible and directly recoverable Options",
+    "Stage 4 normal death preserves visible and directly recoverable Options",
+    "Stage 4 edge death preserves visible and directly recoverable Options",
+    "Stage 5 normal death preserves visible and directly recoverable Options",
+    "Stage 5 edge death preserves visible and directly recoverable Options",
+    "Stage 6 normal death preserves visible and directly recoverable Options",
+    "Stage 6 edge death preserves visible and directly recoverable Options",
+    "Loose Options remain until collected or drifted offscreen, without an on-screen timeout"
+  ],
+  "deathResults": [
+    {
+      "stage": 1,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 106.8850000000003,
+          "y": 105.81385739322312,
+          "t": 89
+        },
+        {
+          "x": 86.35100000000028,
+          "y": 102.88805998213246,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 1,
+      "edge": true,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 3,
+          "y": 105.81385739322312,
+          "t": 89
+        },
+        {
+          "x": 3,
+          "y": 102.88805998213246,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 2,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 130.17662887186745,
+          "y": 146.2299999999994,
+          "t": 89
+        },
+        {
+          "x": 126.6656719785589,
+          "y": 156.2299999999994,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 2,
+      "edge": true,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 130.17662887186745,
+          "y": 205,
+          "t": 89
+        },
+        {
+          "x": 126.6656719785589,
+          "y": 205,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 3,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 106.8850000000003,
+          "y": 105.81385739322312,
+          "t": 89
+        },
+        {
+          "x": 86.35100000000028,
+          "y": 102.88805998213246,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 3,
+      "edge": true,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 3,
+          "y": 105.81385739322312,
+          "t": 89
+        },
+        {
+          "x": 3,
+          "y": 102.88805998213246,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 4,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 130.17662887186745,
+          "y": 146.2299999999994,
+          "t": 89
+        },
+        {
+          "x": 126.6656719785589,
+          "y": 156.2299999999994,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 4,
+      "edge": true,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 130.17662887186745,
+          "y": 205,
+          "t": 89
+        },
+        {
+          "x": 126.6656719785589,
+          "y": 205,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 5,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 106.8850000000003,
+          "y": 105.81385739322312,
+          "t": 89
+        },
+        {
+          "x": 86.35100000000028,
+          "y": 102.88805998213246,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 5,
+      "edge": true,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 3,
+          "y": 105.81385739322312,
+          "t": 89
+        },
+        {
+          "x": 3,
+          "y": 102.88805998213246,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 6,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 130.17662887186745,
+          "y": 146.2299999999994,
+          "t": 89
+        },
+        {
+          "x": 126.6656719785589,
+          "y": 156.2299999999994,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 6,
+      "edge": true,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 130.17662887186745,
+          "y": 205,
+          "t": 89
+        },
+        {
+          "x": 126.6656719785589,
+          "y": 205,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    }
+  ],
+  "captures": [
+    {
+      "file": "boss-spread.png",
+      "label": "Golem live plasma spread; selected gold LASER"
+    },
+    {
+      "file": "fireballs.png",
+      "label": "Live prominence fireballs"
+    },
+    {
+      "file": "gold-selected.png",
+      "label": "Selected gold FORCE with cyan pointer and frame"
+    },
+    {
+      "file": "fortress-fire.png",
+      "label": "Fortress hostile fireballs"
+    },
+    {
+      "file": "options-after-respawn.png",
+      "label": "Recoverable green Options after an actual death and respawn"
+    },
+    {
+      "file": "projectiles-accessibility.png",
+      "label": "Projectile contrast with Reduced Motion and Reduced Flash"
+    }
+  ],
+  "errors": []
+}

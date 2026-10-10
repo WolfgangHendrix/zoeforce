@@ -1,0 +1,1282 @@
+[
+  {
+    "id": "ship",
+    "file": "sprites/ship.png",
+    "width": 20,
+    "height": 9,
+    "anchor": {
+      "x": 10,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "shipUp",
+    "file": "sprites/shipUp.png",
+    "width": 20,
+    "height": 9,
+    "anchor": {
+      "x": 10,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "shipDown",
+    "file": "sprites/shipDown.png",
+    "width": 20,
+    "height": 9,
+    "anchor": {
+      "x": 10,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "shipTop",
+    "file": "sprites/shipTop.png",
+    "width": 11,
+    "height": 16,
+    "anchor": {
+      "x": 5.5,
+      "y": 8
+    }
+  },
+  {
+    "id": "flame.0",
+    "file": "sprites/flame-0.png",
+    "width": 6,
+    "height": 3,
+    "anchor": {
+      "x": 3,
+      "y": 1.5
+    }
+  },
+  {
+    "id": "flame.1",
+    "file": "sprites/flame-1.png",
+    "width": 6,
+    "height": 3,
+    "anchor": {
+      "x": 3,
+      "y": 1.5
+    }
+  },
+  {
+    "id": "flameTop",
+    "file": "sprites/flameTop.png",
+    "width": 3,
+    "height": 4,
+    "anchor": {
+      "x": 1.5,
+      "y": 2
+    }
+  },
+  {
+    "id": "option.0",
+    "file": "sprites/option-0.png",
+    "width": 5,
+    "height": 5,
+    "anchor": {
+      "x": 2.5,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "option.1",
+    "file": "sprites/option-1.png",
+    "width": 5,
+    "height": 5,
+    "anchor": {
+      "x": 2.5,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "looseOption.0",
+    "file": "sprites/looseOption-0.png",
+    "width": 5,
+    "height": 5,
+    "anchor": {
+      "x": 2.5,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "looseOption.1",
+    "file": "sprites/looseOption-1.png",
+    "width": 5,
+    "height": 5,
+    "anchor": {
+      "x": 2.5,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "capsule.0",
+    "file": "sprites/capsule-0.png",
+    "width": 6,
+    "height": 5,
+    "anchor": {
+      "x": 3,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "capsule.1",
+    "file": "sprites/capsule-1.png",
+    "width": 6,
+    "height": 5,
+    "anchor": {
+      "x": 3,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "crashCapsule.0",
+    "file": "sprites/crashCapsule-0.png",
+    "width": 6,
+    "height": 5,
+    "anchor": {
+      "x": 3,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "crashCapsule.1",
+    "file": "sprites/crashCapsule-1.png",
+    "width": 6,
+    "height": 5,
+    "anchor": {
+      "x": 3,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "shot",
+    "file": "sprites/shot.png",
+    "width": 6,
+    "height": 1,
+    "anchor": {
+      "x": 3,
+      "y": 0.5
+    }
+  },
+  {
+    "id": "missile",
+    "file": "sprites/missile.png",
+    "width": 5,
+    "height": 3,
+    "anchor": {
+      "x": 2.5,
+      "y": 1.5
+    }
+  },
+  {
+    "id": "eshot",
+    "file": "sprites/eshot.png",
+    "width": 4,
+    "height": 4,
+    "anchor": {
+      "x": 2,
+      "y": 2
+    }
+  },
+  {
+    "id": "flapper.0",
+    "file": "sprites/flapper-0.png",
+    "width": 9,
+    "height": 7,
+    "anchor": {
+      "x": 4.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "flapper.1",
+    "file": "sprites/flapper-1.png",
+    "width": 9,
+    "height": 7,
+    "anchor": {
+      "x": 4.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "carrier.0",
+    "file": "sprites/carrier-0.png",
+    "width": 9,
+    "height": 7,
+    "anchor": {
+      "x": 4.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "carrier.1",
+    "file": "sprites/carrier-1.png",
+    "width": 9,
+    "height": 7,
+    "anchor": {
+      "x": 4.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "mouthClosed",
+    "file": "sprites/mouthClosed.png",
+    "width": 10,
+    "height": 7,
+    "anchor": {
+      "x": 5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "mouthOpen",
+    "file": "sprites/mouthOpen.png",
+    "width": 10,
+    "height": 7,
+    "anchor": {
+      "x": 5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "spore",
+    "file": "sprites/spore.png",
+    "width": 7,
+    "height": 7,
+    "anchor": {
+      "x": 3.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignEnemy.phoenix.0",
+    "file": "sprites/campaignEnemy-phoenix-0.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignEnemy.phoenix.1",
+    "file": "sprites/campaignEnemy-phoenix-1.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignEnemy.cell.0",
+    "file": "sprites/campaignEnemy-cell-0.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignEnemy.cell.1",
+    "file": "sprites/campaignEnemy-cell-1.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignEnemy.gold.0",
+    "file": "sprites/campaignEnemy-gold-0.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignEnemy.gold.1",
+    "file": "sprites/campaignEnemy-gold-1.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignEnemy.blue.0",
+    "file": "sprites/campaignEnemy-blue-0.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignEnemy.blue.1",
+    "file": "sprites/campaignEnemy-blue-1.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignEnemy.corpuscle.0",
+    "file": "sprites/campaignEnemy-corpuscle-0.png",
+    "width": 11,
+    "height": 6,
+    "anchor": {
+      "x": 5.5,
+      "y": 3
+    }
+  },
+  {
+    "id": "campaignEnemy.corpuscle.1",
+    "file": "sprites/campaignEnemy-corpuscle-1.png",
+    "width": 11,
+    "height": 6,
+    "anchor": {
+      "x": 5.5,
+      "y": 3
+    }
+  },
+  {
+    "id": "campaignEnemy.lung.0",
+    "file": "sprites/campaignEnemy-lung-0.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignEnemy.lung.1",
+    "file": "sprites/campaignEnemy-lung-1.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignEnemy.nodule.0",
+    "file": "sprites/campaignEnemy-nodule-0.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignEnemy.nodule.1",
+    "file": "sprites/campaignEnemy-nodule-1.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignEnemy.dragon.0",
+    "file": "sprites/campaignEnemy-dragon-0.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignEnemy.dragon.1",
+    "file": "sprites/campaignEnemy-dragon-1.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignEnemy.rock.0",
+    "file": "sprites/campaignEnemy-rock-0.png",
+    "width": 10,
+    "height": 7,
+    "anchor": {
+      "x": 5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignEnemy.rock.1",
+    "file": "sprites/campaignEnemy-rock-1.png",
+    "width": 10,
+    "height": 7,
+    "anchor": {
+      "x": 5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignEnemy.hatch.0",
+    "file": "sprites/campaignEnemy-hatch-0.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignEnemy.hatch.1",
+    "file": "sprites/campaignEnemy-hatch-1.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignEnemy.block.0",
+    "file": "sprites/campaignEnemy-block-0.png",
+    "width": 10,
+    "height": 9,
+    "anchor": {
+      "x": 5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignEnemy.block.1",
+    "file": "sprites/campaignEnemy-block-1.png",
+    "width": 10,
+    "height": 9,
+    "anchor": {
+      "x": 5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignEnemy.crystal.0",
+    "file": "sprites/campaignEnemy-crystal-0.png",
+    "width": 9,
+    "height": 9,
+    "anchor": {
+      "x": 4.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignEnemy.crystal.1",
+    "file": "sprites/campaignEnemy-crystal-1.png",
+    "width": 9,
+    "height": 9,
+    "anchor": {
+      "x": 4.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignEnemy.cannon.0",
+    "file": "sprites/campaignEnemy-cannon-0.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignEnemy.cannon.1",
+    "file": "sprites/campaignEnemy-cannon-1.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignEnemy.moai.0",
+    "file": "sprites/campaignEnemy-moai-0.png",
+    "width": 11,
+    "height": 10,
+    "anchor": {
+      "x": 5.5,
+      "y": 5
+    }
+  },
+  {
+    "id": "campaignEnemy.moai.1",
+    "file": "sprites/campaignEnemy-moai-1.png",
+    "width": 11,
+    "height": 10,
+    "anchor": {
+      "x": 5.5,
+      "y": 5
+    }
+  },
+  {
+    "id": "campaignCarrier.phoenix.0",
+    "file": "sprites/campaignCarrier-phoenix-0.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignCarrier.phoenix.1",
+    "file": "sprites/campaignCarrier-phoenix-1.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignCarrier.cell.0",
+    "file": "sprites/campaignCarrier-cell-0.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignCarrier.cell.1",
+    "file": "sprites/campaignCarrier-cell-1.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignCarrier.gold.0",
+    "file": "sprites/campaignCarrier-gold-0.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignCarrier.gold.1",
+    "file": "sprites/campaignCarrier-gold-1.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignCarrier.blue.0",
+    "file": "sprites/campaignCarrier-blue-0.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignCarrier.blue.1",
+    "file": "sprites/campaignCarrier-blue-1.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignCarrier.corpuscle.0",
+    "file": "sprites/campaignCarrier-corpuscle-0.png",
+    "width": 11,
+    "height": 6,
+    "anchor": {
+      "x": 5.5,
+      "y": 3
+    }
+  },
+  {
+    "id": "campaignCarrier.corpuscle.1",
+    "file": "sprites/campaignCarrier-corpuscle-1.png",
+    "width": 11,
+    "height": 6,
+    "anchor": {
+      "x": 5.5,
+      "y": 3
+    }
+  },
+  {
+    "id": "campaignCarrier.lung.0",
+    "file": "sprites/campaignCarrier-lung-0.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignCarrier.lung.1",
+    "file": "sprites/campaignCarrier-lung-1.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignCarrier.nodule.0",
+    "file": "sprites/campaignCarrier-nodule-0.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignCarrier.nodule.1",
+    "file": "sprites/campaignCarrier-nodule-1.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignCarrier.dragon.0",
+    "file": "sprites/campaignCarrier-dragon-0.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignCarrier.dragon.1",
+    "file": "sprites/campaignCarrier-dragon-1.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignCarrier.rock.0",
+    "file": "sprites/campaignCarrier-rock-0.png",
+    "width": 10,
+    "height": 7,
+    "anchor": {
+      "x": 5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignCarrier.rock.1",
+    "file": "sprites/campaignCarrier-rock-1.png",
+    "width": 10,
+    "height": 7,
+    "anchor": {
+      "x": 5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignCarrier.hatch.0",
+    "file": "sprites/campaignCarrier-hatch-0.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignCarrier.hatch.1",
+    "file": "sprites/campaignCarrier-hatch-1.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignCarrier.block.0",
+    "file": "sprites/campaignCarrier-block-0.png",
+    "width": 10,
+    "height": 9,
+    "anchor": {
+      "x": 5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignCarrier.block.1",
+    "file": "sprites/campaignCarrier-block-1.png",
+    "width": 10,
+    "height": 9,
+    "anchor": {
+      "x": 5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignCarrier.crystal.0",
+    "file": "sprites/campaignCarrier-crystal-0.png",
+    "width": 9,
+    "height": 9,
+    "anchor": {
+      "x": 4.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignCarrier.crystal.1",
+    "file": "sprites/campaignCarrier-crystal-1.png",
+    "width": 9,
+    "height": 9,
+    "anchor": {
+      "x": 4.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignCarrier.cannon.0",
+    "file": "sprites/campaignCarrier-cannon-0.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignCarrier.cannon.1",
+    "file": "sprites/campaignCarrier-cannon-1.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignCarrier.moai.0",
+    "file": "sprites/campaignCarrier-moai-0.png",
+    "width": 11,
+    "height": 10,
+    "anchor": {
+      "x": 5.5,
+      "y": 5
+    }
+  },
+  {
+    "id": "campaignCarrier.moai.1",
+    "file": "sprites/campaignCarrier-moai-1.png",
+    "width": 11,
+    "height": 10,
+    "anchor": {
+      "x": 5.5,
+      "y": 5
+    }
+  },
+  {
+    "id": "campaignHit.phoenix.0",
+    "file": "sprites/campaignHit-phoenix-0.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignHit.phoenix.1",
+    "file": "sprites/campaignHit-phoenix-1.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignHit.cell.0",
+    "file": "sprites/campaignHit-cell-0.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignHit.cell.1",
+    "file": "sprites/campaignHit-cell-1.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignHit.gold.0",
+    "file": "sprites/campaignHit-gold-0.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignHit.gold.1",
+    "file": "sprites/campaignHit-gold-1.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignHit.blue.0",
+    "file": "sprites/campaignHit-blue-0.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignHit.blue.1",
+    "file": "sprites/campaignHit-blue-1.png",
+    "width": 11,
+    "height": 7,
+    "anchor": {
+      "x": 5.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignHit.corpuscle.0",
+    "file": "sprites/campaignHit-corpuscle-0.png",
+    "width": 11,
+    "height": 6,
+    "anchor": {
+      "x": 5.5,
+      "y": 3
+    }
+  },
+  {
+    "id": "campaignHit.corpuscle.1",
+    "file": "sprites/campaignHit-corpuscle-1.png",
+    "width": 11,
+    "height": 6,
+    "anchor": {
+      "x": 5.5,
+      "y": 3
+    }
+  },
+  {
+    "id": "campaignHit.lung.0",
+    "file": "sprites/campaignHit-lung-0.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignHit.lung.1",
+    "file": "sprites/campaignHit-lung-1.png",
+    "width": 11,
+    "height": 8,
+    "anchor": {
+      "x": 5.5,
+      "y": 4
+    }
+  },
+  {
+    "id": "campaignHit.nodule.0",
+    "file": "sprites/campaignHit-nodule-0.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignHit.nodule.1",
+    "file": "sprites/campaignHit-nodule-1.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignHit.dragon.0",
+    "file": "sprites/campaignHit-dragon-0.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignHit.dragon.1",
+    "file": "sprites/campaignHit-dragon-1.png",
+    "width": 13,
+    "height": 7,
+    "anchor": {
+      "x": 6.5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignHit.rock.0",
+    "file": "sprites/campaignHit-rock-0.png",
+    "width": 10,
+    "height": 7,
+    "anchor": {
+      "x": 5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignHit.rock.1",
+    "file": "sprites/campaignHit-rock-1.png",
+    "width": 10,
+    "height": 7,
+    "anchor": {
+      "x": 5,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "campaignHit.hatch.0",
+    "file": "sprites/campaignHit-hatch-0.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignHit.hatch.1",
+    "file": "sprites/campaignHit-hatch-1.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignHit.block.0",
+    "file": "sprites/campaignHit-block-0.png",
+    "width": 10,
+    "height": 9,
+    "anchor": {
+      "x": 5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignHit.block.1",
+    "file": "sprites/campaignHit-block-1.png",
+    "width": 10,
+    "height": 9,
+    "anchor": {
+      "x": 5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignHit.crystal.0",
+    "file": "sprites/campaignHit-crystal-0.png",
+    "width": 9,
+    "height": 9,
+    "anchor": {
+      "x": 4.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignHit.crystal.1",
+    "file": "sprites/campaignHit-crystal-1.png",
+    "width": 9,
+    "height": 9,
+    "anchor": {
+      "x": 4.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignHit.cannon.0",
+    "file": "sprites/campaignHit-cannon-0.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignHit.cannon.1",
+    "file": "sprites/campaignHit-cannon-1.png",
+    "width": 11,
+    "height": 9,
+    "anchor": {
+      "x": 5.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "campaignHit.moai.0",
+    "file": "sprites/campaignHit-moai-0.png",
+    "width": 11,
+    "height": 10,
+    "anchor": {
+      "x": 5.5,
+      "y": 5
+    }
+  },
+  {
+    "id": "campaignHit.moai.1",
+    "file": "sprites/campaignHit-moai-1.png",
+    "width": 11,
+    "height": 10,
+    "anchor": {
+      "x": 5.5,
+      "y": 5
+    }
+  },
+  {
+    "id": "ducker.0",
+    "file": "sprites/ducker-0.png",
+    "width": 8,
+    "height": 7,
+    "anchor": {
+      "x": 4,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "ducker.1",
+    "file": "sprites/ducker-1.png",
+    "width": 8,
+    "height": 7,
+    "anchor": {
+      "x": 4,
+      "y": 3.5
+    }
+  },
+  {
+    "id": "bossEye",
+    "file": "sprites/bossEye.png",
+    "width": 12,
+    "height": 12,
+    "anchor": {
+      "x": 6,
+      "y": 6
+    }
+  },
+  {
+    "id": "bossEyeHit",
+    "file": "sprites/bossEyeHit.png",
+    "width": 12,
+    "height": 12,
+    "anchor": {
+      "x": 6,
+      "y": 6
+    }
+  },
+  {
+    "id": "cell",
+    "file": "sprites/cell.png",
+    "width": 5,
+    "height": 5,
+    "anchor": {
+      "x": 2.5,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "prom.0",
+    "file": "sprites/prom-0.png",
+    "width": 5,
+    "height": 5,
+    "anchor": {
+      "x": 2.5,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "prom.1",
+    "file": "sprites/prom-1.png",
+    "width": 5,
+    "height": 5,
+    "anchor": {
+      "x": 2.5,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "rusher.0",
+    "file": "sprites/rusher-0.png",
+    "width": 8,
+    "height": 5,
+    "anchor": {
+      "x": 4,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "rusher.1",
+    "file": "sprites/rusher-1.png",
+    "width": 8,
+    "height": 5,
+    "anchor": {
+      "x": 4,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "splitterBig.0",
+    "file": "sprites/splitterBig-0.png",
+    "width": 9,
+    "height": 9,
+    "anchor": {
+      "x": 4.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "splitterBig.1",
+    "file": "sprites/splitterBig-1.png",
+    "width": 9,
+    "height": 9,
+    "anchor": {
+      "x": 4.5,
+      "y": 4.5
+    }
+  },
+  {
+    "id": "splitterSmall.0",
+    "file": "sprites/splitterSmall-0.png",
+    "width": 5,
+    "height": 5,
+    "anchor": {
+      "x": 2.5,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "splitterSmall.1",
+    "file": "sprites/splitterSmall-1.png",
+    "width": 5,
+    "height": 5,
+    "anchor": {
+      "x": 2.5,
+      "y": 2.5
+    }
+  },
+  {
+    "id": "hatchClosed",
+    "file": "sprites/hatchClosed.png",
+    "width": 10,
+    "height": 6,
+    "anchor": {
+      "x": 5,
+      "y": 3
+    }
+  },
+  {
+    "id": "hatchOpen",
+    "file": "sprites/hatchOpen.png",
+    "width": 10,
+    "height": 6,
+    "anchor": {
+      "x": 5,
+      "y": 3
+    }
+  },
+  {
+    "id": "tentacleRoot.0",
+    "file": "sprites/tentacleRoot-0.png",
+    "width": 8,
+    "height": 6,
+    "anchor": {
+      "x": 4,
+      "y": 3
+    }
+  },
+  {
+    "id": "tentacleRoot.1",
+    "file": "sprites/tentacleRoot-1.png",
+    "width": 8,
+    "height": 6,
+    "anchor": {
+      "x": 4,
+      "y": 3
+    }
+  },
+  {
+    "id": "tentacleSeg",
+    "file": "sprites/tentacleSeg.png",
+    "width": 5,
+    "height": 4,
+    "anchor": {
+      "x": 2.5,
+      "y": 2
+    }
+  },
+  {
+    "id": "tentacleTip",
+    "file": "sprites/tentacleTip.png",
+    "width": 5,
+    "height": 5,
+    "anchor": {
+      "x": 2.5,
+      "y": 2.5
+    }
+  }
+]

@@ -307,6 +307,7 @@
 
   /* ---- draw ----------------------------------------------------------- */
   Boss.prototype.draw = function (g) {
+    if (NS.Art && NS.Art.boss(g, 1, this)) return;
     var cx = this.x, cy = this.y + this.bob;
     var flash = NS.damageFlashing(this);
     var kick = NS.hitOffset(this);

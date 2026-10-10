@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "checkedAt": "2026-09-28T21:55:16.976Z",
+  "assetFilter": 9,
+  "bossReviewFilter": 9,
+  "videos": [
+    {
+      "duration": 2,
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "duration": 2.5,
+      "width": 1280,
+      "height": 720
+    }
+  ],
+  "mobileOverflow": false,
+  "browserErrors": 0
+}

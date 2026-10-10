@@ -53,6 +53,18 @@
       assert('stage 4 capillary bridge exists', NS.Campaign.enemies.some(function (e) { return e.world === 2390; }));
       NS.Campaign.reset(5);
       assert('stage 5 checkpoint seal exists', NS.Campaign.barriers.some(function (wall) { return wall.world === 5440; }));
+      var templeFields = {};
+      NS.Campaign.barriers.forEach(function (wall) {
+        if (wall.field) templeFields[wall.field] = (templeFields[wall.field] || 0) + 1;
+      });
+      var templeDepths = Object.keys(templeFields).map(function (id) { return templeFields[id]; }).sort();
+      assert('stage 5 has deep block fields', templeDepths.join(',') === '3,4,5', templeDepths.join(','));
+      assert('deep blocks hide limited power cells',
+        NS.Campaign.barriers.reduce(function (n, wall) {
+          return n + wall.cells.filter(function (cell) { return cell.reward; }).length;
+        }, 0) === 3);
+      assert('late block fields rebuild behind the ship',
+        NS.Campaign.barriers.filter(function (wall) { return wall.regen > 0; }).length === 9);
       NS.Campaign.reset(6);
       assert('stage 6 machine bridge exists', NS.Campaign.enemies.some(function (e) { return e.world === 3150; }));
       assert('later carrier formations pay capsules',

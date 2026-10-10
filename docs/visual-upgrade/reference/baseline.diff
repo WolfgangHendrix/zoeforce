@@ -1,0 +1,1052 @@
+diff --git a/GOALS.md b/GOALS.md
+index e2cc7b0..78e2579 100644
+--- a/GOALS.md
++++ b/GOALS.md
+@@ -20,6 +20,11 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
+ 
+ - [x] **Watermark-free CPU showcase.** A concealed debug-menu toggle runs a
+       complete Stage 1–6 capture pass and stops on the final clear screen.
++- [x] **Local pilot records.** Four profiles retain progression, firing style,
++      career statistics and achievements; records are reachable from title and
++      pause.
++- [x] **Temple block fields.** Selected Stage 5 barriers now run three, four
++      and five layers deep, hide limited capsules and rebuild behind the ship.
+ 
+ ## 1. Make the campaign finishable
+ 
+@@ -33,7 +38,7 @@ _Progress: complete._
+ 
+ ## 2. Options and accessibility
+ 
+-_Progress: gameplay, volume and accessibility options complete; remapping remains._
++_Progress: complete._
+ 
+ - [x] **Gameplay options.** Persisted 1–9 starting lives and a wall-damage
+       toggle; nonlethal walls block the ship while preserving surface-parallel
+@@ -42,18 +47,20 @@ _Progress: gameplay, volume and accessibility options complete; remapping remain
+ - [x] **Options menu** reachable from title and pause, hosting the above.
+ - [x] **Reduced-flash toggle.** Suppresses the boss-intro flash/shake, enemy
+       and boss hit flashes, and the Stage 6 escape overlay.
+-- [ ] **Key remapping.** Lower priority than the rest of this section.
++- [x] **Key remapping.** Keyboard and gamepad bindings can be changed safely;
++      assigning a used input swaps the conflicting action.
+ 
+ ## 3. Ending and audio variety
+ 
+-_Progress: not started._
++_Progress: ending presentation and per-stage music are complete._
+ 
+-- [ ] **Ending sequence.** Beating Zelos Force runs the escape and returns to
+-      title with no victory screen or credits.
+-- [ ] **Per-stage music.** `SECTIONS` (`src/audio.js`) drives everything from
+-      a named section order — vary order and transposition per stage rather
+-      than authoring six arrangements.
+-- [ ] **Victory / ending theme.**
++- [x] **Ending sequence.** Beating Zelos Force runs an accelerating lockdown
++      escape into a silent-serial victory card.
++- [x] **Per-stage music.** `STAGE_MUSIC` in `src/audio.js` reorders `SECTIONS`,
++      transposes them and changes tempo per stage. The boss theme uses that
++      stage's key.
++- [x] **Victory / ending theme.** The Stage 6 lockdown stays silent. The clear
++      card plays a slower, brighter loop of the main theme.
+ 
+ ## 4. Content depth for Stages 3–6
+ 
+diff --git a/README.md b/README.md
+index 56a8075..902aaca 100644
+--- a/README.md
++++ b/README.md
+@@ -194,13 +194,17 @@ channel reach it. Enrages below 45% HP. ~18s fight with the base gun.
+ Seven sections in A minor with their own chord progressions, four-bar melodic
+ phrases that answer each other, a bridge that lifts to the relative major,
+ per-section drum kits with fills on the turnarounds, and a separate boss
+-theme. Runs ~70s before repeating, and repeats past the intro rather than back
+-into it. Still synthesised at schedule time — no audio assets.
++theme. Each stage reorders those sections and shifts key and tempo
++(`STAGE_MUSIC`); the boss theme stays in that stage's key. The Stage 6
++lockdown stays silent, then the victory card plays a slower, brighter pass
++of the main theme. Still synthesised at schedule time — no audio assets.
+ 
+ **Voxel view** (`src/voxel.js`) — see below.
+ 
+ **Death and recovery** — the stage keeps scrolling while the next life flies
+-in instead of rewinding to a Gradius checkpoint. Power is wiped, but equipped
++in instead of rewinding to a Gradius checkpoint. The new ship is placed in
++the nearest open cell, so a gate or island on the old spawn point cannot
++chain-kill the next life. Power is wiped, but equipped
+ Options turn green, drift slowly toward the left edge, and can be reclaimed by
+ touching them. The default is 3 lives (configurable from 1–9), plus score,
+ persisted hi-score, and chiptune WebAudio SFX.
+@@ -264,8 +268,11 @@ NES campaign structure:
+ - Latis Temple opens with ten paired three-ship power waves, then hatches,
+   rocks and a three-core capsule-paying miniboss. Beyond it is an authored
+   interior gauntlet of full masonry seals that must be shot open, pre-breached
+-  high/low walls, moving pillars, hatch guns and destructible blocks, followed
+-  by Tutanhamanattack's orbiting shield and eye weak point.
++  high/low walls, moving pillars, hatch guns and destructible blocks. Three of
++  its late seals expand into three-, four- and five-layer block fields: normal
++  fire must bore through every layer, buried cells hide limited power capsules,
++  and the two deepest fields rebuild behind the ship. Tutanhamanattack's
++  orbiting shield and eye weak point wait beyond them.
+ - Mechanical City combines blue/gold formations, crystal bombs, cannons,
+   crossing shutters and mouth-gated Moai without empty transitions between
+   its major sections. Six visibly marked gold formations provide complete-set
+@@ -382,12 +389,15 @@ Three places, in order of how much they matter:
+ ## Debug hook
+ 
+ Type `userspacechakra`, then press tilde/backquote to unlock and open the
+-concealed QA console. After it has been unlocked, tilde toggles it for the
+-rest of the page session. Opening the console freezes gameplay. It provides
+-encounter warps for all six stages, direct jumps to every boss and the Stage 5
+-miniboss, invincibility, full loadout and recovery controls, frame stepping,
+-enemy/bullet cleanup, boss damage controls, pickup spawning, live telemetry,
+-hitbox overlays, fullscreen, and 2D/voxel switching.
++concealed QA console. A source build can also open `index.html?debug=1`,
++which unlocks the console for that origin until **Lock Console** is used.
++After it has been unlocked, tilde toggles it for the rest of the page session.
++Opening the console freezes gameplay. It provides encounter warps for all six
++stages, direct jumps to every boss and the Stage 5 miniboss, invincibility,
++noclip, scroll freeze, 1×/2×/4× time, full loadout and recovery controls,
++frame stepping, enemy/bullet cleanup, boss damage controls, pickup spawning,
++campaign unlock, profile erase, live telemetry, hitbox and corridor overlays,
++fullscreen, and 2D/voxel switching.
+ 
+ **CPU Showcase** in that console starts a fresh Stage 1 run, closes the panel,
+ and pilots continuously through the Stage 6 ending. It flies, dodges, fires,
+diff --git a/docs/life-force-reference.md b/docs/life-force-reference.md
+index 3d71a00..d9b1ea0 100644
+--- a/docs/life-force-reference.md
++++ b/docs/life-force-reference.md
+@@ -37,12 +37,14 @@ counter-jets; Cellular Current keeps web and rib pressure through the Giga
+ approach; and Mechanical City uses shutters at both major section changes.
+ 
+ The largest reconciliation is the Temple interior after the three-core
+-checkpoint. It now alternates four complete masonry seals—each requiring the
+-player to shoot out a ship-sized route—with six pre-breached high/low walls.
+-Moving pillars, hatch guns and destructible blocks occupy the spaces between
+-those walls. This implements the guide's “temple pillars and destructible
+-block maze” as a sustained post-miniboss sequence rather than isolated small
+-enemies spread across otherwise empty scrolling.
++checkpoint. It alternates complete masonry seals—each requiring the player to
++shoot out a ship-sized route—with six pre-breached high/low walls. The later
++seals have three, four and five independently collidable layers, selected
++buried cells hide a total of three power capsules, and the two deepest fields
++rebuild only after the opened cells pass behind the ship. Moving pillars,
++hatch guns and destructible blocks occupy the spaces between those walls.
++This implements the guide's long, sometimes regenerating “block passages” as
++a sustained post-miniboss sequence rather than isolated single-width doors.
+ 
+ Designated later-stage formations remain complete-set power opportunities.
+ Stages 3–5 are deliberately generous recovery stages; Stage 6 keeps most blue
+diff --git a/src/audio.js b/src/audio.js
+index e12c54d..da8f5b3 100644
+--- a/src/audio.js
++++ b/src/audio.js
+@@ -371,8 +371,27 @@
+      heard once per run and never again. */
+   var TRACKS = {
+     stage: { order: ['intro', 'A', 'B', 'breakdown', 'bridge', 'A', 'turnaround'],
+-             loopFrom: 1 },
+-    boss:  { order: ['bossA'], loopFrom: 0 }
++             loopFrom: 1, semi: 0, rate: 1 },
++    boss:  { order: ['bossA'], loopFrom: 0, semi: 0, rate: 1.08 },
++    /* Victory card only. The Stage 6 climb stays silent on purpose. */
++    ending: { order: ['A', 'turnaround'], loopFrom: 0, semi: 7, rate: 0.86 }
++  };
++
++  /* Same sections, different order, key and tempo. Authoring six full
++     arrangements can replace these rows later without touching the mixer. */
++  var STAGE_MUSIC = {
++    1: { order: ['intro', 'A', 'B', 'breakdown', 'bridge', 'A', 'turnaround'],
++         loopFrom: 1, semi: 0, rate: 1, bossRate: 1.06 },
++    2: { order: ['intro', 'B', 'bridge', 'A', 'turnaround', 'breakdown'],
++         loopFrom: 1, semi: 2, rate: 1.04, bossRate: 1.08 },
++    3: { order: ['intro', 'bridge', 'B', 'A', 'turnaround', 'breakdown'],
++         loopFrom: 1, semi: 4, rate: 1.07, bossRate: 1.12 },
++    4: { order: ['intro', 'breakdown', 'A', 'bridge', 'B', 'turnaround'],
++         loopFrom: 1, semi: -4, rate: 0.95, bossRate: 1.04 },
++    5: { order: ['intro', 'A', 'breakdown', 'turnaround', 'bridge', 'B'],
++         loopFrom: 1, semi: -7, rate: 0.9, bossRate: 1.02 },
++    6: { order: ['intro', 'turnaround', 'B', 'A', 'bridge', 'breakdown'],
++         loopFrom: 1, semi: 3, rate: 1.1, bossRate: 1.14 }
+   };
+ 
+   var track = TRACKS.stage;
+@@ -468,11 +487,12 @@
+     var tri = TRIAD[chord.q];
+ 
+     /* --- bass: chord root and fifth, an octave and a half below the lead */
++    var semi = track.semi || 0;
+     var bassTok = sec.bass[slot.bar][s];
+     if (bassTok && bassTok !== '.' && bassTok !== '-') {
+       var bn = parseInt(bassTok, 10);
+       var bdur = heldSteps(sec.bass[slot.bar], s) * SPB * 0.92;
+-      blip(t, hz(55, bn), bdur, 0.26, 'triangle');
++      blip(t, hz(55, bn + semi), bdur, 0.26, 'triangle');
+     }
+ 
+     /* --- lead */
+@@ -480,14 +500,14 @@
+     if (leadTok && leadTok !== '.' && leadTok !== '-') {
+       var ln = parseInt(leadTok, 10);
+       var ldur = heldSteps(sec.lead[slot.bar], s) * SPB * 0.95;
+-      blip(t, hz(220, ln), ldur, 0.115, 'square');
++      blip(t, hz(220, ln + semi), ldur, 0.115, 'square');
+       /* a quiet detuned double gives the lead some width */
+-      blip(t, hz(220, ln), ldur * 0.8, 0.045, 'square', 8);
++      blip(t, hz(220, ln + semi), ldur * 0.8, 0.045, 'square', 8);
+     }
+ 
+     /* --- inner harmony: the chord's third, on the offbeats, quietly */
+     if (s % 4 === 2) {
+-      blip(t, hz(110, chord.root + tri[1]), SPB * 1.6, 0.035, 'square');
++      blip(t, hz(110, chord.root + tri[1] + semi), SPB * 1.6, 0.035, 'square');
+     }
+ 
+     /* --- drums, with the section's last bar taking a fill */
+@@ -523,21 +543,60 @@
+ 
+   /* Switch arrangements. Restarting from bar 0 is deliberate: the boss
+      theme should hit on its downbeat, not wherever the stage track was. */
++  function applyTempo(next) {
++    var rate = next && next.rate ? next.rate : 1;
++    BPM = 148 * rate;
++    SPB = 60 / BPM / 4;
++  }
++
+   function setTrack(name) {
+     var next = TRACKS[name] || TRACKS.stage;
+-    if (next === track) return;
+-    track = next;
+-    step = 0;
+-    buildTimeline();
++    if (next !== track) {
++      track = next;
++      step = 0;
++      timeline = [];
++    }
++    applyTempo(track);
++    if (!timeline.length) buildTimeline();
+     if (musicTimer && ctx) nextTime = ctx.currentTime + 0.05;
+   }
+ 
++  /* Called at each stage entry, before setTrack('stage') or setTrack('boss').
++     Boss music stays in the stage's key and takes that stage's tempo. */
++  function prepareStage(stage) {
++    var spec = STAGE_MUSIC[stage] || STAGE_MUSIC[1];
++    TRACKS.stage.order = spec.order.slice();
++    TRACKS.stage.loopFrom = spec.loopFrom;
++    TRACKS.stage.semi = spec.semi || 0;
++    TRACKS.stage.rate = spec.rate || 1;
++    TRACKS.boss.semi = spec.semi || 0;
++    TRACKS.boss.rate = spec.bossRate || 1.08;
++    if (track === TRACKS.stage || track === TRACKS.boss) {
++      applyTempo(track);
++      step = 0;
++      timeline = [];
++      buildTimeline();
++    }
++  }
++
+   NS.Audio = {
+     resume: resume,
+     sfx: sfx,
+     startMusic: startMusic,
+     stopMusic: stopMusic,
+     setTrack: setTrack,
++    prepareStage: prepareStage,
++    stageMusic: function () {
++      return {
++        order: TRACKS.stage.order.slice(),
++        semi: TRACKS.stage.semi || 0,
++        rate: TRACKS.stage.rate || 1,
++        bossSemi: TRACKS.boss.semi || 0,
++        bossRate: TRACKS.boss.rate || 1,
++        endingSemi: TRACKS.ending.semi,
++        endingRate: TRACKS.ending.rate
++      };
++    },
+     setVolumes: setVolumes,
+     duck: duck,
+     volumes: function () { return { master: volumes.master, music: volumes.music, sfx: volumes.sfx }; },
+diff --git a/src/campaign.js b/src/campaign.js
+index c1a3a9e..3baf944 100644
+--- a/src/campaign.js
++++ b/src/campaign.js
+@@ -41,15 +41,45 @@
+      their chosen height; open gates provide a pre-carved route. Both use the
+      corridor bounds at their authored world position, so no block is hidden
+      inside the permanent floor or ceiling. */
+-  function templeBarrier(world,gapY,gapSize,hp){
++  function templeBarrier(world,gapY,gapSize,hp,opt){
++    opt=opt||{};
+     var edge=bounds(world),cellH=16,top=edge.a+2,bottom=edge.z-2;
+-    var wall={id:uid++,world:world,w:14,cells:[],seal:gapY==null};
++    var wall={id:uid++,world:world,w:14,cells:[],seal:gapY==null,
++      field:opt.field||0,layer:opt.layer||0,regen:opt.regen||0};
+     for(var y=top;y<bottom-7;y+=cellH){
+       var h=Math.min(cellH-1,bottom-y),cy=y+h/2;
+       var open=gapY!=null&&Math.abs(cy-gapY)<(gapSize||30)/2;
+-      wall.cells.push({id:uid++,y:y,h:h,hp:hp||4,maxHp:hp||4,dead:open,hitFlash:0});
++      wall.cells.push({id:uid++,y:y,h:h,hp:hp||4,maxHp:hp||4,dead:open,
++        opened:open,reward:false,destroyedAt:0,hitFlash:0});
+     }
+     C.barriers.push(wall);
++    return wall;
++  }
++
++  /* Life Force's late temple is made of block fields, not paper-thin doors.
++     Each layer is independently collidable and destructible, so ordinary
++     fire must bore a tunnel through the full depth while a piercing laser
++     earns its intended advantage. Optional pre-cut lanes can bend or end;
++     selected buried cells pay one capsule. The last fields rebuild only
++     after their breach has passed behind the ship, closing the route without
++     materialising a block on top of the player. */
++  function templeField(world,layers,opt){
++    opt=opt||{};var field=uid++,walls=[],spacing=opt.spacing||18;
++    for(var i=0;i<layers;i++){
++      var gaps=opt.gaps||[],gap=gaps.length?gaps[Math.min(i,gaps.length-1)]:null;
++      walls.push(templeBarrier(world+i*spacing,gap,opt.gapSize||34,opt.hp||4,
++        {field:field,layer:i,regen:opt.regen||0}));
++    }
++    for(var r=0;r<(opt.rewards||[]).length;r++){
++      var mark=opt.rewards[r],wall=walls[NS.clamp(mark.layer|0,0,walls.length-1)];
++      var nearest=null,distance=Infinity;
++      for(var c=0;c<wall.cells.length;c++){
++        var cell=wall.cells[c],d=Math.abs(cell.y+cell.h/2-mark.y);
++        if(!cell.opened&&d<distance){nearest=cell;distance=d;}
++      }
++      if(nearest)nearest.reward=true;
++    }
++    return walls;
+   }
+ 
+   function build3(){
+@@ -120,19 +150,19 @@
+     hazard('pillar',6060,'bottom',{period:138,span:60,offset:81});
+     templeBarrier(6240,148,38,4);
+     hazard('pillar',6420,'top',{period:132,span:64,offset:47});
+-    templeBarrier(6600,null,0,4); addEnemy('block',6710,72,9,true);
++    templeField(6600,3,{hp:4,rewards:[{layer:1,y:104}]}); addEnemy('block',6710,72,9,true);
+     hazard('pillar',6800,'bottom',{period:128,span:66,offset:13});
+     templeBarrier(6980,70,34,5); addEnemy('hatch',7160,164,8,false);
+     hazard('pillar',7180,'top',{period:126,span:68,offset:69});
+     templeBarrier(7360,138,34,5);
+     hazard('pillar',7550,'bottom',{period:124,span:68,offset:35});
+-    templeBarrier(7740,null,0,5); addEnemy('block',7860,136,9,false);
++    templeField(7740,4,{hp:5,regen:150,rewards:[{layer:2,y:72}]}); addEnemy('block',7860,136,9,false);
+     hazard('pillar',7930,'top',{period:122,span:70,offset:92});
+     templeBarrier(8120,66,34,5); addEnemy('hatch',8270,166,8,true);
+     hazard('pillar',8310,'bottom',{period:120,span:70,offset:54});
+     templeBarrier(8500,144,34,5);
+     hazard('pillar',8670,'top',{period:118,span:72,offset:18});
+-    templeBarrier(8840,null,0,6);
++    templeField(8840,5,{hp:5,regen:90,rewards:[{layer:3,y:136}]});
+     addEnemy('block',9060,104,12,true);
+   }
+   function build6(){
+@@ -218,6 +248,7 @@
+   };
+   C.hitsPlayer=function(p){return C.hitsWall(p)||C.hitsHazard(p);};
+   function hazardExtent(h){var q=(h.t%h.period)/h.period;var pulse=Math.sin(q*Math.PI);return Math.max(0,pulse)*h.span;}
++  C.hazardReach=function(h){return hazardExtent(h);};
+ 
+   C.firePlayer=function(p){
+     var vertical=!horizontal(),type=p.weapon,m=[],i;
+@@ -397,7 +428,9 @@
+     if(b.hp<=0){b.dead=true;b.state='dying';if(G.record)G.record('bossesDestroyed');G.addScore(C.stage===6?50000:25000,b.x,b.y);for(var z=0;z<8;z++)NS.FX.explode(b.x+Math.sin(z)*20,b.y+Math.cos(z)*18,1.6,'fire');NS.Feedback.destroy(b.x,b.y,{boss:true,major:true,material:C.stage===5?'armor':'flesh',count:30});if(C.stage===6){C.phase='ending';C.ending=true;C.escapeT=0;C.escapeBars=[];C.nextEscapeBar=1;b.dying=480;}else b.dying=150;NS.Audio.stopMusic();}return true;}
+ 
+   function updateEnding(){
+-    if(C.phase!=='ending')return;C.escapeT++;
++    if(C.phase!=='ending')return;
++    if(NS.Debug&&NS.Debug.freezeScroll)return;
++    C.escapeT++;
+     var u=NS.clamp(C.escapeT/480,0,1),ease=u*u*(3-2*u);
+     C.escapeSpeed=3.8+ease*5.7;
+     C.escapeInset=6+Math.floor(ease*34);
+@@ -427,8 +460,10 @@
+           var cell=wall.cells[bc];if(cell.dead||s.hit[cell.id])continue;
+           if(NS.rectHit(r,{x:wx,y:cell.y,w:wall.w,h:cell.h})){
+             s.hit[cell.id]=1;cell.hp-=s.dmg;NS.Feedback.damage(cell,{x:wx+wall.w/2,y:cell.y+cell.h/2,dx:1,material:'masonry',strength:cell.hp<=0?.72:.45,count:5});
+-            if(cell.hp<=0){cell.dead=true;G.addScore(125,wx+wall.w/2,cell.y+cell.h/2);
+-              NS.FX.explode(wx+wall.w/2,cell.y+cell.h/2,.8,'fire');NS.Feedback.destroy(wx+wall.w/2,cell.y+cell.h/2,{dx:1,material:'masonry',count:10});}
++            if(cell.hp<=0){cell.dead=true;cell.destroyedAt=C.t;G.addScore(125,wx+wall.w/2,cell.y+cell.h/2);
++              NS.FX.explode(wx+wall.w/2,cell.y+cell.h/2,.8,'fire');NS.Feedback.destroy(wx+wall.w/2,cell.y+cell.h/2,{dx:1,material:'masonry',count:10});
++              if(cell.reward){cell.reward=false;C.pickups.push({x:wx+wall.w/2,y:cell.y+cell.h/2,t:0,dead:false});
++                NS.FX.popText(wx+wall.w/2-9,cell.y-3,'POWER','#ff9c9c');}}
+             else NS.FX.spark(s.x+s.w/2,s.y+s.h/2,3,'hit');
+             if(!s.pierce)s.dead=true;break;
+           }
+@@ -449,7 +484,7 @@
+   }
+ 
+   C.update=function(G){C.t++;
+-    if(C.phase==='flight'&&(G.state==='play'||G.state==='dying')){
++    if(C.phase==='flight'&&(G.state==='play'||G.state==='dying')&&!(NS.Debug&&NS.Debug.freezeScroll)){
+       var mult=C.scrollMultiplier(C.stage,C.scroll),scrollRate=NS.SCROLL_SPEED*mult;
+       if(C.stage===4&&mult>1&&C.speedCue<1){C.speedCue=1;NS.Feedback.phase('CAPILLARY SURGE','CURRENT 135%',NS.W/2,48);}
+       if(C.stage===4&&C.scroll>=3650&&C.speedCue===1){C.speedCue=2;NS.Feedback.phase('FLOW STABILIZED','LUNG REGION AHEAD',NS.W/2,48);}
+@@ -459,7 +494,16 @@
+       else if(C.scroll>=C.spec.length)startBoss(G);
+     }else if(C.phase==='mini')updateMini(G);
+     updateEnemies(G);for(var h=0;h<C.hazards.length;h++)C.hazards[h].t++;
+-    for(var bi=0;bi<C.barriers.length;bi++)for(var bc=0;bc<C.barriers[bi].cells.length;bc++)NS.tickDamageFlash(C.barriers[bi].cells[bc]);
++    for(var bi=0;bi<C.barriers.length;bi++)for(var bc=0;bc<C.barriers[bi].cells.length;bc++){
++      var barrier=C.barriers[bi],brick=barrier.cells[bc];NS.tickDamageFlash(brick);
++      /* Regeneration is deliberately one-way: only a broken cell already
++         behind the ship may return. Open authored lanes stay open and hidden
++         capsule cells cannot be farmed. */
++      if(barrier.regen&&brick.dead&&!brick.opened&&!brick.reward&&brick.destroyedAt&&
++         C.t-brick.destroyedAt>=barrier.regen&&barrierScreenX(barrier)+barrier.w<G.player.x-12){
++        brick.dead=false;brick.hp=brick.maxHp;brick.destroyedAt=0;
++      }
++    }
+     for(var i=0;i<C.shots.length;i++){var s=C.shots[i];if(s.dead)continue;
+       if(s.type==='missile'){updateMissile(s);continue;}
+       s.x+=s.vx;s.y+=s.vy;s.anim=(s.anim||0)+1;if(s.type==='laser'&&(s.anim&1)===0)NS.FX.trail(s.x+s.w/2,s.y+s.h/2,'#70c8ff',2);if(s.x<-60||s.x>NS.W+60||s.y<-40||s.y>NS.PLAYFIELD_H+40)s.dead=true;}
+@@ -491,9 +535,10 @@
+       for(var bc=0;bc<wall.cells.length;bc++){
+         var cell=wall.cells[bc];if(cell.dead)continue;var health=cell.hp/cell.maxHp;
+         var flash=NS.damageFlashing(cell);
+-        g.fillStyle=flash?'#b40f22':'#4b3b20';g.fillRect(wx,cell.y,wall.w,cell.h);
+-        g.fillStyle=flash?'#ff3038':(health>.5?'#b39749':'#80652e');g.fillRect(wx+2,cell.y+2,wall.w-4,cell.h-4);
+-        g.fillStyle=flash?'#ff9ba0':'#d7bd66';g.fillRect(wx+2,cell.y+2,wall.w-4,2);
++        var deep=wall.layer%2,gold=deep?'#94783a':'#b39749',worn=deep?'#684f29':'#80652e';
++        g.fillStyle=flash?'#b40f22':(deep?'#352b1d':'#4b3b20');g.fillRect(wx,cell.y,wall.w,cell.h);
++        g.fillStyle=flash?'#ff3038':(health>.5?gold:worn);g.fillRect(wx+2,cell.y+2,wall.w-4,cell.h-4);
++        g.fillStyle=flash?'#ff9ba0':(deep?'#b99b53':'#d7bd66');g.fillRect(wx+2,cell.y+2,wall.w-4,2);
+         if(health<1){g.fillStyle='#2b2114';g.fillRect(wx+6,cell.y+5,2,cell.h-7);g.fillRect(wx+4,cell.y+9,5,2);}
+       }
+     }
+diff --git a/src/debug.js b/src/debug.js
+index efbc5dc..aa7de78 100644
+--- a/src/debug.js
++++ b/src/debug.js
+@@ -12,6 +12,9 @@
+   D.stepping = false;
+   D.invincible = false;
+   D.hitboxes = false;
++  D.noclip = false;
++  D.freezeScroll = false;
++  D.timeScale = 1;
+   var phrase = 'userspacechakra', typed = '';
+   var panel = null, telemetry = null;
+ 
+@@ -56,7 +59,7 @@
+ 
+     panel = el('div'); panel.id = 'ns-debug'; panel.setAttribute('role', 'dialog');
+     panel.appendChild(el('h2', 'ZOE FORCE QA CONSOLE'));
+-    panel.appendChild(el('div', 'TILDE closes · gameplay is frozen while this panel is open', 'sub'));
++    panel.appendChild(el('div', 'TILDE closes · gameplay is frozen while this panel is open · ?debug=1 unlocks it', 'sub'));
+     var cols = el('div', null, 'cols');
+     cols.appendChild(section('STAGE / ENCOUNTER WARP', [
+       button('Stage 1 Start', 'stage1'), button('Stage 1 Mid', 'stage1mid'),
+@@ -84,6 +87,11 @@
+     cols.appendChild(section('SHOWCASE / CAPTURE', [
+       button('CPU Showcase: OFF', 'autoplay')
+     ]));
++    cols.appendChild(section('SOURCE TOOLS', [
++      button('Time: 1x', 'timescale'), button('Freeze Scroll: OFF', 'freezescroll'),
++      button('Noclip: OFF', 'noclip'), button('Unlock All Stages', 'unlockall'),
++      button('Erase Active Profile', 'eraseprofile'), button('Lock Console', 'lock')
++    ]));
+     cols.appendChild(section('VIEW / INSPECTION', [
+       button('Hitboxes: OFF', 'hitboxes'), button('Toggle 2D / Voxel', 'voxel'),
+       button('Fullscreen', 'fullscreen'), button('Spawn Pickup', 'spawnpickup')
+@@ -96,6 +104,16 @@
+       if (action) run(action);
+     });
+     setInterval(refresh, 150);
++    if (NS.Save && NS.Save.read('ns_qa_unlock', '0') === '1') D.unlocked = true;
++    try {
++      if (new URLSearchParams(location.search).get('debug') === '1') grantUnlock();
++    } catch (err) { /* non-browser hosts */ }
++  }
++
++  function grantUnlock() {
++    if (D.unlocked) return;
++    D.unlocked = true;
++    if (NS.Save) NS.Save.write('ns_qa_unlock', '1', 'QA UNLOCK');
+   }
+ 
+   function toggle(force) {
+@@ -110,15 +128,25 @@
+     var G = NS.Game;
+     G.player.reset(true); G.resetStage(true); G.state = 'play';
+     G.scrollX = Math.max(0, at || 0); NS.Level1.seek(G.scrollX);
+-    G.player.invuln = 180; NS.Audio.setTrack('stage'); NS.Audio.startMusic();
++    var top = NS.Terrain.topAt(G.scrollX + G.player.x) + 7;
++    var bot = NS.Terrain.botAt(G.scrollX + G.player.x) - 7;
++    G.player.placeClear(G.player.x, (top + bot) * 0.5);
++    G.player.invuln = 180; NS.Audio.prepareStage(1);
++    NS.Audio.setTrack('stage'); NS.Audio.startMusic();
+   }
+ 
+   function stage2(where) {
+     NS.Game.startStage2();
+     NS.Level2.debugJump(where || 'start', NS.Game);
++    NS.Game.player.placeClear(NS.Game.player.x, NS.Game.player.y);
+     NS.Game.player.invuln = 180;
+   }
+-  function later(stage,where){NS.Game.startStage(stage);NS.Campaign.debugJump(stage,where||'start',NS.Game);NS.Game.player.invuln=180;}
++  function later(stage,where){
++    NS.Game.startStage(stage);
++    NS.Campaign.debugJump(stage,where||'start',NS.Game);
++    NS.Game.player.placeClear(NS.Game.player.x, NS.Game.player.y);
++    NS.Game.player.invuln=180;
++  }
+ 
+   function step(n) {
+     D.stepping = true; NS.Game.step(n); D.stepping = false; refresh();
+@@ -148,7 +176,7 @@
+       case 'mini5': later(5,'mid'); NS.Campaign.scroll=NS.Campaign.spec.miniAt; NS.Campaign.update(G); break;
+       case 'stage6': later(6); break; case 'boss6': later(6,'boss'); break;
+       case 'invincible': D.invincible = !D.invincible; break;
+-      case 'center': p.x = NS.W / 2; p.y = NS.PLAYFIELD_H * 0.72; p.trail = [{x:p.x,y:p.y}]; break;
++      case 'center': p.placeClear(NS.W / 2, NS.PLAYFIELD_H / 2); break;
+       case 'life': p.lives++; break;
+       case 'loadout': fullLoadout(p); break;
+       case 'clearloadout': p.speedLv=0;p.missileLv=0;p.missile=false;p.weapon='normal';p.options=[];p.shield=0;p.sel=0; break;
+@@ -161,8 +189,20 @@
+       case 'step600': step(600); break;
+       case 'autoplay':
+         if (NS.Autoplay.active()) NS.Autoplay.stop();
+-        else { NS.Autoplay.start(G); toggle(false); return; }
++        else { D.noclip = false; NS.Autoplay.start(G); toggle(false); return; }
+         break;
++      case 'timescale':
++        D.timeScale = D.timeScale === 1 ? 2 : (D.timeScale === 2 ? 4 : 1); break;
++      case 'freezescroll': D.freezeScroll = !D.freezeScroll; break;
++      case 'noclip': D.noclip = !D.noclip; break;
++      case 'unlockall':
++        NS.Profile.debugUnlockAll(); G.furthestStage = 6; break;
++      case 'eraseprofile':
++        NS.Profile.erase(NS.Profile.activeSlot()); G.loadProfile(); break;
++      case 'lock':
++        D.unlocked = false; D.open = false; D.paused = false; D.noclip = false;
++        if (NS.Save) NS.Save.write('ns_qa_unlock', '0', 'QA LOCKED');
++        panel.classList.remove('open'); return;
+       case 'clearenemies':
+         if (G.stage >= 3) for(i=0;i<NS.Campaign.enemies.length;i++) NS.Campaign.enemies[i].dead=true;
+         else if (G.stage === 2) for(i=0;i<NS.Level2.enemies.length;i++) NS.Level2.enemies[i].dead=true;
+@@ -208,16 +248,24 @@
+     var G=NS.Game,p=G.player,L=NS.Level2;
+     var enemies=G.stage>=3?NS.Campaign.enemies.filter(function(e){return !e.dead;}).length:(G.stage===2?L.enemies.filter(function(e){return !e.dead;}).length:NS.Enemies.list.length);
+     var shots=G.stage>=3?NS.Campaign.shots.length+NS.Campaign.enemyShots.length:(G.stage===2?L.shots.length+L.enemyShots.length+L.rocks.length:NS.Weapons.player.length+NS.Weapons.enemy.length);
+-    telemetry.textContent='STATE  '+G.state+'    STAGE  '+G.stage+'    FRAME  '+G.frame+'\n'+
++    var progress = G.stage >= 3 ? NS.Campaign.scroll / NS.Campaign.spec.length
++      : (G.stage === 2 ? L.scrollY / L.LENGTH : G.scrollX / NS.Terrain.BOSS_X);
++    var music = NS.Audio.stageMusic ? NS.Audio.stageMusic() : null;
++    telemetry.textContent='STATE  '+G.state+'    STAGE  '+G.stage+'    FRAME  '+G.frame+'    '+Math.round(progress*100)+'%\n'+
+       'SCROLL '+(G.stage>=3?NS.Campaign.scroll.toFixed(1):(G.stage===2?L.scrollY.toFixed(1):G.scrollX.toFixed(1)))+'    PHASE  '+(G.stage>=3?NS.Campaign.phase:(G.stage===2?L.phase:'corridor'))+'\n'+
+       'SHIP   '+p.x.toFixed(1)+', '+p.y.toFixed(1)+'    LIVES '+p.lives+'    SCORE '+p.score+'\n'+
+-      'NEXT 1UP '+p.nextLifeScore+'    INVINCIBLE '+(D.invincible?'ON':'OFF')+'\n'+
++      'NEXT 1UP '+p.nextLifeScore+'    FURTHEST '+G.furthestStage+'\n'+
++      'TIME '+D.timeScale+'x    SCROLL '+(D.freezeScroll?'FROZEN':'RUN')+'    NOCLIP '+(D.noclip?'ON':'OFF')+'    INVINCIBLE '+(D.invincible?'ON':'OFF')+'\n'+
++      'MUSIC  '+(music?'key '+(music.semi>0?'+':'')+music.semi+'  rate '+music.rate:'')+'\n'+
+       'ENEMIES '+enemies+'    PROJECTILES/ROCKS '+shots+'    BOSS '+(G.boss?'YES':'NO');
+     var buttons=panel.querySelectorAll('button');
+     for(var i=0;i<buttons.length;i++){
+       var a=buttons[i].dataset.action;
+       if(a==='invincible'){buttons[i].textContent='Invincible: '+(D.invincible?'ON':'OFF');buttons[i].classList.toggle('on',D.invincible);}
+       if(a==='hitboxes'){buttons[i].textContent='Hitboxes: '+(D.hitboxes?'ON':'OFF');buttons[i].classList.toggle('on',D.hitboxes);}
++      if(a==='noclip'){buttons[i].textContent='Noclip: '+(D.noclip?'ON':'OFF');buttons[i].classList.toggle('on',D.noclip);}
++      if(a==='freezescroll'){buttons[i].textContent='Freeze Scroll: '+(D.freezeScroll?'ON':'OFF');buttons[i].classList.toggle('on',D.freezeScroll);}
++      if(a==='timescale'){buttons[i].textContent='Time: '+D.timeScale+'x';buttons[i].classList.toggle('on',D.timeScale!==1);}
+       if(a==='autoplay'){
+         var cpu=NS.Autoplay&&NS.Autoplay.active();
+         buttons[i].textContent='CPU Showcase: '+(cpu?'ON':'OFF');
+@@ -232,22 +280,73 @@
+     function box(x,y,w,h,c){g.strokeStyle=c;g.strokeRect((x|0)+.5,(y|0)+.5,w|0,h|0);}
+     var p=G.player; box(p.x-p.w/2,p.y-p.h/2,p.w,p.h,'#3dff78');
+     if(G.stage===1){
++      g.strokeStyle='#7ecbff'; g.beginPath();
++      for(var tx=0;tx<=NS.W;tx+=4){
++        var top=NS.Terrain.topAt(G.scrollX+tx), bot=NS.Terrain.botAt(G.scrollX+tx);
++        if(tx===0)g.moveTo(tx,top); else g.lineTo(tx,top);
++      }
++      g.moveTo(0,NS.Terrain.botAt(G.scrollX));
++      for(tx=0;tx<=NS.W;tx+=4){bot=NS.Terrain.botAt(G.scrollX+tx); if(tx===0)g.moveTo(tx,bot); else g.lineTo(tx,bot);}
++      g.stroke();
+       for(var i=0;i<NS.Enemies.list.length;i++){var e=NS.Enemies.list[i];if(!e.dead)box(e.x,e.y,e.w,e.h,'#ff5252');}
++      NS.Enemies.eachHazard(function(x,y,w,h){box(x,y,w,h,'#ff8c42');});
+       for(i=0;i<NS.Weapons.player.length;i++){var s=NS.Weapons.player[i];if(!s.dead){var r=NS.Weapons.rectOf(s);box(r.x,r.y,r.w,r.h,'#ffe34d');}}
++      for(i=0;i<NS.Weapons.enemy.length;i++){var es=NS.Weapons.enemy[i];if(!es.dead)box(es.x,es.y,4,4,'#ff9ad8');}
++      if(G.boss&&G.boss.eachHazard)G.boss.eachHazard(function(x,y,w,h){box(x,y,w,h,'#ff8c42');});
+     }else if(G.stage===2){
++      g.strokeStyle='#7ecbff'; g.beginPath();
++      for(var ty=0;ty<=NS.PLAYFIELD_H;ty+=4){
++        var edge=NS.Level2.edgesAt(NS.Level2.scrollY+NS.PLAYFIELD_H-ty);
++        if(ty===0)g.moveTo(edge.left,ty); else g.lineTo(edge.left,ty);
++      }
++      g.moveTo(NS.W-NS.Level2.edgesAt(NS.Level2.scrollY+NS.PLAYFIELD_H).right,0);
++      for(ty=0;ty<=NS.PLAYFIELD_H;ty+=4){
++        edge=NS.Level2.edgesAt(NS.Level2.scrollY+NS.PLAYFIELD_H-ty);
++        var rx=NS.W-edge.right; if(ty===0)g.moveTo(rx,ty); else g.lineTo(rx,ty);
++      }
++      g.stroke();
+       for(i=0;i<NS.Level2.enemies.length;i++){e=NS.Level2.enemies[i];if(!e.dead&&e.active)box(e.x-e.w/2,e.y-e.h/2,e.w,e.h,'#ff5252');}
+       for(i=0;i<NS.Level2.shots.length;i++){s=NS.Level2.shots[i];box(s.x,s.y,s.w,s.h,'#ffe34d');}
++      for(i=0;i<NS.Level2.enemyShots.length;i++){es=NS.Level2.enemyShots[i];if(!es.dead)box(es.x-2,es.y-2,4,4,'#ff9ad8');}
++      for(i=0;i<NS.Level2.rocks.length;i++){var rock=NS.Level2.rocks[i];if(!rock.dead)box(rock.x-4,rock.y-4,8,8,'#ff9ad8');}
+       for(i=0;i<NS.Level2.gates.length;i++){var gt=NS.Level2.gates[i];for(var j=0;j<gt.cells.length;j++){var c=gt.cells[j];if(!c.dead)box(c.x,gt.y-7,c.w,14,'#ff8c42');}}
++      for(i=0;i<NS.Level2.islands.length;i++){var isle=NS.Level2.islands[i],iy=NS.Level2.screenY(isle.wy);box(isle.x-isle.rx,iy-isle.ry,isle.rx*2,isle.ry*2,'#ff8c42');}
++      for(i=0;i<NS.Level2.volcanoes.length;i++){var vol=NS.Level2.volcanoes[i];if(!vol.dead)box(vol.x-11,vol.y-10,22,20,'#ff8c42');}
++      if(NS.Level2.fortress){for(i=0;i<NS.Level2.fortress.balls.length;i++){var ball=NS.Level2.fortress.balls[i];if(!ball.dead)box(ball.x-5,ball.y-5,10,10,'#ff9ad8');}}
+     }else{
+-      for(i=0;i<NS.Campaign.enemies.length;i++){e=NS.Campaign.enemies[i];if(!e.dead&&e.active)box(e.x-e.w/2,e.y-e.h/2,e.w,e.h,'#ff5252');}
+-      for(i=0;i<NS.Campaign.shots.length;i++){s=NS.Campaign.shots[i];box(s.x,s.y,s.w,s.h,'#ffe34d');}
++      var C=NS.Campaign, horizontal=C.horizontal();
++      g.strokeStyle='#7ecbff'; g.beginPath();
++      if(horizontal){
++        for(tx=0;tx<=NS.W;tx+=4){var bd=C.bounds(C.scroll+tx); if(tx===0)g.moveTo(tx,bd.a); else g.lineTo(tx,bd.a);}
++        g.moveTo(0,C.bounds(C.scroll).z);
++        for(tx=0;tx<=NS.W;tx+=4){bd=C.bounds(C.scroll+tx); if(tx===0)g.moveTo(tx,bd.z); else g.lineTo(tx,bd.z);}
++      }else{
++        for(ty=0;ty<=NS.PLAYFIELD_H;ty+=4){bd=C.bounds(C.scroll+NS.PLAYFIELD_H-ty); if(ty===0)g.moveTo(bd.a,ty); else g.lineTo(bd.a,ty);}
++        g.moveTo(C.bounds(C.scroll+NS.PLAYFIELD_H).z,0);
++        for(ty=0;ty<=NS.PLAYFIELD_H;ty+=4){bd=C.bounds(C.scroll+NS.PLAYFIELD_H-ty); if(ty===0)g.moveTo(bd.z,ty); else g.lineTo(bd.z,ty);}
++      }
++      g.stroke();
++      for(i=0;i<C.enemies.length;i++){e=C.enemies[i];if(!e.dead&&e.active)box(e.x-e.w/2,e.y-e.h/2,e.w,e.h,'#ff5252');}
++      for(i=0;i<C.shots.length;i++){s=C.shots[i];box(s.x,s.y,s.w,s.h,'#ffe34d');}
++      for(i=0;i<C.enemyShots.length;i++){es=C.enemyShots[i];if(!es.dead)box(es.x-2,es.y-2,5,5,'#ff9ad8');}
++      for(i=0;i<C.barriers.length;i++){var wall=C.barriers[i], wx=C.barrierScreenX(wall);
++        for(j=0;j<wall.cells.length;j++){c=wall.cells[j];if(!c.dead)box(wx,c.y,wall.w,c.h,'#ff8c42');}}
++      for(i=0;i<C.hazards.length;i++){
++        var hz=C.hazards[i], reach=C.hazardReach(hz);
++        var along=horizontal?hz.world-C.scroll:NS.PLAYFIELD_H-(hz.world-C.scroll);
++        if(horizontal){if(hz.side==='top')box(along-7,0,14,reach,'#ffb15a'); else box(along-7,NS.PLAYFIELD_H-reach,14,reach,'#ffb15a');}
++        else if(hz.side==='left')box(0,along-7,reach,14,'#ffb15a'); else box(NS.W-reach,along-7,reach,14,'#ffb15a');
++      }
++      for(i=0;i<C.escapeBars.length;i++){var bar=C.escapeBars[i];
++        if(bar.side==='left')box(0,bar.y,bar.w,bar.h||12,'#ff8c42'); else box(NS.W-bar.w,bar.y,bar.w,bar.h||12,'#ff8c42');}
++      if(C.phase==='ending'){g.strokeStyle='#ff5a7a';g.strokeRect(C.escapeInset+0.5,0.5,NS.W-C.escapeInset*2-1,C.escapeFloor-1);}
+     }
+     g.restore();
+   };
+ 
+   window.addEventListener('keydown', function (e) {
+     if (e.code === 'Backquote') {
+-      if (!D.unlocked && typed.slice(-phrase.length) === phrase) D.unlocked = true;
++      if (!D.unlocked && typed.slice(-phrase.length) === phrase) grantUnlock();
+       if (D.unlocked) { e.preventDefault(); e.stopImmediatePropagation(); toggle(); }
+       typed=''; return;
+     }
+diff --git a/src/feedback.js b/src/feedback.js
+index ebd7888..0b98a0e 100644
+--- a/src/feedback.js
++++ b/src/feedback.js
+@@ -13,7 +13,7 @@
+ 
+   var trauma = 0, age = 0, freeze = 0;
+   var banner = null;
+-  var bossRef = null, bossDisplayHp = 0, bossChipHp = 0, bossChipHold = 0;
++  var bossRef = null, bossKey = '', bossMax = 1, bossDisplayHp = 0, bossChipHp = 0, bossChipHold = 0;
+ 
+   function setting(name, fallback) {
+     var s = NS.Game && NS.Game.settings;
+@@ -28,9 +28,21 @@
+ 
+   F.reset = function () {
+     trauma = age = freeze = 0; banner = null;
+-    bossRef = null; bossDisplayHp = bossChipHp = bossChipHold = 0;
++    bossRef = null; bossKey = ''; bossMax = 1;
++    bossDisplayHp = bossChipHp = bossChipHold = 0;
+   };
+ 
++  /* Zelos spends the visible meter on the serpent first. The heart's own
++     pool must not sit full on the bar while that serpent is what can be hit. */
++  function meterOf(b) {
++    if (!b) return null;
++    if (b.form === 'dragon' && b.maxDragonHp != null) {
++      return { key: 'dragon', hp: Math.max(0, b.dragonHp), max: b.maxDragonHp };
++    }
++    if (b.hp == null) return null;
++    return { key: 'core', hp: b.hp, max: b.maxHp || 1 };
++  }
++
+   F.impact = function (kind, opt) {
+     opt = opt || {};
+     var profiles = {
+@@ -113,18 +125,22 @@
+     if (banner && --banner.t <= 0) banner = null;
+ 
+     var b = G && G.boss;
+-    if (b !== bossRef) {
+-      bossRef = b;
+-      bossDisplayHp = bossChipHp = b && b.hp != null ? b.hp : 0;
++    var meter = meterOf(b);
++    if (!meter) {
++      bossRef = null; bossKey = '';
++    } else if (b !== bossRef || meter.key !== bossKey) {
++      bossRef = b; bossKey = meter.key; bossMax = meter.max;
++      bossDisplayHp = bossChipHp = meter.hp;
+       bossChipHold = 0;
+-    } else if (b && b.hp != null) {
+-      if (b.hp < bossDisplayHp) {
+-        bossDisplayHp = b.hp;
++    } else {
++      bossMax = meter.max;
++      if (meter.hp < bossDisplayHp) {
++        bossDisplayHp = meter.hp;
+         bossChipHold = 10;
+       }
+       if (bossChipHold > 0) bossChipHold--;
+-      else bossChipHp = NS.lerp(bossChipHp, b.hp, 0.11);
+-      if (bossChipHp < b.hp) bossChipHp = b.hp;
++      else bossChipHp = NS.lerp(bossChipHp, meter.hp, 0.11);
++      if (bossChipHp < meter.hp) bossChipHp = meter.hp;
+     }
+   };
+ 
+@@ -146,7 +162,7 @@
+ 
+   F.bossBar = function (boss) {
+     if (!boss || boss !== bossRef) return null;
+-    return { hp: bossDisplayHp, chip: bossChipHp, flash: bossChipHold > 0 };
++    return { hp: bossDisplayHp, chip: bossChipHp, max: bossMax, flash: bossChipHold > 0 };
+   };
+ 
+   function arrow(g, side, cross, color) {
+diff --git a/src/game.js b/src/game.js
+index 5e6686c..7021819 100644
+--- a/src/game.js
++++ b/src/game.js
+@@ -238,14 +238,17 @@
+     if (NS.Feedback) NS.Feedback.reset();
+     NS.Intro.stop();
+     NS.Level1.reset();
+-    if (full) G.player.reset(true);
+-    else G.player.respawn();
++    /* 'world' resets the corridor only. Stage 2+ transitions already keep
++       the loadout; stage 1 has to be able to do the same. */
++    if (full === true) G.player.reset(true);
++    else if (full !== 'world') G.player.respawn();
+   };
+ 
+   function startStageOne() {
+     G.resetStage(false);
+     G.state = 'play';
+     NS.Audio.resume();
++    NS.Audio.prepareStage(1);
+     NS.Audio.setTrack('stage');
+     NS.Audio.rewind();
+     NS.Audio.startMusic();
+@@ -281,6 +284,7 @@
+     }
+     G.player.trail = [{ x: G.player.x, y: G.player.y }];
+     G.state = 'play'; G.stageMsg = 180; G.bossWarn = 0;
++    NS.Audio.prepareStage(2);
+     NS.Audio.setTrack('stage'); NS.Audio.rewind(); NS.Audio.startMusic();
+   }
+   G.startStage2 = startStage2; // debug hook for testing the vertical stage directly
+@@ -298,9 +302,36 @@
+     G.player.invuln = 90; G.player.trail = [{x:G.player.x,y:G.player.y}];
+     for (var i=0;i<G.player.options.length;i++){G.player.options[i].x=G.player.x;G.player.options[i].y=G.player.y;}
+     G.state='play';G.stageMsg=180;G.bossWarn=0;
++    NS.Audio.prepareStage(stage);
+     NS.Audio.setTrack('stage');NS.Audio.rewind();NS.Audio.startMusic();
+   }
+-  G.startStage = function(stage){ if(stage===1)G.startRun();else if(stage===2)startStage2();else startLaterStage(stage); };
++  function continueStageOne() {
++    G.resetStage('world');
++    G.player.setOrientation('side');
++    G.player.invuln = 90;
++    var top = NS.Terrain.topAt(40) + 7;
++    var bot = NS.Terrain.botAt(40) - 7;
++    G.player.placeClear(40, (top + bot) * 0.5);
++    for (var i = 0; i < G.player.options.length; i++) {
++      G.player.options[i].x = G.player.x;
++      G.player.options[i].y = G.player.y;
++    }
++    G.player.trail = [{ x: G.player.x, y: G.player.y }];
++    G.state = 'play';
++    NS.Audio.resume();
++    NS.Audio.prepareStage(1);
++    NS.Audio.setTrack('stage');
++    NS.Audio.rewind();
++    NS.Audio.startMusic();
++  }
++
++  /* Continuation keeps ships, score and loadout. A new credit is startRun(),
++     which is the only path that resets them. */
++  G.startStage = function (stage) {
++    if (stage === 1) continueStageOne();
++    else if (stage === 2) startStage2();
++    else startLaterStage(stage);
++  };
+ 
+   function unlockStage(stage) {
+     stage = NS.clamp(stage, 1, 6);
+@@ -413,8 +444,19 @@
+     var step = 1000 / NS.FPS;
+     var guard = 0;
+     while (acc >= step && guard < 5) {
+-      update();
+-      NS.Input.endFrame();
++      /* Time scale is a playtest tool. Menus stay at 1x so a held key cannot
++         skip a confirm, and Game.step() never reads it so smoke tests stay
++         one call = one frame. */
++      var burst = 1;
++      if (NS.Debug && !NS.Debug.paused && NS.Debug.timeScale > 1 &&
++          (G.state === 'play' || G.state === 'dying' || G.state === 'departing')) {
++        burst = NS.Debug.timeScale | 0;
++        if (burst > 8) burst = 8;
++      }
++      for (var bi = 0; bi < burst; bi++) {
++        update();
++        NS.Input.endFrame();
++      }
+       acc -= step;
+       guard++;
+     }
+@@ -525,6 +567,13 @@
+       NS.FX.updateBackground();
+       if (G.clearT === 1) flushHiScore();
+       if (G.clearT === 1) NS.Profile.flush('RUN RECORD');
++      /* The lockdown climb stays silent. The victory card is where the
++         ending arrangement starts, slower and brighter than the stage bed. */
++      if (G.clearT === 1 && G.state === 'clear') {
++        NS.Audio.setTrack('ending');
++        NS.Audio.rewind();
++        NS.Audio.startMusic();
++      }
+       if (G.clearT > 90 && (I.hit('start') || I.hit('fire'))) {
+         G.state = 'title';
+         title.screen = 'main'; title.index = 0;
+@@ -601,7 +650,8 @@
+     /* ---- scroll ---- */
+     /* Life Force continues the stage while the replacement ship is on its
+        way in; death does not rewind to a Gradius-style checkpoint. */
+-    var scrolling = (G.state === 'play' || G.state === 'dying') && !G.boss;
++    var scrolling = (G.state === 'play' || G.state === 'dying') && !G.boss &&
++      !(NS.Debug && NS.Debug.freezeScroll);
+     if (scrolling) {
+       G.scrollX += NS.SCROLL_SPEED;
+       if (G.scrollX >= NS.Terrain.BOSS_X) {
+@@ -642,7 +692,7 @@
+            including tight passages where screen centre may be solid flesh. */
+         var spawnTop = NS.Terrain.topAt(G.scrollX + G.player.x) + 7;
+         var spawnBot = NS.Terrain.botAt(G.scrollX + G.player.x) - 7;
+-        G.player.y = (spawnTop + spawnBot) * 0.5;
++        G.player.placeClear(G.player.x, (spawnTop + spawnBot) * 0.5);
+         G.state = 'play';
+       } else {
+         beginContinue();
+@@ -675,7 +725,7 @@
+     if (G.state === 'dying' && G.player.dying <= 0) {
+       if (G.player.lives > 0) {
+         G.player.respawn(); G.player.setOrientation('vertical');
+-        G.player.x = NS.W / 2; G.player.y = NS.PLAYFIELD_H - 28;
++        G.player.placeClear(NS.W / 2, NS.PLAYFIELD_H - 28);
+         G.state = 'play';
+       } else {
+         beginContinue();
+@@ -693,7 +743,8 @@
+     if(!G.player.alive&&G.state==='play'){releaseOptions();G.state='dying';}
+     if(G.state==='dying'&&G.player.dying<=0){
+       if(G.player.lives>0){G.player.respawn();G.player.setOrientation(NS.Campaign.spec.orientation==='vertical'?'vertical':'side');
+-        G.player.x=NS.Campaign.horizontal()?38:NS.W/2;G.player.y=NS.Campaign.horizontal()?NS.PLAYFIELD_H/2:NS.PLAYFIELD_H-28;G.state='play';}
++        G.player.placeClear(NS.Campaign.horizontal()?38:NS.W/2, NS.Campaign.horizontal()?NS.PLAYFIELD_H/2:NS.PLAYFIELD_H-28);
++        G.state='play';}
+       else{beginContinue();}
+     }
+     if(NS.Campaign.complete&&G.state!=='continue'&&G.state!=='gameover'){G.boss=null;G.clearT=0;
+@@ -748,6 +799,7 @@
+     if (G.stage === 1) {
+       G.resetStage(false);              // respawn(): keeps lives and score
+       G.state = 'play';
++      NS.Audio.prepareStage(1);
+       NS.Audio.setTrack('stage'); NS.Audio.rewind(); NS.Audio.startMusic();
+     } else {
+       /* startStage() for stage 2+ leaves the ship exactly as it was, which
+@@ -1725,8 +1777,9 @@
+       var barState = NS.Feedback && NS.Feedback.bossBar(G.boss);
+       var shownHp = barState ? barState.hp : G.boss.hp;
+       var chipHp = barState ? barState.chip : shownHp;
+-      var pct = NS.clamp(shownHp / G.boss.maxHp, 0, 1);
+-      var chipPct = NS.clamp(chipHp / G.boss.maxHp, 0, 1);
++      var barMax = (barState && barState.max) || G.boss.maxHp || 1;
++      var pct = NS.clamp(shownHp / barMax, 0, 1);
++      var chipPct = NS.clamp(chipHp / barMax, 0, 1);
+       var bw = 136, bx = (NS.W - bw) / 2;
+       g.fillStyle = '#3a0d18';
+       g.fillRect(bx, y - 7, bw, 5);
+diff --git a/src/level2.js b/src/level2.js
+index 69bc5be..5e651e1 100644
+--- a/src/level2.js
++++ b/src/level2.js
+@@ -602,9 +602,12 @@
+   L.update = function (G) {
+     L.t++;
+     if ((G.state === 'play' || G.state === 'dying') && !L.bossStarted) {
++      var frozen = NS.Debug && NS.Debug.freezeScroll;
+       if (L.phase === 'flight') {
+-        L.scrollY = Math.min(L.FORTRESS_Y, L.scrollY + NS.SCROLL_SPEED);
+-        if (L.scrollY >= L.FORTRESS_Y) startFortress(G);
++        if (!frozen) {
++          L.scrollY = Math.min(L.FORTRESS_Y, L.scrollY + NS.SCROLL_SPEED);
++          if (L.scrollY >= L.FORTRESS_Y) startFortress(G);
++        }
+       } else if (L.phase === 'fortress') {
+         updateFortress(G);
+         if (L.fortress && L.fortress.dead) {
+@@ -617,8 +620,10 @@
+         }
+       } else if (L.phase === 'escape') {
+         if (L.transitionT > 0) L.transitionT--;
+-        L.scrollY = Math.min(L.LENGTH, L.scrollY + NS.SCROLL_SPEED * 0.82);
+-        if (L.scrollY >= L.LENGTH) spawnBoss(G);
++        if (!frozen) {
++          L.scrollY = Math.min(L.LENGTH, L.scrollY + NS.SCROLL_SPEED * 0.82);
++          if (L.scrollY >= L.LENGTH) spawnBoss(G);
++        }
+       }
+     }
+     for (var i = 0; i < L.enemies.length; i++) if (!L.enemies[i].dead) updateEnemy(L.enemies[i], G.player, G);
+diff --git a/src/player.js b/src/player.js
+index 7de4eb5..135d73e 100644
+--- a/src/player.js
++++ b/src/player.js
+@@ -31,6 +31,7 @@
+     this.alive = true;
+     this.dying = 0;
+     this.invuln = INVULN_FRAMES;
++    this.embedGrace = 0;
+     this.fireCd = 0;
+     this.anim = 0;
+     this.bank = 0;
+@@ -191,15 +192,21 @@
+ 
+     /* Animated hazards stay lethal in both modes. When wall damage is off,
+        resolve each movement axis independently: the blocked component stops
+-       while the component parallel to the surface survives as a slide. */
+-    if (hitsWall(this, scrollX)) {
+-      if (!NS.Game.settings || NS.Game.settings.wallDamage !== false) {
++       while the component parallel to the surface survives as a slide.
++       embedGrace exists only after a respawn that found no open cell, so the
++       new ship can still fly out of a sealed gate. Ordinary contact does
++       not receive that grace, and noclip is the authoring bypass. */
++    var noclip = NS.Debug && NS.Debug.noclip;
++    if (this.embedGrace > 0) this.embedGrace--;
++    if (!noclip && hitsWall(this, scrollX)) {
++      if (this.embedGrace > 0 || (NS.Game.settings && NS.Game.settings.wallDamage === false)) {
++        resolveWallSlide(this, scrollX, oldX, oldY);
++      } else {
+         this.kill(true);
+         return;
+       }
+-      resolveWallSlide(this, scrollX, oldX, oldY);
+     }
+-    if (hitsHazard(this)) {
++    if (!noclip && this.embedGrace <= 0 && hitsHazard(this)) {
+       this.kill(true);
+       return;
+     }
+@@ -232,6 +239,65 @@
+     }
+   };
+ 
++  function screenLimits(p) {
++    var exhaustPad = p.orientation === 'vertical' ? NS.S.flameTop.height - 1 : 0;
++    return {
++      minX: p.sw * 0.5,
++      maxX: NS.W - p.sw * 0.5,
++      minY: p.sh * 0.5,
++      maxY: NS.PLAYFIELD_H - p.sh * 0.5 - exhaustPad
++    };
++  }
++
++  /* Respawn used to drop the ship on one fixed screen point. A gate, island
++     or temple seal sitting on that point killed the new life on the same
++     frame, because terrain ignores the blink. Search for daylight first. */
++  function overlapsTerrain(p, margin) {
++    var w = p.w, h = p.h;
++    p.w = w + margin * 2;
++    p.h = h + margin * 2;
++    var hit = hitsWall(p, NS.Game.scrollX) || hitsHazard(p);
++    p.w = w;
++    p.h = h;
++    return hit;
++  }
++
++  Player.prototype.placeClear = function (x, y) {
++    var box = screenLimits(this);
++    function fit(px, py) {
++      return {
++        x: NS.clamp(px, box.minX, box.maxX),
++        y: NS.clamp(py, box.minY, box.maxY)
++      };
++    }
++    var seeds = [fit(x, y)];
++    var ring;
++    for (ring = 8; ring <= 112; ring += 8) {
++      seeds.push(fit(x - ring, y), fit(x + ring, y), fit(x, y - ring), fit(x, y + ring));
++      seeds.push(fit(x - ring, y - ring * 0.5), fit(x + ring, y - ring * 0.5));
++      seeds.push(fit(x - ring, y + ring * 0.5), fit(x + ring, y + ring * 0.5));
++    }
++    var gy, gx;
++    for (gy = box.minY; gy <= box.maxY; gy += 8) {
++      for (gx = box.minX; gx <= box.maxX; gx += 10) seeds.push({ x: gx, y: gy });
++    }
++    for (var i = 0; i < seeds.length; i++) {
++      this.x = seeds[i].x;
++      this.y = seeds[i].y;
++      if (!overlapsTerrain(this, 3)) {
++        this.embedGrace = 0;
++        this.trail = [{ x: this.x, y: this.y }];
++        return true;
++      }
++    }
++    var fallback = fit(x, y);
++    this.x = fallback.x;
++    this.y = fallback.y;
++    this.trail = [{ x: this.x, y: this.y }];
++    this.embedGrace = 48;
++    return false;
++  };
++
+   function hitsWall(p, scrollX) {
+     if (NS.Game.stage >= 3) return NS.Campaign.hitsWall(p);
+     if (p.orientation === 'vertical') return NS.Level2.hitsWall(p);
+diff --git a/src/profile.js b/src/profile.js
+index 691f3a0..dda848e 100644
+--- a/src/profile.js
++++ b/src/profile.js
+@@ -131,6 +131,16 @@
+     if (score > p.highScore) { p.highScore = score | 0; dirty = true; }
+     return evaluate(p);
+   };
++  /* QA hook. Does not grant achievements, and works while invincible. */
++  P.debugUnlockAll = function () {
++    P.init();
++    var p = P.current();
++    p.furthestStage = 6;
++    dirty = true;
++    persist('STAGES UNLOCKED');
++    return p;
++  };
++
+   P.unlockStage = function (stage) {
+     if (!recording()) return [];
+     var p = P.current();
+diff --git a/src/voxel.js b/src/voxel.js
+index 856d56c..ee18f97 100644
+--- a/src/voxel.js
++++ b/src/voxel.js
+@@ -1262,11 +1262,12 @@
+       for(var bc=0;bc<wall.cells.length;bc++){
+         var cell=wall.cells[bc];if(cell.dead)continue;
+         var cellFlash=NS.damageFlashing(cell),ck=NS.hitOffset(cell);
+-        var tint=cellFlash?NS.DAMAGE_FLASH_COLOR:(cell.hp/cell.maxHp>.5?'#b39749':'#80652e');
++        var deep=wall.layer%2;
++        var tint=cellFlash?NS.DAMAGE_FLASH_COLOR:(cell.hp/cell.maxHp>.5?(deep?'#94783a':'#b39749'):(deep?'#684f29':'#80652e'));
+         vbox('campBarrier',wx+wall.w/2+ck.x,cell.y+cell.h/2+ck.y,LAYER.terrain.z+18,
+              wall.w,1,28,tint,{cap:48,sy:Math.max(2,cell.h-1)});
+         vbox('campBarrierRim',wx+wall.w/2+ck.x,cell.y+2+ck.y,LAYER.terrain.z+34,
+-             wall.w-3,2,3,cellFlash?'#ff9ba0':'#d7bd66',{cap:48});
++             wall.w-3,2,3,cellFlash?'#ff9ba0':(deep?'#b99b53':'#d7bd66'),{cap:48});
+       }
+     }
+     for(i=0;i<C.enemies.length;i++){

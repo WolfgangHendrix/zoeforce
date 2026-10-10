@@ -43,6 +43,8 @@
     }
     ctx.putImageData(img, 0, 0);
     c.cx = src.cx; c.cy = src.cy;
+    c.artId = src.artId; c.artFlip = src.artFlip; c.artHit = r > 200 && g < 130;
+    c.artCarrier = !c.artHit && r > 200;
     return c;
   }
   NS.tint = tint;
@@ -54,6 +56,7 @@
     ctx.translate(src.width, 0); ctx.scale(-1, 1);
     ctx.drawImage(src, 0, 0);
     c.cx = src.cx; c.cy = src.cy;
+    c.artId = src.artId; c.artFlip = !src.artFlip; c.artHit = src.artHit; c.artCarrier = src.artCarrier;
     return c;
   }
   NS.flipX = flipX;

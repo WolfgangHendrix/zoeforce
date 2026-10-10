@@ -1,0 +1,224 @@
+{
+  "checkedAt": "2026-09-28T22:34:51.002Z",
+  "checks": [],
+  "deathResults": [
+    {
+      "stage": 1,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 103.7700000000006,
+          "y": 106.90217182915686,
+          "t": 89
+        },
+        {
+          "x": 82.70200000000057,
+          "y": 102.2208959714118,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 1,
+      "edge": true,
+      "survived": true,
+      "visible": false,
+      "drops": [
+        {
+          "x": -5.230000000000002,
+          "y": 106.90217182915686,
+          "t": 89
+        },
+        {
+          "x": -5.297999999999996,
+          "y": 102.2208959714118,
+          "t": 89
+        }
+      ],
+      "recovered": 0,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 2,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 130.17662887186745,
+          "y": 154.2399999999997,
+          "t": 89
+        },
+        {
+          "x": 126.6656719785589,
+          "y": 164.2399999999997,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 2,
+      "edge": true,
+      "survived": false,
+      "visible": true,
+      "drops": [],
+      "recovered": 0,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 3,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 103.7700000000006,
+          "y": 105.81385739322312,
+          "t": 89
+        },
+        {
+          "x": 83.7700000000006,
+          "y": 102.88805998213246,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 3,
+      "edge": true,
+      "survived": true,
+      "visible": false,
+      "drops": [
+        {
+          "x": -5.230000000000002,
+          "y": 105.81385739322312,
+          "t": 89
+        },
+        {
+          "x": -4.2299999999999995,
+          "y": 102.88805998213246,
+          "t": 89
+        }
+      ],
+      "recovered": 0,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 4,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 128,
+          "y": 154.27385739322173,
+          "t": 89
+        },
+        {
+          "x": 128,
+          "y": 161.3480599821311,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 4,
+      "edge": true,
+      "survived": false,
+      "visible": true,
+      "drops": [],
+      "recovered": 0,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 5,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 103.7700000000006,
+          "y": 105.81385739322312,
+          "t": 89
+        },
+        {
+          "x": 83.7700000000006,
+          "y": 102.88805998213246,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 5,
+      "edge": true,
+      "survived": true,
+      "visible": false,
+      "drops": [
+        {
+          "x": -5.230000000000002,
+          "y": 105.81385739322312,
+          "t": 89
+        },
+        {
+          "x": -4.2299999999999995,
+          "y": 102.88805998213246,
+          "t": 89
+        }
+      ],
+      "recovered": 0,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 6,
+      "edge": false,
+      "survived": true,
+      "visible": true,
+      "drops": [
+        {
+          "x": 128,
+          "y": 154.27385739322173,
+          "t": 89
+        },
+        {
+          "x": 128,
+          "y": 161.3480599821311,
+          "t": 89
+        }
+      ],
+      "recovered": 2,
+      "meterUnchanged": true
+    },
+    {
+      "stage": 6,
+      "edge": true,
+      "survived": false,
+      "visible": true,
+      "drops": [],
+      "recovered": 0,
+      "meterUnchanged": true
+    }
+  ],
+  "captures": [
+    {
+      "file": "before-boss-spread.png",
+      "label": "Golem live plasma spread; selected gold LASER"
+    },
+    {
+      "file": "before-fireballs.png",
+      "label": "Live prominence fireballs"
+    }
+  ],
+  "errors": []
+}

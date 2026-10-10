@@ -20,6 +20,11 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
 - [x] **Watermark-free CPU showcase.** A concealed debug-menu toggle runs a
       complete Stage 1–6 capture pass and stops on the final clear screen.
+- [x] **Local pilot records.** Four profiles retain progression, firing style,
+      career statistics and achievements; records are reachable from title and
+      pause.
+- [x] **Temple block fields.** Selected Stage 5 barriers now run three, four
+      and five layers deep, hide limited capsules and rebuild behind the ship.
 
 ## 1. Make the campaign finishable
 
@@ -33,7 +38,7 @@ _Progress: complete._
 
 ## 2. Options and accessibility
 
-_Progress: gameplay, volume and accessibility options complete; remapping remains._
+_Progress: complete._
 
 - [x] **Gameplay options.** Persisted 1–9 starting lives and a wall-damage
       toggle; nonlethal walls block the ship while preserving surface-parallel
@@ -42,18 +47,20 @@ _Progress: gameplay, volume and accessibility options complete; remapping remain
 - [x] **Options menu** reachable from title and pause, hosting the above.
 - [x] **Reduced-flash toggle.** Suppresses the boss-intro flash/shake, enemy
       and boss hit flashes, and the Stage 6 escape overlay.
-- [ ] **Key remapping.** Lower priority than the rest of this section.
+- [x] **Key remapping.** Keyboard and gamepad bindings can be changed safely;
+      assigning a used input swaps the conflicting action.
 
 ## 3. Ending and audio variety
 
-_Progress: not started._
+_Progress: ending presentation and per-stage music are complete._
 
-- [ ] **Ending sequence.** Beating Zelos Force runs the escape and returns to
-      title with no victory screen or credits.
-- [ ] **Per-stage music.** `SECTIONS` (`src/audio.js`) drives everything from
-      a named section order — vary order and transposition per stage rather
-      than authoring six arrangements.
-- [ ] **Victory / ending theme.**
+- [x] **Ending sequence.** Beating Zelos Force runs an accelerating lockdown
+      escape into a silent-serial victory card.
+- [x] **Per-stage music.** `STAGE_MUSIC` in `src/audio.js` reorders `SECTIONS`,
+      transposes them and changes tempo per stage. The boss theme uses that
+      stage's key.
+- [x] **Victory / ending theme.** The Stage 6 lockdown stays silent. The clear
+      card plays a slower, brighter loop of the main theme.
 
 ## 4. Content depth for Stages 3–6
 
@@ -82,11 +89,22 @@ _Progress: not started._
 
 ## 6. Deferred
 
+### Separately authorized visual upgrade — Sep 28
+
+_Progress: santi approved the four concepts 100%. The painted production upgrade and its gallery are retained in `zoeforce2/`. This original `zoeforce/` runtime uses the earlier pixel/voxel presentation._
+
+- [x] Capture all main UI states, six stages, bosses, special encounters, gameplay details and touch layouts in an isolated browser context.
+- [x] Deliver original 2D/voxel pairs, transition recordings, contact sheets, a sprite inventory and source-baseline verification in `docs/visual-upgrade/`.
+- [x] Generate title/menu, HUD, Bio-Cathedral and Golem Ossuary concepts with the built-in imagegen tool and provide before/after review controls.
+- [x] Apply santi's concept feedback and obtain the requested approval before expanding the art direction.
+- [x] Expand the approved direction into production designs for six environments, bosses, miniboss/fortress and main UI.
+- [x] Implement painted 2D assets, external asset manifest/replacement guide, and smoother screen transitions; validate gameplay and desktop/mobile presentation. 15 browser checks and 46 gameplay checks pass, including a full six-stage CPU clear. Most animation variants share a painted pose in this first production set.
+- [x] Polish boss shots and small fireballs; keep selected maxed upgrades gold with a separate cyan selection marker. Repair loose-Option edge loss during death/respawn across all six stages; add green recovery markers and remove the visible-drop timeout. 16 targeted checks pass, including rendered selection pixels and real death/recovery; 46 gameplay checks still pass with a full six-stage CPU clear. Review in `docs/visual-upgrade/combat-polish/`.
+
 Real work, deliberately not scheduled yet.
 
 - [ ] Rank / difficulty scaling.
 - [ ] Two-player co-op.
 - [ ] Free or orbitable voxel camera (currently fixed side-on with a drift).
-- [ ] Replace placeholder programmer pixel art. Sprites are character grids in
-      `src/sprites.js` sized to the NES silhouettes, so real assets drop in at
-      the same dimensions and the voxel models follow automatically.
+- [ ] Replace placeholder pixel art in this original build. Its pixel sprites
+      remain active; the painted replacements are used by `zoeforce2/`.

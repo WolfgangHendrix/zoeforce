@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "checkedAt": "2026-09-28T20:30:04.733Z",
+  "captures": 142,
+  "recordings": 4,
+  "contactSheets": 10,
+  "browserErrors": 0,
+  "productionSourceUnchanged": true,
+  "coverage": [
+    "main UI states",
+    "six stages and bosses",
+    "named special encounters",
+    "weapons and damage",
+    "touch layouts",
+    "matched 2D/voxel simulation states"
+  ]
+}

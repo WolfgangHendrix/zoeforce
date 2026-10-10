@@ -309,6 +309,13 @@
 
     if (p.type === 'laser') {
       var vertical = p.h > p.w;
+      if (NS.Art && NS.Art.active()) {
+        g.save();g.shadowColor='#66e4ff';g.shadowBlur=contrast?0:12;
+        if(contrast){g.fillStyle='#ffffff';g.fillRect(x-(vertical?1:0),y-(vertical?0:1),vertical?6:p.w,vertical?p.h:6);}
+        g.fillStyle='#51cdef';g.fillRect(x,y,vertical?4:p.w,vertical?p.h:4);
+        g.fillStyle='#e9fcff';g.fillRect(x+(vertical?1:0),y+(vertical?0:1),vertical?1:p.w,vertical?p.h:1);
+        g.restore();return;
+      }
       /* three stacked stripes: dark edge, body, hot core */
       if (vertical) {
         if (contrast) { g.fillStyle = '#ffffff'; g.fillRect(x - 1, y, 6, p.h); }
@@ -386,6 +393,8 @@
   };
 
   W.drawEnemyShot = function (g, p) {
+    if (NS.Art && NS.Art.projectile(g, {x:p.x+2,y:p.y+2,vx:(p.vx||0)-(NS.Game.stage===1?NS.SCROLL_SPEED:0),vy:p.vy,t:p.t},
+        p.big ? 'bossPlasma' : 'fireball', p.big ? 6 : 4)) return;
     var x = p.x | 0, y = p.y | 0;
     if (NS.projectileContrast()) {
       g.fillStyle = '#080a10'; g.fillRect(x - 2, y - 2, 8, 8);
@@ -397,6 +406,12 @@
     } else {
       g.drawImage(NS.S.eshot, x, y);
     }
+  };
+
+  W.drawFireball = function (g,p,size) {
+    size=size||5;
+    if (NS.Art && NS.Art.projectile(g,p,'fireball',size)) return;
+    g.drawImage(NS.S.prom[((p.t||0)>>2)&1],p.x-size/2,p.y-size/2,size,size);
   };
 
   W.rectOf = function (p) {
